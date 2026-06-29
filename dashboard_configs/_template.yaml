@@ -1,0 +1,101 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Dashboard Configuration Template
+# ──────────────────────────────────────────────────────────────────────────────
+# How to use:
+#   1. Copy this file:  cp _template.yaml my_dashboard.yaml
+#   2. Fill in every value marked  # TODO
+#   3. Run tests:  pytest tests/dashboard/ --dashboard-config=dashboard_configs/my_dashboard.yaml
+#
+# Password values can reference environment variables using ${VAR_NAME} syntax.
+# Leave a field completely empty ("") if it is not applicable.
+# ──────────────────────────────────────────────────────────────────────────────
+
+dashboard:
+  # Human-readable name for this dashboard (used in test reports)
+  name: ""                          # TODO: e.g., "Sales Performance Q4 2024"
+
+  # Full published Power BI URL from app.powerbi.com
+  url: ""                           # TODO: e.g., "https://app.powerbi.com/groups/abc123/reports/xyz789"
+
+  # List of page tab names exactly as they appear in the Power BI report
+  # (inspect the tab bar at the bottom of the report)
+  pages:
+    - ""                            # TODO: e.g., "Executive Summary"
+    - ""                            # TODO: e.g., "Sales Detail"
+    # Add more pages as needed
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Source of Truth: Database (preferred)
+# Leave all fields empty if using Excel/CSV instead.
+# ──────────────────────────────────────────────────────────────────────────────
+source_db:
+  # SQLAlchemy driver name. Examples:
+  #   postgresql        → pip install psycopg2-binary
+  #   mssql+pyodbc      → pip install pyodbc
+  #   snowflake         → pip install snowflake-sqlalchemy
+  #   mysql+pymysql     → pip install pymysql
+  driver:   ""                      # TODO
+
+  host:     ""                      # TODO: e.g., "db.internal.company.com"
+  port:     ""                      # TODO: e.g., "5432"
+  database: ""                      # TODO: database / schema name
+  username: ""                      # TODO: read-only service account
+  password: ""                      # TODO: plaintext or "${DB_PASSWORD}" env var ref
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Source of Truth: Excel / CSV (fallback if DB is unavailable)
+# Leave filepath empty if using database instead.
+# ──────────────────────────────────────────────────────────────────────────────
+source_excel:
+  filepath:   ""                    # TODO: e.g., "testdata/sales_data_export.xlsx"
+  sheet_name: ""                    # TODO: e.g., "Sheet1" or "SalesData"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# KPI Validations
+# Each entry validates a single KPI card visual on the dashboard.
+# visual_title must exactly match the title text shown on the visual.
+# ──────────────────────────────────────────────────────────────────────────────
+kpi_validations:
+  - visual_title: ""                # TODO: Exact title of the KPI card, e.g., "Total Revenue"
+    page: ""                        # TODO: Which page this visual is on (must match pages[] above)
+    sql_query: ""                   # TODO: SQL returning a single scalar, e.g., "SELECT SUM(revenue) FROM fact_sales"
+    # For Excel-based validation (use if sql_query is empty):
+    excel_column: ""                # TODO: Column name in source_excel, e.g., "revenue"
+    excel_agg: ""                   # TODO: "sum" | "count" | "avg" | "min" | "max"
+    # Acceptable difference between dashboard value and source value (1% = 0.01)
+    tolerance: 0.01
+
+  # Add more KPI validations below:
+  # - visual_title: ""
+  #   page: ""
+  #   sql_query: ""
+  #   tolerance: 0.01
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Table / Chart Validations
+# Each entry extracts the underlying data from a visual via "Show as a table"
+# and compares it row-by-row against the SQL result.
+# ──────────────────────────────────────────────────────────────────────────────
+table_validations:
+  - visual_title: ""                # TODO: Exact title of the chart or table visual
+    page: ""                        # TODO: Which page this visual is on
+    sql_query: ""                   # TODO: SQL returning the equivalent dataset
+    # Columns to align the two datasets on (must exist in both dashboard and SQL result)
+    join_keys:
+      - ""                          # TODO: e.g., "region"
+    # Numeric columns to compare values for
+    compare_cols:
+      - ""                          # TODO: e.g., "total_sales"
+    tolerance: 0.01
+
+  # Add more table validations below:
+  # - visual_title: ""
+  #   page: ""
+  #   sql_query: ""
+  #   join_keys: []
+  #   compare_cols: []
+  #   tolerance: 0.01

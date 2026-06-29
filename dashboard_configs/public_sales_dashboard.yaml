@@ -1,0 +1,95 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Sales Performance Report — Public Dashboard Config
+#
+# Embed Mode: publish_to_web (auto-detected from view?r= URL)
+# Auth:       None required — public "Publish to web" report
+# DOM:        Renders directly on outer page, NO iframe
+# Pages:      1 (single page report — no tab navigation)
+#
+# Confirmed visual data (via find_pbi_titles.py, 2026-06-26):
+#   Role descriptions: Card, Clustered column chart, Line chart, Slicer
+#   KPI Cards with data:
+#     • "Sales"         → $1.7M  (YoY: $337.8k || 24.5%)
+#     • "Quantity"      → 73K    (YoY: 15K || 25.1%)
+#     • "Profit"        → $297K  (YoY: $46.7k || 18.7%)
+#     • "Profit Margin" → 17.34% (YoY: -0.9% || -4.7%)
+#   Charts (with titles):
+#     • "Sales & PY Sales By Month"    — Line chart
+#     • "Sales & PY Sales By Market"   — Clustered column chart
+#     • "Sales & PY Sales By Category" — Clustered column chart
+#     • "Sales & PY Sales By Days"     — Clustered column chart
+#   Slicers:
+#     • Year (showing 2022)
+#
+# Visual title = first line of visual's innerText
+# (all PBI "Publish to web" visuals have hidden title headers — noVisualTitle class)
+# ──────────────────────────────────────────────────────────────────────────────
+
+dashboard:
+  name: "Sales Performance Report (Public)"
+  url: "https://app.powerbi.com/view?r=eyJrIjoiOTlkMzc3YzEtZmIyMS00MmRjLWIxYzgtMzVhNmM2MmViNTE1IiwidCI6ImI4YTczMWUzLTE2NjAtNDNiZS1hNzY3LTdiNGQ5NzBhODM0MCJ9"
+
+  # Single-page report — no page tab navigation needed
+  pages: []
+
+# ── Source of Truth ────────────────────────────────────────────────────────────
+# No DB or Excel source available for this public report.
+# We validate dashboard values against themselves (smoke test only).
+# Fill these in when testing against a real source DB.
+source_db:
+  driver:   ""
+  host:     ""
+  port:     ""
+  database: ""
+  username: ""
+  password: ""
+
+source_excel:
+  filepath:   ""   # TODO: Add path to matching Excel export for validation
+  sheet_name: ""
+
+# ── KPI Validations ────────────────────────────────────────────────────────────
+# These validate that KPI card values are present and parseable.
+# Since we have no source DB, sql_query is empty — tests will skip DB comparison
+# and only validate that the value can be extracted and parsed as a number.
+kpi_validations:
+  - visual_title: "Sales"
+    page: ""
+    sql_query: ""
+    excel_column: ""
+    excel_agg: ""
+    tolerance: 0.01
+
+  - visual_title: "Quantity"
+    page: ""
+    sql_query: ""
+    excel_column: ""
+    excel_agg: ""
+    tolerance: 0.01
+
+  - visual_title: "Profit"
+    page: ""
+    sql_query: ""
+    excel_column: ""
+    excel_agg: ""
+    tolerance: 0.01
+
+  - visual_title: "Profit Margin"
+    page: ""
+    sql_query: ""
+    excel_column: ""
+    excel_agg: ""
+    tolerance: 0.01
+
+# ── Table Validations ──────────────────────────────────────────────────────────
+# Right-click "Show as a table" on chart visuals to extract underlying data.
+# Fill sql_query when a source DB is available.
+table_validations:
+  - visual_title: "Sales & PY Sales By Market"
+    page: ""
+    sql_query: ""
+    join_keys:
+      - "Market"
+    compare_cols:
+      - "Sales"
+    tolerance: 0.01

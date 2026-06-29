@@ -1,0 +1,4 @@
+dashboard:
+  name: "Test Dashboard 1"
+  url: "https://app.powerbi.com/view?r=eyJrIjoiNTRmY2MxZWUtZTI2Mi00NzJlLWIxMWUtMTQ5NGVkMzljZjk5IiwidCI6IjZjYmNiNzRjLWM1ZGEtNGQ3Ny1iZTgwLWE5MWU2NTc0OGY0ZCIsImMiOjh9"
+  pages: []

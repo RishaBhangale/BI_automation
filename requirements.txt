@@ -1,0 +1,15 @@
+pytest
+playwright
+pytest-playwright
+pandas
+openpyxl
+pytest-html
+cryptography
+python-dotenv
+sqlalchemy
+pyyaml
+# DB drivers — uncomment the one matching your source database:
+# psycopg2-binary    # PostgreSQL
+# pyodbc             # SQL Server (mssql+pyodbc)
+# snowflake-sqlalchemy # Snowflake
+# pymysql            # MySQL (mysql+pymysql)

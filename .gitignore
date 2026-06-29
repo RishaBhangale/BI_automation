@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env
+
+# Pytest and Test Reports
+.pytest_cache/
+reports/html_reports/*
+!reports/html_reports/.keep
+logs/*
+!logs/.keep
+screenshots/*
+!screenshots/.keep
+test-results/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Do not ignore markdown files
+!*.md

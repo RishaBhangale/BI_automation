@@ -1,0 +1,86 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Sample Dashboard Config — Sales Performance Dashboard
+# This is a filled-in EXAMPLE showing the correct format.
+# All values are TODO placeholders — replace with your actual data.
+# ──────────────────────────────────────────────────────────────────────────────
+
+dashboard:
+  name: "Sales Performance Dashboard"
+  url:  ""                          # TODO: Paste your Power BI report URL here
+  pages:
+    - "Executive Summary"           # TODO: Verify these match your actual page tab names
+    - "Sales by Region"
+    - "Product Detail"
+
+
+source_db:
+  driver:   "postgresql"            # TODO: Change if using SQL Server (mssql+pyodbc)
+  host:     ""                      # TODO: e.g., "db.internal.company.com"
+  port:     "5432"
+  database: ""                      # TODO: e.g., "dw_production"
+  username: ""                      # TODO: e.g., "qa_readonly"
+  password: "${DB_PASSWORD}"        # Reads from DB_PASSWORD environment variable
+
+
+source_excel:
+  filepath:   ""                    # Leave blank — using DB above
+  sheet_name: ""
+
+
+kpi_validations:
+  # ── Executive Summary page ────────────────────────────────────────────────
+  - visual_title: "Total Revenue"
+    page:         "Executive Summary"
+    sql_query: >
+      SELECT SUM(revenue)
+      FROM   fact_sales
+      WHERE  EXTRACT(year FROM sale_date) = 2024
+    tolerance: 0.01                 # Allow up to 1% difference (rounding)
+
+  - visual_title: "Total Orders"
+    page:         "Executive Summary"
+    sql_query: >
+      SELECT COUNT(DISTINCT order_id)
+      FROM   fact_sales
+      WHERE  EXTRACT(year FROM sale_date) = 2024
+    tolerance: 0.0                  # Integer — must be exact
+
+  - visual_title: "Average Order Value"
+    page:         "Executive Summary"
+    sql_query: >
+      SELECT AVG(revenue)
+      FROM   fact_sales
+      WHERE  EXTRACT(year FROM sale_date) = 2024
+    tolerance: 0.02
+
+
+table_validations:
+  # ── Sales by Region page ──────────────────────────────────────────────────
+  - visual_title: "Revenue by Region"
+    page:         "Sales by Region"
+    sql_query: >
+      SELECT   region,
+               SUM(revenue) AS total_revenue
+      FROM     fact_sales
+      WHERE    EXTRACT(year FROM sale_date) = 2024
+      GROUP BY region
+      ORDER BY region
+    join_keys:    ["region"]
+    compare_cols: ["total_revenue"]
+    tolerance: 0.01
+
+  # ── Product Detail page ───────────────────────────────────────────────────
+  - visual_title: "Top 10 Products"
+    page:         "Product Detail"
+    sql_query: >
+      SELECT   product_name,
+               SUM(revenue)   AS total_revenue,
+               COUNT(order_id) AS order_count
+      FROM     fact_sales
+      WHERE    EXTRACT(year FROM sale_date) = 2024
+      GROUP BY product_name
+      ORDER BY total_revenue DESC
+      LIMIT 10
+    join_keys:    ["product_name"]
+    compare_cols: ["total_revenue", "order_count"]
+    tolerance: 0.01
