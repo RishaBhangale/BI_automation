@@ -10,6 +10,7 @@ No test-level logic, no assertions — assertions live in the test files.
 
 from __future__ import annotations
 
+from itertools import groupby
 from typing import Optional
 
 from sqlalchemy.engine import Engine
@@ -124,6 +125,10 @@ def validate_all_kpis(
     """
     Validate all KPI entries defined in the dashboard YAML config.
 
+    Groups KPI entries by page so that switch_to_page() is called only once
+    per page instead of once per KPI. This avoids redundant 5-second page
+    waits when multiple KPIs share the same page.
+
     Args:
         dashboard_page: PBIDashboardPage POM instance.
         config:         Parsed dashboard YAML config dict.
@@ -140,16 +145,32 @@ def validate_all_kpis(
         log.warning("No KPI validations defined in config")
         return []
 
+    # Group KPIs by page to minimize switch_to_page() calls.
+    # KPIs with no page declared come first (they run on the current page).
+    kpis_sorted = sorted(kpis, key=lambda k: k.get("page", "") or "")
+
     results = []
-    for kpi in kpis:
+    current_page = None
+
+    for kpi in kpis_sorted:
+        page_name = kpi.get("page", "") or ""
+
+        # Only switch pages when the target page changes
+        if page_name and page_name != current_page:
+            dashboard_page.switch_to_page(page_name)
+            current_page = page_name
+            log.info(f"Page switched to '{page_name}' — processing KPIs on this page")
+
         result = validate_kpi(
             dashboard_page=dashboard_page,
-            kpi_config=kpi,
+            kpi_config={**kpi, "page": ""},   # Page already switched above — don't re-switch
             db_engine=db_engine,
             excel_filepath=excel_path,
             excel_sheet=excel_sheet,
         )
         results.append(result)
+        # Restore the page name in the result for reporting
+        result["page"] = page_name
 
     total  = len(results)
     passed = sum(1 for r in results if r["passed"])
@@ -186,12 +207,17 @@ def validate_table(
     """
     import pandas as pd
 
-    visual_title = table_config.get("visual_title", "Unknown")
+    visual_title = table_config.get("visual_title", "") or ""
+    visual_type  = table_config.get("visual_type", "") or None
+    visual_index = table_config.get("visual_index", None)
     page_name    = table_config.get("page", "")
     join_keys    = table_config.get("join_keys", [])
     compare_cols = table_config.get("compare_cols", [])
     tolerance    = float(table_config.get("tolerance", 0.01))
     sql_query    = table_config.get("sql_query", "").strip()
+
+    # Human-readable label for logs and results
+    label = visual_title or (f"{visual_type}[{visual_index}]" if visual_type else "Unknown")
 
     try:
         # Step 1: Switch to the correct page
@@ -199,7 +225,9 @@ def validate_table(
             dashboard_page.switch_to_page(page_name)
 
         # Step 2: Extract table data from dashboard
-        dashboard_data = dashboard_page.extract_table_data(visual_title)
+        dashboard_data = dashboard_page.extract_table_data(
+            visual_title, visual_type, visual_index
+        )
 
         # Step 3: Fetch source dataset
         source_df = None
@@ -212,7 +240,7 @@ def validate_table(
 
         else:
             return _make_result(
-                visual_title, page_name, False,
+                label, page_name, False,
                 "No source configured: provide sql_query+db_engine or excel_filepath"
             )
 
@@ -220,11 +248,11 @@ def validate_table(
         passed, detail = compare_datasets(
             dashboard_data, source_df, join_keys, compare_cols, tolerance
         )
-        return _make_result(visual_title, page_name, passed, detail)
+        return _make_result(label, page_name, passed, detail)
 
     except Exception as e:
-        log.error(f"validate_table failed for '{visual_title}': {e}")
-        return _make_result(visual_title, page_name, False, f"Exception: {e}")
+        log.error(f"validate_table failed for '{label}': {e}")
+        return _make_result(label, page_name, False, f"Exception: {e}")
 
 
 def validate_all_tables(
@@ -234,6 +262,10 @@ def validate_all_tables(
 ) -> list[dict]:
     """
     Validate all table/chart entries defined in the dashboard YAML config.
+
+    Groups table entries by page so that switch_to_page() is called only once
+    per page instead of once per table. This avoids redundant 5-second page
+    waits when multiple tables share the same page.
 
     Args:
         dashboard_page: PBIDashboardPage POM instance.
@@ -251,16 +283,29 @@ def validate_all_tables(
         log.warning("No table validations defined in config")
         return []
 
+    # Group tables by page — sort first so entries without a page come first
+    tables_sorted = sorted(tables, key=lambda t: t.get("page", "") or "")
+
     results = []
-    for tbl in tables:
+    current_page = None
+
+    for tbl in tables_sorted:
+        page_name = tbl.get("page", "") or ""
+
+        if page_name and page_name != current_page:
+            dashboard_page.switch_to_page(page_name)
+            current_page = page_name
+            log.info(f"Page switched to '{page_name}' — processing tables on this page")
+
         result = validate_table(
             dashboard_page=dashboard_page,
-            table_config=tbl,
+            table_config={**tbl, "page": ""},  # Page already switched above
             db_engine=db_engine,
             excel_filepath=excel_path,
             excel_sheet=excel_sheet,
         )
         results.append(result)
+        result["page"] = page_name
 
     total  = len(results)
     passed = sum(1 for r in results if r["passed"])

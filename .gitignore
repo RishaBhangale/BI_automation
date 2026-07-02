@@ -12,8 +12,6 @@ env/
 
 # Pytest and Test Reports
 .pytest_cache/
-reports/html_reports/*
-!reports/html_reports/.keep
 logs/*
 !logs/.keep
 screenshots/*

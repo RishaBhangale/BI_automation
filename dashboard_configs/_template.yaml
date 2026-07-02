@@ -79,9 +79,28 @@ kpi_validations:
 # Table / Chart Validations
 # Each entry extracts the underlying data from a visual via "Show as a table"
 # and compares it row-by-row against the SQL result.
+#
+# Locating strategy — choose ONE of the following per entry:
+#
+#   Strategy A — By title (default):
+#     Use when the chart container itself holds the title text.
+#     Run test_kpi_discover_visuals first to confirm the exact title.
+#
+#   Strategy B — By type + index (fallback):
+#     Use when the report author placed the chart title in a separate
+#     Text box visual (common pattern). In this case the chart's first
+#     text line is a Y-axis value, not a readable title.
+#     Set visual_title: ""  and fill visual_type + visual_index instead.
+#     visual_index is 0-based among all visuals of that type on the page.
+#
+# test_kpi_discover_visuals prints both the title AND the type+index for
+# every visual, so you can pick the right strategy for each chart.
 # ──────────────────────────────────────────────────────────────────────────────
 table_validations:
-  - visual_title: ""                # TODO: Exact title of the chart or table visual
+  # ── Strategy A: locate by title ──────────────────────────────────────────
+  - visual_title: ""                # TODO: Exact first-line text of the chart/table visual
+    visual_type:  ""                # Leave empty when using visual_title
+    visual_index: null              # Leave null when using visual_title
     page: ""                        # TODO: Which page this visual is on
     sql_query: ""                   # TODO: SQL returning the equivalent dataset
     # Columns to align the two datasets on (must exist in both dashboard and SQL result)
@@ -92,10 +111,32 @@ table_validations:
       - ""                          # TODO: e.g., "total_sales"
     tolerance: 0.01
 
-  # Add more table validations below:
-  # - visual_title: ""
+  # ── Strategy B: locate by type + index (title-less charts) ───────────────
+  # - visual_title: ""              # Leave blank
+  #   visual_type:  "Clustered column chart"   # aria-roledescription value
+  #   visual_index: 0               # 0-based index of this chart type on the page
   #   page: ""
   #   sql_query: ""
   #   join_keys: []
   #   compare_cols: []
   #   tolerance: 0.01
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Filter / Slicer State (optional)
+# Use this to assert that the dashboard's slicer defaults match the context of
+# your SQL queries. For example: if your SQL has WHERE year = 2024, confirm the
+# "Year" slicer on the dashboard is also set to 2024 before running KPI tests.
+#
+# Runs as part of test_filter_state in test_dashboard_health.py.
+# Leave this block empty (or remove it) to skip slicer state validation.
+# ──────────────────────────────────────────────────────────────────────────────
+expected_filters:
+  - slicer_title: ""              # TODO: Exact title of the slicer visual, e.g., "Year"
+    page: ""                      # TODO: Which page the slicer is on (leave empty if on all pages)
+    expected_value: ""            # TODO: Expected selected value, e.g., "2024" or "All"
+
+  # Add more slicer checks below:
+  # - slicer_title: "Region"
+  #   page: "Executive Summary"
+  #   expected_value: "All"

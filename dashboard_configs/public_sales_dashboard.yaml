@@ -6,7 +6,7 @@
 # DOM:        Renders directly on outer page, NO iframe
 # Pages:      1 (single page report — no tab navigation)
 #
-# Confirmed visual data (via find_pbi_titles.py, 2026-06-26):
+# Confirmed visual data (via find_pbi_titles.py,):
 #   Role descriptions: Card, Clustered column chart, Line chart, Slicer
 #   KPI Cards with data:
 #     • "Sales"         → $1.7M  (YoY: $337.8k || 24.5%)
@@ -37,15 +37,15 @@ dashboard:
 # We validate dashboard values against themselves (smoke test only).
 # Fill these in when testing against a real source DB.
 source_db:
-  driver:   ""
-  host:     ""
-  port:     ""
+  driver: ""
+  host: ""
+  port: ""
   database: ""
   username: ""
   password: ""
 
 source_excel:
-  filepath:   ""   # TODO: Add path to matching Excel export for validation
+  filepath: "" # TODO: Add path to matching Excel export for validation
   sheet_name: ""
 
 # ── KPI Validations ────────────────────────────────────────────────────────────
@@ -85,7 +85,14 @@ kpi_validations:
 # Right-click "Show as a table" on chart visuals to extract underlying data.
 # Fill sql_query when a source DB is available.
 table_validations:
-  - visual_title: "Sales & PY Sales By Market"
+  # ── Sales & PY Sales By Market chart ──────────────────────────────────────
+  # This chart's title is in a separate Text box visual above the chart.
+  # The chart container itself has no embedded title, so we locate it by
+  # type (Clustered column chart) and index (0 = first chart of this type).
+  # Confirmed via test_kpi_discover_visuals (2026-07-02).
+  - visual_title: ""
+    visual_type: "Clustered column chart"
+    visual_index: 0
     page: ""
     sql_query: ""
     join_keys:

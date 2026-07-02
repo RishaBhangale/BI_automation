@@ -26,7 +26,7 @@ from playwright.sync_api import Page, FrameLocator, Locator, TimeoutError as PwT
 
 from pageobjects.base_page import BasePage
 from pageobjects.sso_login_page import SSOLoginPage
-from locators.pbi_locators import PBILocators
+from locators.pbi_locators import PBILocators, PageNotFoundError, DashboardLoadError
 from config.settings import PBI_RENDER_TIMEOUT, PBI_PAGE_SWITCH_WAIT
 from utils.logger import get_logger
 
@@ -247,7 +247,16 @@ class PBIDashboardPage(BasePage):
             log.debug(f"Tab '{page_name}' not found — trying arrow navigation")
 
         # Fallback: arrow-based navigation (go to page 1, click Next until we match)
-        self._arrow_navigate_to(page_name)
+        try:
+            self._arrow_navigate_to(page_name)
+        except PageNotFoundError:
+            # Collect all available pages for a helpful error message
+            available = self.get_all_page_names()
+            raise PageNotFoundError(
+                f"Page '{page_name}' not found in this report. "
+                f"Available pages: {available}. "
+                f"Check that the page name in your YAML matches exactly (case-sensitive)."
+            )
 
     def _arrow_navigate_to(self, target_page: str) -> None:
         """
@@ -273,6 +282,10 @@ class PBIDashboardPage(BasePage):
             self.go_to_next_page()
 
         log.warning(f"Arrow navigation: could not find page '{target_page}' in {page_count} pages")
+        raise PageNotFoundError(
+            f"Page '{target_page}' not found in {page_count} pages. "
+            f"Check that the page name in your YAML matches exactly what appears in the report."
+        )
 
     def get_page_count(self) -> int:
         """
@@ -459,7 +472,7 @@ class PBIDashboardPage(BasePage):
             () => {
                 const results = [];
                 const innerDivs = document.querySelectorAll(
-                    "[data-automation-type='visualContainer']"
+                    "[aria-roledescription]"
                 );
 
                 // Noise patterns for titles that are NOT real visual names:
@@ -481,7 +494,8 @@ class PBIDashboardPage(BasePage):
 
                 for (const div of innerDivs) {
                     const roleDesc = div.getAttribute('aria-roledescription') || '';
-                    const allText  = (div.innerText || '').trim();
+                    const vc = div.closest('visual-container');
+                    const allText  = (vc ? vc.innerText : div.innerText || '').trim();
                     const lines    = allText.split('\\n').map(l => l.trim()).filter(Boolean);
                     const title    = lines.length > 0 ? lines[0] : '';
 
@@ -507,13 +521,13 @@ class PBIDashboardPage(BasePage):
         log.info(f"Visual titles (ORG): {titles}")
         return titles
 
-    def _find_visual_container_ptw(self, visual_title: str) -> Locator:
+    def _find_visual_container_ptw(self, visual_title: str) -> "Locator":
         """
         Find the <visual-container> element for a named visual (Publish-to-Web mode).
 
-        Strategy: uses JS to find the inner div whose first text line matches
-        the visual title, then tags the parent visual-container with a
-        data-pw-title attribute so Playwright can locate it.
+        Strategy: uses JS to find the [aria-roledescription] div whose parent visual-container
+        first text line matches the visual title, then tags it with a data-pw-title
+        attribute so Playwright can locate it.
 
         Args:
             visual_title: Exact first-line title of the visual.
@@ -528,14 +542,14 @@ class PBIDashboardPage(BasePage):
         found = self.page.evaluate(f"""
             () => {{
                 const innerDivs = document.querySelectorAll(
-                    "[data-automation-type='visualContainer']"
+                    "[aria-roledescription]"
                 );
                 for (const div of innerDivs) {{
-                    const allText = (div.innerText || '').trim();
+                    const vc = div.closest('visual-container');
+                    const allText = (vc ? vc.innerText : div.innerText || '').trim();
                     const firstLine = allText.split('\\n')[0].trim();
                     if (firstLine === '{safe_title}') {{
                         // Tag the outer visual-container so Playwright can find it
-                        const vc = div.closest('visual-container');
                         if (vc) {{
                             vc.setAttribute('data-pw-title', '{safe_title}');
                             return true;
@@ -554,17 +568,46 @@ class PBIDashboardPage(BasePage):
             )
         return self.page.locator(f"visual-container[data-pw-title='{safe_title}']")
 
-    def _find_visual_by_title(self, visual_title: str):
+    def _find_visual_by_title(
+        self,
+        visual_title: str,
+        visual_type: str | None = None,
+        visual_index: int | None = None,
+    ):
         """
-        Locate a visual container by its title. Supports both embed modes.
+        Locate a visual container. Supports both embed modes and two locating
+        strategies:
+
+        1. **By title** (default): finds the visual whose first text line
+           matches ``visual_title``.  Works when the report author embeds the
+           chart title inside the chart container.
+
+        2. **By type + index** (fallback): used when ``visual_title`` is empty
+           or blank and ``visual_type`` / ``visual_index`` are provided.
+           Finds the *N-th* visual whose ``aria-roledescription`` equals
+           ``visual_type``.  Use this when titles are placed in separate Text
+           box visuals (a common PBI pattern).
+
+        Args:
+            visual_title: Exact first-line title of the visual.  Pass an empty
+                          string (``""``) to use type+index strategy.
+            visual_type:  ``aria-roledescription`` value, e.g.
+                          ``"Clustered column chart"``.
+            visual_index: 0-based index among visuals of ``visual_type``.
 
         Returns:
             Locator pointing to the visual container element.
         """
+        # Choose type+index strategy when title is absent and type is given
+        use_type_index = (not visual_title or not visual_title.strip()) and visual_type
+
         if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB:
+            if use_type_index:
+                idx = visual_index if visual_index is not None else 0
+                return self._find_visual_by_type_index_ptw(visual_type, idx)
             return self._find_visual_container_ptw(visual_title)
 
-        # Org report — use iframe-based selector
+        # Org report — use iframe-based selector (type+index not yet supported)
         frame = self._get_org_frame()
         title_locator = frame.locator(
             f"{PBILocators.ORG_VISUAL_TITLE_TEXT}:has-text('{visual_title}')"
@@ -618,10 +661,11 @@ class PBIDashboardPage(BasePage):
         raw_value = self.page.evaluate(f"""
             () => {{
                 const innerDivs = document.querySelectorAll(
-                    "[data-automation-type='visualContainer']"
+                    "[aria-roledescription]"
                 );
                 for (const div of innerDivs) {{
-                    const allText = (div.innerText || '').trim();
+                    const vc = div.closest('visual-container');
+                    const allText = (vc ? vc.innerText : div.innerText || '').trim();
                     const lines   = allText.split('\\n').map(l => l.trim()).filter(Boolean);
                     if (lines.length === 0 || lines[0] !== '{safe_title}') continue;
 
@@ -664,7 +708,12 @@ class PBIDashboardPage(BasePage):
     # Table / Chart Data Extraction ("Show as a table")
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    def extract_table_data(self, visual_title: str) -> list[dict]:
+    def extract_table_data(
+        self,
+        visual_title: str,
+        visual_type: str | None = None,
+        visual_index: int | None = None,
+    ) -> list[dict]:
         """
         Extract underlying data from a chart/table visual using
         Power BI's "Show as a table" / "Show data" feature.
@@ -677,14 +726,20 @@ class PBIDashboardPage(BasePage):
           5. Click "Back to report" to return to normal view.
 
         Args:
-            visual_title: Exact title of the chart or table visual.
+            visual_title: Exact title of the chart or table visual.  Pass an
+                          empty string if using type+index strategy.
+            visual_type:  ``aria-roledescription`` of the visual (e.g.
+                          ``"Clustered column chart"``) — used when
+                          ``visual_title`` is blank.
+            visual_index: 0-based index among visuals of ``visual_type``.
 
         Returns:
             List of dicts, one per data row. Keys are column headers.
             Example: [{"region": "North", "sales": "123456"}, ...]
             Note: All values are strings — use validation_utils to parse numerics.
         """
-        log.info(f"Extracting table data for: '{visual_title}'")
+        label = visual_title or f"{visual_type}[{visual_index}]"
+        log.info(f"Extracting table data for: '{label}'")
         ctx = self._get_context()
 
         show_as_table_sel = (
@@ -707,9 +762,14 @@ class PBIDashboardPage(BasePage):
             if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
             else PBILocators.ORG_DATA_TABLE_ROW
         )
+        cell_sel = (
+            PBILocators.PTW_DATA_TABLE_CELL
+            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
+            else PBILocators.ORG_DATA_TABLE_CELL
+        )
 
-        # Right-click the visual title bar to open context menu
-        title_el = self._find_visual_by_title(visual_title)
+        # Right-click the visual to open context menu (supports title OR type+index)
+        title_el = self._find_visual_by_title(visual_title, visual_type, visual_index)
         title_el.click(button="right", force=True)
 
         context_menu = ctx.locator(
@@ -718,30 +778,92 @@ class PBIDashboardPage(BasePage):
             else PBILocators.ORG_CONTEXT_MENU
         )
         context_menu.wait_for(state="visible", timeout=5_000)
-        ctx.locator(show_as_table_sel).click()
+
+        # Check if "Show as a table" is actually available in the context menu
+        show_as_table_el = ctx.locator(show_as_table_sel)
+        try:
+            show_as_table_el.wait_for(state="visible", timeout=3_000)
+        except PwTimeoutError:
+            # Close the context menu gracefully by pressing Escape
+            self.page.keyboard.press("Escape")
+            raise ValueError(
+                f"Visual '{label}' does not support 'Show as a table'. "
+                f"This feature must be enabled by the report author in Power BI Desktop "
+                f"(Visual → Format → Show as a table). "
+                f"Contact the report author to enable it, or remove this visual from table_validations."
+            )
+
+        show_as_table_el.click()
 
         data_table = ctx.locator(data_table_sel)
         data_table.wait_for(state="visible", timeout=20_000)
 
+        # ── Read headers ──────────────────────────────────────────────────────
         header_els = ctx.locator(header_sel).all()
         headers    = [h.inner_text().strip() for h in header_els]
         log.info(f"Table headers: {headers}")
 
-        rows    = []
-        row_els = ctx.locator(row_sel).all()
-        for row_el in row_els:
-            cell_els = row_el.locator(
-                PBILocators.PTW_DATA_TABLE_CELL
-                if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-                else PBILocators.ORG_DATA_TABLE_CELL
-            ).all()
-            cells = [c.inner_text().strip() for c in cell_els]
-            if cells and len(cells) == len(headers):
-                rows.append(dict(zip(headers, cells)))
+        # ── Scrape rows with scroll-to-load pagination ────────────────────────
+        # Power BI "Show as a table" uses a virtual scroll container — not all
+        # rows are rendered at once. We scroll down repeatedly to force more rows
+        # into the DOM, collecting new ones each pass.
+        MAX_SCROLL_ATTEMPTS = 20
+        all_rows: list[dict] = []
+        seen_first_cells: set[str] = set()  # de-duplicate by first-cell value of each row
 
-        log.info(f"Extracted {len(rows)} rows from '{visual_title}'")
+        def _scrape_visible_rows() -> int:
+            """Scrape currently visible rows, add new ones to all_rows. Returns count added."""
+            added = 0
+            for row_el in ctx.locator(row_sel).all():
+                cell_els = row_el.locator(cell_sel).all()
+                cells = [c.inner_text().strip() for c in cell_els]
+                if cells and len(cells) == len(headers):
+                    row_key = "|".join(cells)  # unique key for de-duplication
+                    if row_key not in seen_first_cells:
+                        seen_first_cells.add(row_key)
+                        all_rows.append(dict(zip(headers, cells)))
+                        added += 1
+            return added
+
+        # Initial scrape
+        _scrape_visible_rows()
+        log.debug(f"After initial scrape: {len(all_rows)} rows")
+
+        # Scroll inside the table container and collect more rows
+        scroll_attempts = 0
+        while scroll_attempts < MAX_SCROLL_ATTEMPTS:
+            # Find the scrollable container (the table body / viewport)
+            scroll_container = ctx.locator(data_table_sel)
+            prev_count = len(all_rows)
+
+            # Scroll the container down by its visible height
+            try:
+                scroll_container.evaluate("el => el.scrollTop += el.clientHeight")
+            except Exception:
+                break  # Container may no longer exist — stop scrolling
+            self.page.wait_for_timeout(300)  # Allow DOM to re-render
+
+            newly_added = _scrape_visible_rows()
+            log.debug(
+                f"Scroll attempt {scroll_attempts + 1}: "
+                f"+{newly_added} new rows (total {len(all_rows)})"
+            )
+
+            if len(all_rows) == prev_count:
+                # No new rows — we've hit the bottom
+                log.debug("No new rows after scroll — reached end of table")
+                break
+
+            scroll_attempts += 1
+
+        scroll_pages = scroll_attempts + 1
+        log.info(
+            f"Extracted {len(all_rows)} rows from '{visual_title}' "
+            f"({'1 scroll page' if scroll_pages == 1 else f'{scroll_pages} scroll pages'})"
+        )
         self._click_back_to_report(ctx)
-        return rows
+        return all_rows
+
 
     def _click_back_to_report(self, ctx) -> None:
         """Click 'Back to report' to exit the 'Show as a table' view."""
@@ -797,6 +919,124 @@ class PBIDashboardPage(BasePage):
         item.click()
         self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
         log.info(f"Slicer '{slicer_title}' set to '{value}'")
+
+    def get_slicer_value(self, slicer_title: str) -> list[str]:
+        """
+        Read the currently selected value(s) from a slicer visual.
+
+        Works by inspecting the innerText of selected slicer items.
+        If no items appear selected (e.g., "All" or no selection), returns ["All"].
+
+        Args:
+            slicer_title: Title of the slicer visual.
+
+        Returns:
+            List of currently selected slicer item labels.
+            Returns ["All"] if nothing is explicitly selected.
+        """
+        log.info(f"Reading slicer value for: '{slicer_title}'")
+        safe_title = slicer_title.replace("'", "\\'")
+
+        selected_texts = self.page.evaluate(f"""
+            () => {{
+                const innerDivs = document.querySelectorAll(
+                    "[aria-roledescription]"
+                );
+                for (const div of innerDivs) {{
+                    const vc = div.closest('visual-container');
+                    const allText = (vc ? vc.innerText : div.innerText || '').trim();
+                    const firstLine = allText.split('\\n')[0].trim();
+                    if (firstLine !== '{safe_title}') continue;
+
+                    const selected = [];
+
+                    // Strategy 1: checked checkboxes inside slicer items
+                    const checkedInputs = div.querySelectorAll(
+                        "[class*='slicerItemContainer'] input[aria-checked='true'], "
+                        "[class*='slicerItemContainer'] input:checked"
+                    );
+                    for (const inp of checkedInputs) {{
+                        const label = inp.closest('[class*=\'slicerItemContainer\']');
+                        if (label) selected.push((label.innerText || '').trim());
+                    }}
+
+                    // Strategy 2: items with 'selected' or 'checked' class
+                    if (selected.length === 0) {{
+                        const selectedItems = div.querySelectorAll(
+                            "[class*='slicerItemContainer'][class*='selected'], "
+                            "[class*='slicerItemContainer'][aria-selected='true']"
+                        );
+                        for (const item of selectedItems) {{
+                            selected.push((item.innerText || '').trim());
+                        }}
+                    }}
+
+                    // Strategy 3: look for a display-value span (dropdown/date slicers)
+                    if (selected.length === 0) {{
+                        const display = div.querySelector(
+                            "[class*='displayValue'], [class*='slicerText'], "
+                            "[aria-label*='selected' i] span"
+                        );
+                        if (display) selected.push((display.innerText || '').trim());
+                    }}
+
+                    return selected.length > 0 ? selected : ['All'];
+                }}
+                return null;  // slicer not found
+            }}
+        """)
+
+        if selected_texts is None:
+            raise ValueError(
+                f"Slicer '{slicer_title}' not found on current page. "
+                f"Make sure the slicer title matches exactly."
+            )
+
+        log.info(f"Slicer '{slicer_title}' current selection: {selected_texts}")
+        return selected_texts
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Health Checks
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    def check_for_error_banner(self) -> tuple[bool, str]:
+        """
+        Check whether the dashboard shows an error or permission-denied banner.
+
+        Looks for known Power BI error DOM elements and text patterns.
+        Safe to call after open() to verify the report actually loaded.
+
+        Returns:
+            Tuple (has_error: bool, message: str).
+            If has_error is True, message describes what was found.
+        """
+        try:
+            # Check for CSS error containers
+            error_el = self.page.locator(PBILocators.PTW_ERROR_BANNER)
+            if error_el.count() > 0:
+                msg = error_el.first.inner_text().strip()[:200]
+                log.warning(f"Error banner detected: '{msg}'")
+                return True, f"Power BI error banner detected: '{msg}'"
+        except Exception:
+            pass
+
+        # Check for known error text patterns
+        deny_patterns = [
+            "You do not have permission",
+            "This content is not available",
+            "Access denied",
+            "Something went wrong",
+        ]
+        for pattern in deny_patterns:
+            try:
+                if self.page.locator(f"text={pattern}").count() > 0:
+                    log.warning(f"Permission/error text detected: '{pattern}'")
+                    return True, f"Dashboard shows error: '{pattern}'"
+            except Exception:
+                pass
+
+        log.info("No error banners detected — dashboard appears accessible")
+        return False, ""
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Diagnostics

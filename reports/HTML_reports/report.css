@@ -1,0 +1,386 @@
+/* ===== Global page layout ===== */
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f5f6fb;
+  color: #111827;
+}
+
+/* Container around everything inside the report body */
+#results-table, #environment, #summary {
+  max-width: 1240px;
+  margin-inline: auto;
+}
+
+/* Hide the default summary heading text; we’ll render our own */
+#summary h2 {
+  display: none;
+}
+
+/* ===== Top banner & sections ===== */
+
+.dashboard-header {
+  margin: 24px auto 8px auto;
+  max-width: 1240px;
+}
+
+.dashboard-header-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* Executive summary + KPI cards column */
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Right-hand run-details column */
+.dashboard-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Generic card */
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e5e7eb;
+  padding: 16px 18px;
+}
+
+/* Card titles */
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+
+/* ===== Executive Summary card ===== */
+
+.exec-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px 24px;
+  font-size: 12px;
+}
+
+.exec-summary-item-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.exec-summary-item-value {
+  color: #111827;
+  font-weight: 600;
+}
+
+/* ===== KPI stats row ===== */
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.kpi-card {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.kpi-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.kpi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.kpi-chip-pass {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.kpi-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+/* ===== Test run details card ===== */
+
+.run-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 24px;
+  font-size: 12px;
+}
+
+.run-details-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.run-details-value {
+  color: #111827;
+  font-weight: 600;
+}
+
+/* ===== Results table styling ===== */
+
+#results-table {
+  margin-top: 16px;
+}
+
+#results-table table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+#results-table thead {
+  background: #f9fafb;
+}
+
+#results-table thead tr th {
+  padding: 10px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+#results-table tbody tr td {
+  padding: 10px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+#results-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+#results-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* Links column */
+.col-links a {
+  font-size: 12px;
+  color: #2563eb;
+}
+
+/* ===== Status pills ===== */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-passed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-failed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-skipped {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.status-xfailed,
+.status-xpassed {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+/* ===== Per-test log panel (details) ===== */
+
+.log-panel {
+  background: #020617;
+  color: #e5e7eb;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-family: "SF Mono", "Consolas", "Menlo", monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+/* Screenshot images inside details */
+.log-panel + img,
+img[src*="Screenshot"] {
+  border-radius: 10px;
+  margin-top: 8px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+}
+
+/* ===== Section headings ===== */
+
+.section-heading {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 16px 0 8px 0;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 960px) {
+  .dashboard-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kpi-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #results-table table {
+    border-radius: 0;
+  }
+}
+/* Default pytest-html markup: <td class="col-result"><span class="passed">Passed</span></td> */
+.col-result .passed,
+.col-result .failed,
+.col-result .skipped,
+.col-result .xfailed,
+.col-result .xpassed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.col-result .passed  { background:#dcfce7; color:#166534; }
+.col-result .failed  { background:#fee2e2; color:#b91c1c; }
+.col-result .skipped { background:#fef9c3; color:#854d0e; }
+.col-result .xfailed,
+.col-result .xpassed { background:#e0f2fe; color:#075985; }
+
+/* ─── Environment Section ─────────────────────────────────── */
+
+/* Make the heading ("Environment") and table stack vertically */
+#environment {
+  display: block;
+  max-width: 600px;
+  margin: 12px 0 16px 0;
+}
+
+/* The table itself: full width, clean card look */
+#environment table {
+  display: table;          /* override any flex/grid from your theme */
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+/* Every row gets a bottom border, including the last one */
+#environment tr {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Remove the double-border on the very last row */
+#environment tr:last-child {
+  border-bottom: 1px solid #e5e7eb;   /* keep it — gives the "bottom gridline" */
+}
+
+/* Label column (Python, Platform, Packages, Plugins, Base URL) */
+#environment td:first-child {
+  width: 110px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: top;
+  white-space: nowrap;
+  background: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+}
+
+/* Value column */
+#environment td:last-child {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: #111827;
+  vertical-align: top;
+}
+
+/* Bullet lists inside the value column */
+#environment ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+#environment li {
+  font-size: 13px;
+  line-height: 1.6;
+}
+#results-table thead tr th:nth-child(4),
+#results-table tbody tr td:nth-child(4) {
+  display: none;
+}
+

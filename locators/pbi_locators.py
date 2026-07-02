@@ -31,6 +31,18 @@ MODE B — "Secure Embed / Org Report"  (URL pattern: app.powerbi.com/groups/...
 """
 
 
+class PageNotFoundError(Exception):
+    """Raised when switch_to_page() cannot find the requested page."""
+
+
+class VisualNotFoundError(Exception):
+    """Raised when a visual_title is not found on the current page."""
+
+
+class DashboardLoadError(Exception):
+    """Raised when the dashboard URL fails to load or shows an error banner."""
+
+
 class PBILocators:
     """
     Selectors for Power BI published reports on app.powerbi.com.
@@ -173,6 +185,24 @@ class PBILocators:
     # ── Slicers ─────────────────────────────────────────────────────────────
     PTW_SLICER_SEARCH      = "visual-container [class*='slicer'] input"
     PTW_SLICER_ITEM        = "[class*='slicerItemContainer']"
+    # Items that are currently selected (checked) in a slicer
+    PTW_SLICER_SELECTED_ITEM = "[class*='slicerItemContainer'][class*='selected'], [class*='slicerItemContainer'] input:checked"
+
+    # ── Error / access banners ──────────────────────────────────────────────
+    # Shown when: report is inaccessible, permissions denied, or URL is broken.
+    PTW_ERROR_BANNER = (
+        "[class*='errorContainer'], "
+        "[class*='errorMessage'], "
+        "[class*='pbi-error'], "
+        "[aria-label*='error' i], "
+        "[data-automation-id*='error']"
+    )
+    PTW_PERMISSION_DENIED_TEXT = (
+        "text=You do not have permission, "
+        "text=This content is not available, "
+        "text=Access denied, "
+        "text=Something went wrong"
+    )
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # MODE B: Org / Secure Report selectors (INSIDE iframe only)

@@ -110,9 +110,16 @@ def test_kpi_discover_visuals(dashboard_page, dashboard_config):
     Testable visuals = aria-roledescription in PTW_TESTABLE_TYPES
     (Card, Charts, Table, Matrix) — slicers and textboxes are excluded.
 
-    This test always passes. Run it first for any new dashboard to populate
-    the visual_title fields in your YAML config.
+    Output now includes:
+      • The visual title (for use in visual_title: YAML field)
+      • The visual type (for use in visual_type: YAML field as fallback)
+      • The 0-based index among visuals of the same type (for visual_index:)
+      • A snippet of the visual's text content
+
+    This test ALWAYS PASSES. Run it first for any new dashboard.
     """
+    from locators.pbi_locators import PBILocators
+
     dash_name = dashboard_config["dashboard"].get("name", "Dashboard")
     pages     = dashboard_config["dashboard"].get("pages", [])
 
@@ -122,12 +129,32 @@ def test_kpi_discover_visuals(dashboard_page, dashboard_config):
 
     log.info("STEP2_START|Scan page(s) for testable visuals")
 
+    def _print_visuals(visuals_data: list[dict]):
+        """Print a rich summary table of discovered visuals."""
+        # Track per-type index for visual_index guidance
+        type_counts: dict[str, int] = {}
+        for v in visuals_data:
+            vtype = v.get('type', '')
+            idx = type_counts.get(vtype, 0)
+            type_counts[vtype] = idx + 1
+            title    = v.get('title', '').strip()
+            snippet  = v.get('fullText', '').replace('\n', ' | ')[:80]
+
+            print(f"  • title:        '{title}'")
+            print(f"    visual_type:  '{vtype}'")
+            print(f"    visual_index: {idx}")
+            print(f"    text snippet: {snippet}")
+            print()
+
     if not pages:
-        titles = dashboard_page.get_all_visual_titles()
-        log.info(f"Testable visuals found ({len(titles)}): {titles}")
-        print(f"\n=== Testable visuals on current page ===")
-        for t in titles:
-            print(f"  \u2022 {t}")
+        visuals_data = dashboard_page.discover_all_visuals()
+        # Filter to testable types only
+        testable = [v for v in visuals_data
+                    if v.get('type') in PBILocators.PTW_TESTABLE_TYPES]
+        log.info(f"Testable visuals found ({len(testable)})")
+        print(f"\n=== Testable visuals on current page ({len(testable)} found) ===")
+        print("    (Use 'visual_title' if title is meaningful, otherwise use 'visual_type' + 'visual_index')\n")
+        _print_visuals(testable)
         log.info("STEP2_END")
         assert True
         return
@@ -137,11 +164,12 @@ def test_kpi_discover_visuals(dashboard_page, dashboard_config):
         if not page_name:
             continue
         dashboard_page.switch_to_page(page_name)
-        titles = dashboard_page.get_all_visual_titles()
-        log.info(f"Page '{page_name}' — {len(titles)} testable visuals: {titles}")
+        visuals_data = dashboard_page.discover_all_visuals()
+        testable = [v for v in visuals_data
+                    if v.get('type') in PBILocators.PTW_TESTABLE_TYPES]
+        log.info(f"Page '{page_name}' — {len(testable)} testable visuals")
         print(f"\n  Page: '{page_name}'")
-        for t in titles:
-            print(f"    \u2022 {t}")
+        _print_visuals(testable)
 
     log.info("STEP2_END")
     assert True

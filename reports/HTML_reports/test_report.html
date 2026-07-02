@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BI Dashboard Automation – Test Execution Report</title>
+<style>
+
+  :root{
+    --indigo-900:#2e2a6e; --indigo-700:#3f3aa8; --indigo-600:#4f46e5;
+    --bg:#f6f7fb; --surface:#ffffff; --surface-2:#fbfbfe;
+    --ink:#1f2433; --muted:#6b7280; --faint:#9aa1ae;
+    --line:#e8eaf1; --line-strong:#d8dbe6;
+    --pass:#15a34a; --pass-bg:#effaf2; --pass-line:#bce5c9;
+    --fail:#dc2626; --fail-bg:#fdf1f1; --fail-line:#f3c5c5;
+    --skip:#d97706; --skip-bg:#fef6ea;
+    --blocked:#7c3aed;
+    --info:#2563eb; --debug:#9333ea; --warn:#d97706;
+    --mono:'SF Mono','Cascadia Code','JetBrains Mono',Consolas,'Liberation Mono',monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 64px}
+  .doc-head{margin:4px 0 22px}
+  .doc-head h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;color:var(--indigo-900)}
+  .doc-meta{margin-top:6px;font-size:12.5px;color:var(--muted)}
+  .doc-meta b{color:var(--ink);font-weight:600}
+  .banner{background:linear-gradient(100deg,var(--indigo-700),var(--indigo-600));color:#fff;border-radius:12px;padding:18px 24px;box-shadow:0 8px 24px -14px rgba(63,58,168,.55)}
+  .banner h2{margin:0;font-size:16px;font-weight:600;letter-spacing:.01em}
+  .top-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-top:18px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+  .card-title{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--indigo-600);text-transform:uppercase;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}
+  .kv .label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
+  .kv .value{font-size:14px;font-weight:500;color:var(--ink)}
+  .kv .value.mono{font-family:var(--mono);font-size:12.5px;font-weight:400}
+  .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:18px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 12px;text-align:center}
+  .tile .t-label{font-size:11px;color:var(--muted);font-weight:500;margin-bottom:6px}
+  .tile .t-num{font-size:26px;font-weight:700;line-height:1;letter-spacing:-.02em}
+  .tile.total .t-num{color:var(--indigo-600)}
+  .tile.pass  .t-num{color:var(--pass)}
+  .tile.fail  .t-num{color:var(--fail)}
+  .tile.skip  .t-num{color:var(--skip)}
+  .tile.block .t-num{color:var(--blocked)}
+  .tile.rate{background:var(--pass-bg);border-color:var(--pass-line)}
+  .tile.rate .t-num{color:var(--pass)}
+  .progress{margin-top:14px;height:8px;border-radius:6px;overflow:hidden;display:flex;background:var(--line);border:1px solid var(--line)}
+  .progress span{display:block;height:100%}
+  .progress .p-pass{background:var(--pass)}
+  .progress .p-fail{background:var(--fail)}
+  .section-h{display:flex;align-items:baseline;gap:12px;margin:34px 2px 14px;flex-wrap:wrap}
+  .section-h h3{margin:0;font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+  .section-h .count{font-size:12px;color:var(--muted)}
+  .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:1px}
+  .legend .lp{background:var(--pass)} .legend .lf{background:var(--fail)}
+  .toolbar{margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .toolbar input[type=text]{padding:6px 12px;border:1px solid var(--line);border-radius:6px;font-size:12px;outline:none;width:200px;font-family:var(--sans)}
+  .toolbar label{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12.5px;font-weight:600}
+  .toolbar button{appearance:none;border:none;background:none;cursor:pointer;font:inherit;font-size:12.5px;color:var(--indigo-600);font-weight:600}
+  .tc{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .tc[open]{border-color:var(--line-strong);box-shadow:0 4px 18px -12px rgba(31,36,51,.25)}
+  .tc summary{list-style:none;cursor:pointer;padding:15px 20px;display:flex;align-items:center;gap:14px;user-select:none}
+  .tc summary::-webkit-details-marker{display:none}
+  .tc summary:hover{background:var(--surface-2)}
+  .pill{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:999px;flex:none}
+  .pill.pass{color:var(--pass);background:var(--pass-bg);border:1px solid var(--pass-line)}
+  .pill.fail{color:var(--fail);background:var(--fail-bg);border:1px solid var(--fail-line)}
+  .pill.skip{color:var(--skip);background:var(--skip-bg);border:1px solid #f8d99a}
+  .tc-id{font-family:var(--mono);font-size:12px;color:var(--muted);flex:none}
+  .tc-name{font-weight:600;font-size:13.5px;color:var(--ink);flex:1;min-width:0}
+  .tc-dur{font-family:var(--mono);font-size:12px;color:var(--faint);flex:none}
+  .chev{flex:none;color:var(--faint);transition:transform .18s ease}
+  .tc[open] .chev{transform:rotate(90deg)}
+  .tc-body{border-top:1px solid var(--line)}
+  .step{padding:16px 20px;border-left:3px solid var(--pass-line);border-top:1px solid var(--line)}
+  .step:first-child{border-top:none}
+  .step.bad{border-left-color:var(--fail);background:var(--fail-bg)}
+  .step-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .s-dot{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+  .s-dot.ok{background:var(--pass)} .s-dot.bad{background:var(--fail)}
+  .s-label{font-size:11px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+  .s-title{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .s-time{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .step-lines{margin-left:30px;font-family:var(--mono);font-size:12px;line-height:1.85;color:#475067}
+  .step-lines .lvl{font-weight:700;margin-right:6px}
+  .lvl-info{color:var(--info)}
+  .lvl-debug{color:var(--debug)}
+  .lvl-pass{color:var(--pass)}
+  .lvl-warn{color:var(--warn)}
+  .lvl-fail{color:var(--fail)}
+  .fail-grid{display:flex;gap:16px;width:100%;align-items:stretch;margin-left:30px;margin-top:4px}
+  .fail-left{flex:1 1 50%;min-width:240px}
+  .fail-left .step-lines{margin-left:0}
+  .shot{flex:1 1 46%;min-width:260px;max-width:460px;border:1px solid var(--fail-line);border-radius:9px;overflow:hidden;background:#fff;box-shadow:0 6px 18px -12px rgba(220,38,38,.4);align-self:flex-start}
+  .shot-cap{font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--fail);background:var(--fail-bg);padding:7px 12px;border-bottom:1px solid var(--fail-line);display:flex;justify-content:space-between;align-items:center}
+  .shot-cap span{color:var(--faint);font-weight:500;letter-spacing:.02em;text-transform:none}
+  .shot img{display:block;width:100%;height:auto}
+  .assert-detail{margin-left:30px;margin-top:14px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+  .assert-detail .ad-title{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+  .assert-row{margin-bottom:10px}
+  .assert-row:last-child{margin-bottom:0}
+  .assert-label{font-size:12.5px;font-weight:700;margin-bottom:4px}
+  .assert-label.exp{color:var(--pass)}
+  .assert-label.act{color:var(--fail)}
+  .assert-box{font-family:var(--mono);font-size:12px;line-height:1.6;padding:9px 12px;border-radius:6px;background:#fff;border:1px solid var(--line);color:var(--ink);word-break:break-word}
+  .assert-box.exp{background:var(--pass-bg);border-color:var(--pass-line)}
+  .assert-box.act{background:var(--fail-bg);border-color:var(--fail-line)}
+  footer{margin-top:36px;text-align:center;font-size:11.5px;color:var(--faint)}
+  @media(max-width:820px){.top-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}.fail-grid{flex-direction:column;margin-left:0}.shot{max-width:100%}.legend{display:none}}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>BI Dashboard Automation – Test Execution Report</h1>
+    <div class="doc-meta">Generated on <b>26-Jun-2026 at 13:52:21</b></div>
+  </div>
+
+  <div class="banner">
+    <h2>Test Automation Execution Report</h2>
+  </div>
+
+  <div class="top-grid">
+    <div class="card">
+      <p class="card-title">Executive Summary</p>
+      <div class="kv">
+        <div><div class="label">Project</div><div class="value">BI Dashboard Automation</div></div>
+        <div><div class="label">Environment</div><div class="value">UAT</div></div>
+        <div><div class="label">Release</div><div class="value">Sprint 24.5</div></div>
+        <div><div class="label">Suite</div><div class="value">Regression</div></div>
+        <div><div class="label">Executed By</div><div class="value">qe.automation</div></div>
+        <div><div class="label">Executed Date</div><div class="value">26-Jun-2026</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-title">Test Run Details</p>
+      <div class="kv">
+        <div><div class="label">Base URL</div><div class="value mono">https://www.saucedemo.com/</div></div>
+        <div><div class="label">Browser</div><div class="value">Chrome (Non-Headless)</div></div>
+        <div><div class="label">Viewport</div><div class="value mono">1280 × 720</div></div>
+        <div><div class="label">Duration</div><div class="value mono">00 m 00 s</div></div>
+        <div><div class="label">Execution Mode</div><div class="value">Local Automated Run</div></div>
+        <div><div class="label">Test Data Source</div><div class="value">login_testdata.xlsx</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="tile total"><div class="t-label">Total</div><div class="t-num">0</div></div>
+    <div class="tile pass"> <div class="t-label">Passed</div><div class="t-num">0</div></div>
+    <div class="tile fail"> <div class="t-label">Failed</div><div class="t-num">0</div></div>
+    <div class="tile skip"> <div class="t-label">Skipped</div><div class="t-num">0</div></div>
+    <div class="tile block"><div class="t-label">Blocked</div><div class="t-num">0</div></div>
+    <div class="tile rate"> <div class="t-label">Pass Rate</div><div class="t-num">0.0%</div></div>
+  </div>
+
+  <div class="progress">
+    <span class="p-pass" style="width:0.0%"></span>
+    <span class="p-fail" style="width:0.0%"></span>
+  </div>
+
+  <div class="section-h">
+    <h3>Execution Results</h3>
+    <span class="count">0 tests</span>
+    <div class="legend">
+      <span><i class="lp"></i>Passed step</span>
+      <span><i class="lf"></i>Failed step</span>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="search-box" placeholder="🔍 Search tests..." onkeyup="filterTests()"/>
+      <label style="color:var(--pass)"><input type="checkbox" id="cb-pass" checked onchange="filterTests()" style="accent-color:var(--pass)"/> Passed</label>
+      <label style="color:var(--fail)"><input type="checkbox" id="cb-fail" checked onchange="filterTests()" style="accent-color:var(--fail)"/> Failed</label>
+      <button onclick="toggleAllDetails(true)">Show all</button>
+      <span style="color:var(--faint)">/</span>
+      <button onclick="toggleAllDetails(false)">Hide all</button>
+    </div>
+  </div>
+
+
+
+  <footer></footer>
+</div>
+<script>
+  function toggleAllDetails(open){
+    document.querySelectorAll('details.tc:not([style*="display:none"])').forEach(function(d){ d.open = open; });
+  }
+  function filterTests(){
+    var search   = document.getElementById('search-box').value.toLowerCase();
+    var showPass = document.getElementById('cb-pass').checked;
+    var showFail = document.getElementById('cb-fail').checked;
+    document.querySelectorAll('details.tc').forEach(function(d){
+      var pill    = d.querySelector('.pill');
+      var name    = d.querySelector('.tc-name').textContent.toLowerCase();
+      var outcome = pill ? pill.textContent.toLowerCase().trim() : '';
+      var matchFilter = (outcome === 'passed' && showPass) || (outcome === 'failed' && showFail);
+      var matchSearch = name.includes(search);
+      d.style.display = (matchFilter && matchSearch) ? '' : 'none';
+    });
+  }
+</script>
+</body>
+</html>
