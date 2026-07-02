@@ -451,247 +451,15 @@ class PBIDashboardPage(BasePage):
         labels, and other non-testable visuals. Use this when first exploring
         a new dashboard to see everything that's on the page.
 
-        Visuals with noisy titles (Y-axis values like "$0K") ARE included
-        but are flagged with ``is_noisy_title=True``.
-
         Returns:
-            List of dicts with keys: title, type, fullText, is_noisy_title, x, y, width, height.
+            List of dicts with keys: title, type, fullText.
+            Includes testable AND non-testable visuals (excludes raw noise only).
         """
         visuals_data = self._evaluate_ptw_visuals()
         skip = PBILocators.PTW_SKIP_TYPES
         all_visuals = [v for v in visuals_data if v['type'] not in skip]
         log.info(f"All visuals discovered ({len(all_visuals)}): {[v['title'] for v in all_visuals]}")
         return all_visuals
-
-    def discover_all_visuals_raw(self) -> list[dict]:
-        """
-        Return EVERY visual on the current page with no type filtering.
-
-        Intended for the auto-discovery script — includes Text boxes, slicers,
-        noisy-titled charts, and all other visual types.
-
-        Each dict contains:
-            title         — first text line (may be a Y-axis value for charts)
-            type          — aria-roledescription value
-            fullText      — up to 400 chars of the visual's innerText
-            is_noisy_title — True when the title is a Y-axis/numeric value
-            x, y          — top-left corner (viewport coords, pixels)
-            width, height — visual bounding box dimensions
-
-        Returns:
-            Raw list of all visual dicts.
-        """
-        raw = self._evaluate_ptw_visuals()
-        log.info(f"Raw visuals (all types, {len(raw)} total)")
-        return raw
-
-    def discover_all_pages(self) -> list[dict]:
-        """
-        Crawl every page of the report and collect full visual + slicer data.
-
-        Intended for the auto-discovery script.  Handles both tab-nav and
-        arrow-nav reports.  Starts from the first page and visits each page
-        in order, collecting raw visual data and slicer values.
-
-        Returns:
-            List of page dicts, one per page, with the structure::
-
-                [
-                  {
-                    "page_name":  "Executive Summary",  # tab name or "Page 1"
-                    "page_index": 0,                    # 0-based
-                    "visuals":    [ ... ],               # from discover_all_visuals_raw()
-                    "slicers":    [                      # auto-detected slicer selections
-                      {"title": "Year", "values": ["2022"]}
-                    ]
-                  },
-                  ...
-                ]
-        """
-        log.info("discover_all_pages: starting multi-page crawl")
-        results: list[dict] = []
-
-        # --- Tab-nav: use named tabs if any are present ---
-        page_names = self.get_all_page_names()
-
-        if page_names:
-            for idx, name in enumerate(page_names):
-                log.info(f"discover_all_pages: tab-nav to '{name}' ({idx+1}/{len(page_names)})")
-                try:
-                    self.switch_to_page(name)
-                except Exception as e:
-                    log.warning(f"Could not switch to page '{name}': {e}")
-                    continue
-                self.page.wait_for_timeout(2_000)
-                results.append(self._snapshot_current_page(name, idx))
-            return results
-
-        # --- Arrow-nav: use page count + next-page clicks ---
-        page_count = self.get_page_count()
-        if page_count > 1:
-            self._go_to_page_one()
-
-        for idx in range(page_count):
-            page_label = f"Page {idx + 1}"
-            log.info(f"discover_all_pages: arrow-nav {page_label}/{page_count}")
-            results.append(self._snapshot_current_page(page_label, idx))
-            if idx < page_count - 1:
-                self.go_to_next_page()
-
-
-        return results
-
-    def _wait_for_stable_visuals(self, max_wait_ms: int = 12_000, poll_ms: int = 800) -> None:
-        """
-        Wait until the number of [aria-roledescription] elements on the page
-        stops growing (i.e., all lazy-loaded chart visuals have rendered).
-
-        Power BI renders KPI cards first (~2s), then chart visuals later (~4-6s).
-        A fixed wait misses charts on slow connections.  This polls every
-        ``poll_ms`` ms until the count is stable for two consecutive polls,
-        or until ``max_wait_ms`` is exceeded.
-
-        Args:
-            max_wait_ms: Maximum total wait time in milliseconds.
-            poll_ms:     Interval between polls in milliseconds.
-        """
-        prev_count  = -1
-        stable_hits = 0
-        elapsed     = 0
-
-        while elapsed < max_wait_ms:
-            count = self.page.evaluate(
-                "() => document.querySelectorAll('[aria-roledescription]').length"
-            )
-            if count == prev_count and count > 0:
-                stable_hits += 1
-                if stable_hits >= 2:
-                    log.debug(f"Visuals stable at {count} elements after {elapsed}ms")
-                    return
-            else:
-                stable_hits = 0
-                if count != prev_count:
-                    log.debug(f"Visual count changed: {prev_count} → {count} (elapsed {elapsed}ms)")
-
-            prev_count = count
-            self.page.wait_for_timeout(poll_ms)
-            elapsed += poll_ms
-
-        log.debug(f"_wait_for_stable_visuals: timed out after {max_wait_ms}ms — proceeding")
-
-    def _snapshot_current_page(self, page_name: str, page_index: int) -> dict:
-        """
-        Collect all visual and slicer data for the current report page.
-
-        Used internally by discover_all_pages().
-
-        Returns:
-            Dict with page_name, page_index, visuals, slicers.
-        """
-        # Wait until chart visuals finish lazy-loading before scraping
-        self._wait_for_stable_visuals()
-        visuals = self.discover_all_visuals_raw()
-
-        # Auto-discover slicers: any visual of type 'Slicer'
-        slicers = []
-        for v in visuals:
-            if v.get('type') == 'Slicer':
-                # Try the scraped title first; fall back to first line of fullText
-                slicer_title = v.get('title', '').strip()
-                if not slicer_title:
-                    full = v.get('fullText', '')
-                    slicer_title = full.split('\n')[0].strip() if full else ''
-                if not slicer_title:
-                    continue
-                try:
-                    values = self.get_slicer_value(slicer_title)
-                    slicers.append({'title': slicer_title, 'values': values})
-                except Exception as e:
-                    log.debug(f"Could not read slicer '{slicer_title}': {e}")
-                    slicers.append({'title': slicer_title, 'values': []})
-
-        return {
-            'page_name':  page_name,
-            'page_index': page_index,
-            'visuals':    visuals,
-            'slicers':    slicers,
-        }
-
-    def extract_chart_headers(
-        self,
-        visual_type: str,
-        visual_index: int,
-        visual_title: str = "",
-    ) -> list[str]:
-        """
-        Extract only the column headers from a chart/table visual's
-        "Show as a table" view, WITHOUT reading the row data.
-
-        This is a lightweight version of extract_table_data() used by the
-        auto-discovery script to understand what columns a chart exposes,
-        so it can perform DB column matching for SQL suggestion.
-
-        Args:
-            visual_type:  aria-roledescription of the visual.
-            visual_index: 0-based index among visuals of that type.
-            visual_title: Optional explicit title (uses type+index if empty).
-
-        Returns:
-            List of header strings.  Empty list if the chart does not
-            support "Show as a table" or if it cannot be located.
-        """
-        label = visual_title or f"{visual_type}[{visual_index}]"
-        log.info(f"extract_chart_headers: '{label}'")
-        ctx = self._get_context()
-
-        show_as_table_sel = (
-            PBILocators.PTW_SHOW_AS_TABLE
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_SHOW_AS_TABLE
-        )
-        header_sel = (
-            PBILocators.PTW_DATA_TABLE_HEADER
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_DATA_TABLE_HEADER
-        )
-        data_table_sel = (
-            PBILocators.PTW_DATA_TABLE
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_DATA_TABLE
-        )
-
-        try:
-            title_el = self._find_visual_by_title(visual_title, visual_type, visual_index)
-            title_el.click(button="right", force=True)
-
-            context_menu = ctx.locator(
-                PBILocators.PTW_CONTEXT_MENU
-                if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-                else PBILocators.ORG_CONTEXT_MENU
-            )
-            context_menu.wait_for(state="visible", timeout=5_000)
-
-            show_el = ctx.locator(show_as_table_sel)
-            show_el.wait_for(state="visible", timeout=3_000)
-            show_el.click()
-
-            ctx.locator(data_table_sel).wait_for(state="visible", timeout=15_000)
-
-            header_els = ctx.locator(header_sel).all()
-            headers = [h.inner_text().strip() for h in header_els]
-            log.info(f"Chart headers for '{label}': {headers}")
-
-            self._click_back_to_report(ctx)
-            return headers
-
-        except Exception as e:
-            log.debug(f"extract_chart_headers failed for '{label}': {e}")
-            # Gracefully close any open menu
-            try:
-                self.page.keyboard.press("Escape")
-            except Exception:
-                pass
-            return []
 
     def _evaluate_ptw_visuals(self) -> list[dict]:
         """
@@ -730,29 +498,14 @@ class PBIDashboardPage(BasePage):
                     const allText  = (vc ? vc.innerText : div.innerText || '').trim();
                     const lines    = allText.split('\\n').map(l => l.trim()).filter(Boolean);
                     const title    = lines.length > 0 ? lines[0] : '';
-                    
-                    let x = 0, y = 0, width = 0, height = 0;
-                    if (vc) {
-                        const rect = vc.getBoundingClientRect();
-                        x = rect.x;
-                        y = rect.y;
-                        width = rect.width;
-                        height = rect.height;
-                    } else {
-                        const rect = div.getBoundingClientRect();
-                        x = rect.x;
-                        y = rect.y;
-                        width = rect.width;
-                        height = rect.height;
-                    }
 
-                    results.push({
-                        title,
-                        type:     roleDesc,
-                        fullText: allText.substring(0, 300),
-                        is_noisy_title: isNoisyTitle(title),
-                        x, y, width, height
-                    });
+                    if (title && !isNoisyTitle(title)) {
+                        results.push({
+                            title,
+                            type:     roleDesc,
+                            fullText: allText.substring(0, 300)
+                        });
+                    }
                 }
                 return results;
             }
@@ -814,80 +567,6 @@ class PBIDashboardPage(BasePage):
                 f"Available: {available}"
             )
         return self.page.locator(f"visual-container[data-pw-title='{safe_title}']")
-
-    def _find_visual_by_type_index_ptw(
-        self, visual_type: str, visual_index: int
-    ) -> "Locator":
-        """
-        Find a visual by its ``aria-roledescription`` type and 0-based index.
-
-        This is the fallback when a Power BI report author places the chart
-        title in a separate Text box visual rather than inside the chart
-        container — a very common pattern. In that case the chart container
-        has no usable title text, so we locate it by type and position.
-
-        Example YAML usage::
-
-            table_validations:
-              - visual_title: ""           # leave blank
-                visual_type:  "Clustered column chart"
-                visual_index: 0            # 0-based; first chart of this type
-
-        Args:
-            visual_type:  Exact ``aria-roledescription`` value, e.g.
-                          ``"Clustered column chart"``.
-            visual_index: 0-based position among all visuals of this type.
-
-        Returns:
-            Playwright Locator for the matching visual-container element.
-
-        Raises:
-            ValueError: If fewer visuals of ``visual_type`` exist than expected.
-        """
-        tag_attr = "data-pw-type-idx"
-        tag_value = f"{visual_type}_{visual_index}"
-        safe_type = visual_type.replace("'", "\\'")
-
-        found = self.page.evaluate(f"""
-            () => {{
-                const allDivs = document.querySelectorAll("[aria-roledescription]");
-                const matches = [];
-                for (const div of allDivs) {{
-                    if (div.getAttribute('aria-roledescription') === '{safe_type}') {{
-                        matches.push(div);
-                    }}
-                }}
-                if (matches.length <= {visual_index}) return false;
-                const div = matches[{visual_index}];
-                const vc  = div.closest('visual-container');
-                if (vc) {{
-                    vc.setAttribute('{tag_attr}', '{tag_value}');
-                    return true;
-                }}
-                // No visual-container — tag the div itself
-                div.setAttribute('{tag_attr}', '{tag_value}');
-                return true;
-            }}
-        """)
-
-        if not found:
-            # Count available visuals of this type for a helpful error
-            count = self.page.evaluate(f"""
-                () => document.querySelectorAll(
-                    "[aria-roledescription='{safe_type}']"
-                ).length
-            """)
-            raise ValueError(
-                f"Visual type '{visual_type}' index {visual_index} not found. "
-                f"Only {count} visual(s) of this type exist on the current page."
-            )
-
-        log.info(
-            f"Located visual by type+index: '{visual_type}' [{visual_index}] "
-            f"→ tagged as {tag_attr}='{tag_value}'"
-        )
-        return self.page.locator(f"visual-container[{tag_attr}='{tag_value}'], "
-                                  f"[aria-roledescription][{tag_attr}='{tag_value}']")
 
     def _find_visual_by_title(
         self,
@@ -1202,61 +881,7 @@ class PBIDashboardPage(BasePage):
         except PwTimeoutError:
             log.warning("'Back to report' button not found — already in report view?")
 
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # Slicer Interaction
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    def set_slicer(self, slicer_title: str, value: str) -> None:
-        """
-        Set a slicer to a specific value.
-
-        Args:
-            slicer_title: Title of the slicer visual.
-            value:        The slicer item to select (e.g., "North", "2024").
-        """
-        log.info(f"Setting slicer '{slicer_title}' to '{value}'")
-        container = self._find_visual_by_title(slicer_title)
-
-        search_sel = (
-            PBILocators.PTW_SLICER_SEARCH
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_SLICER_SEARCH
-        )
-        item_sel = (
-            PBILocators.PTW_SLICER_ITEM
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_SLICER_ITEM
-        )
-
-        try:
-            search = container.locator(search_sel)
-            search.wait_for(timeout=3_000)
-            search.fill(value)
-            self.page.wait_for_timeout(500)
-        except PwTimeoutError:
-            log.debug(f"Slicer '{slicer_title}' has no search input — trying direct click")
-
-        item = container.locator(f"{item_sel}:has-text('{value}')")
-        item.click()
-        self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-        log.info(f"Slicer '{slicer_title}' set to '{value}'")
-
-    def get_slicer_value(self, slicer_title: str) -> list[str]:
-        """
-        Read the currently selected value(s) from a slicer visual.
-
-        Works by inspecting the innerText of selected slicer items.
-        If no items appear selected (e.g., "All" or no selection), returns ["All"].
-
-        Args:
-            slicer_title: Title of the slicer visual.
-
-        Returns:
-            List of currently selected slicer item labels.
-            Returns ["All"] if nothing is explicitly selected.
-        """
-        log.info(f"Reading slicer value for: '{slicer_title}'")
-        selected_texts = self.page.evaluate("""
+    # ━━━━�        selected_texts = self.page.evaluate("""
             (targetTitle) => {
                 const innerDivs = document.querySelectorAll(
                     "[aria-roledescription]"
@@ -1271,18 +896,18 @@ class PBIDashboardPage(BasePage):
 
                     // Strategy 1: checked checkboxes inside slicer items
                     const checkedInputs = div.querySelectorAll(
-                        "[class*='slicerItemContainer'] input[aria-checked='true'], " +
+                        "[class*='slicerItemContainer'] input[aria-checked='true'], "
                         "[class*='slicerItemContainer'] input:checked"
                     );
                     for (const inp of checkedInputs) {
-                        const label = inp.closest("[class*='slicerItemContainer']");
+                        const label = inp.closest('[class*=\\'slicerItemContainer\\']');
                         if (label) selected.push((label.innerText || '').trim());
                     }
 
                     // Strategy 2: items with 'selected' or 'checked' class
                     if (selected.length === 0) {
                         const selectedItems = div.querySelectorAll(
-                            "[class*='slicerItemContainer'][class*='selected'], " +
+                            "[class*='slicerItemContainer'][class*='selected'], "
                             "[class*='slicerItemContainer'][aria-selected='true']"
                         );
                         for (const item of selectedItems) {
@@ -1293,7 +918,7 @@ class PBIDashboardPage(BasePage):
                     // Strategy 3: look for a display-value span (dropdown/date slicers)
                     if (selected.length === 0) {
                         const display = div.querySelector(
-                            "[class*='displayValue'], [class*='slicerText'], " +
+                            "[class*='displayValue'], [class*='slicerText'], "
                             "[aria-label*='selected' i] span"
                         );
                         if (display) selected.push((display.innerText || '').trim());
@@ -1303,7 +928,54 @@ class PBIDashboardPage(BasePage):
                 }
                 return null;  // slicer not found
             }
-        """, slicer_title)
+        """, slicer_title).evaluate(f"""
+            () => {{
+                const innerDivs = document.querySelectorAll(
+                    "[aria-roledescription]"
+                );
+                for (const div of innerDivs) {{
+                    const vc = div.closest('visual-container');
+                    const allText = (vc ? vc.innerText : div.innerText || '').trim();
+                    const firstLine = allText.split('\\n')[0].trim();
+                    if (firstLine !== '{safe_title}') continue;
+
+                    const selected = [];
+
+                    // Strategy 1: checked checkboxes inside slicer items
+                    const checkedInputs = div.querySelectorAll(
+                        "[class*='slicerItemContainer'] input[aria-checked='true'], "
+                        "[class*='slicerItemContainer'] input:checked"
+                    );
+                    for (const inp of checkedInputs) {{
+                        const label = inp.closest('[class*=\'slicerItemContainer\']');
+                        if (label) selected.push((label.innerText || '').trim());
+                    }}
+
+                    // Strategy 2: items with 'selected' or 'checked' class
+                    if (selected.length === 0) {{
+                        const selectedItems = div.querySelectorAll(
+                            "[class*='slicerItemContainer'][class*='selected'], "
+                            "[class*='slicerItemContainer'][aria-selected='true']"
+                        );
+                        for (const item of selectedItems) {{
+                            selected.push((item.innerText || '').trim());
+                        }}
+                    }}
+
+                    // Strategy 3: look for a display-value span (dropdown/date slicers)
+                    if (selected.length === 0) {{
+                        const display = div.querySelector(
+                            "[class*='displayValue'], [class*='slicerText'], "
+                            "[aria-label*='selected' i] span"
+                        );
+                        if (display) selected.push((display.innerText || '').trim());
+                    }}
+
+                    return selected.length > 0 ? selected : ['All'];
+                }}
+                return null;  // slicer not found
+            }}
+        """)
 
         if selected_texts is None:
             raise ValueError(

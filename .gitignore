@@ -35,3 +35,7 @@ Thumbs.db
 
 # Do not ignore markdown files
 !*.md
+
+# Keep HTML test reports
+!reports/
+!reports/*

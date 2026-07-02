@@ -68,31 +68,42 @@ cp .env.example .env
 
 ---
 
-## Onboarding a New Dashboard
+## Onboarding a New Dashboard (Automated)
+
+Instead of manually listing visual titles and mapping columns, you can use the **Visual Auto-Discovery Engine** to crawl the dashboard, map pages, identify slicer states, introspect the database schema, and auto-suggest SQL queries using Azure OpenAI.
 
 ```bash
-# Step 1: Copy the template
-cp dashboard_configs/_template.yaml dashboard_configs/my_dashboard.yaml
-
-# Step 2: Fill in the dashboard URL (and SSO credentials in config/settings.py if needed)
-
-# Step 3: Run visual discovery to find all available visual titles
-pytest tests/dashboard/test_kpi_validation.py::test_kpi_discover_visuals \
-    --dashboard-config=dashboard_configs/my_dashboard.yaml -s
-
-# Step 4: Copy the discovered visual titles into your YAML kpi_validations / table_validations
-
-# Step 5: Add SQL queries or Excel source references for each validation entry
-
-# Step 6: Run the full suite
-pytest tests/dashboard/ --dashboard-config=dashboard_configs/my_dashboard.yaml -s
+# 1. Run the auto-discovery engine
+python3 scripts/discover_dashboard.py "https://app.powerbi.com/view?r=..." \
+    --name "My Dashboard" \
+    --output dashboard_configs/my_dashboard.yaml \
+    --db-uri "sqlite:///path/to/db.sqlite"
 ```
 
-See [`dashboard_onboarding_guide.md`](dashboard_onboarding_guide.md) for a detailed walkthrough.
+### Options:
+- `--db-uri`: Optional SQLAlchemy database connection string. If provided, the database schema will be introspected.
+- `--headless`: Run the browser headlessly (defaults to headless). Pass `--no-headless` to watch it crawl.
+- `--skip-headers`: Skip right-clicking charts/tables to extract table schema (saves execution time).
+
+### LLM SQL Auto-Suggestion:
+If you supply Azure OpenAI credentials in your `.env` file, the discovery engine will introspect your database schema and automatically generate candidates for your validation SQL queries:
+
+```ini
+FOUNDRY_API_KEY=your_azure_api_key
+FOUNDRY_ENDPOINT=https://your-resource.openai.azure.com/
+FOUNDRY_MODEL=gpt-5.2-chat
+FOUNDRY_API_VERSION=2024-12-01-preview
+```
 
 ---
 
 ## Running Tests
+
+Once the auto-discovery script has generated the YAML config:
+
+1. Open the generated YAML (`dashboard_configs/my_dashboard.yaml`) and review the auto-generated SQL queries (particularly those marked `⚠️ MEDIUM` confidence).
+2. Edit database credentials/passwords in your `.env` or YAML.
+3. Run the validation suite:
 
 ```bash
 # Full dashboard validation suite
@@ -106,9 +117,6 @@ pytest tests/dashboard/test_kpi_validation.py --dashboard-config=dashboard_confi
 
 # Table validation only
 pytest tests/dashboard/test_table_validation.py --dashboard-config=dashboard_configs/my_dashboard.yaml -s
-
-# Visible browser (for debugging)
-# Edit config/settings.py → set HEADLESS = False, then run normally
 ```
 
 ---
