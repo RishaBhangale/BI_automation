@@ -299,15 +299,21 @@ class PBIDashboardPage(BasePage):
         """
         try:
             nav = self.page.locator(PBILocators.PTW_NAV_CONTAINER)
-            nav.wait_for(state="visible", timeout=3_000)
-            text = nav.inner_text().strip()
-            # Parse patterns: "1of19", "1 of 19", "Page 1 of 3"
+            nav.wait_for(state="attached", timeout=5_000)
+            
             import re
-            match = re.search(r'of\s*(\d+)', text, re.IGNORECASE)
-            if match:
-                count = int(match.group(1))
-                log.debug(f"Page count from indicator '{text}': {count}")
-                return count
+            # Poll for a few seconds if it says "0" (PBI loads it asynchronously)
+            for _ in range(15):
+                text = nav.text_content().strip()
+                match = re.search(r'of\s*(\d+)', text, re.IGNORECASE)
+                if match:
+                    count = int(match.group(1))
+                    if count > 0:
+                        log.debug(f"Page count from indicator '{text}': {count}")
+                        return count
+                self.page.wait_for_timeout(1000)
+                
+            log.warning("Page count remained 0 or unmatched after waiting.")
         except PwTimeoutError:
             log.debug("logo-bar-navigation not found — report may use tab navigation")
         return 1
@@ -383,7 +389,7 @@ class PBIDashboardPage(BasePage):
     def _get_page_indicator_text(self) -> str:
         """Return the current page indicator text, e.g. '3of19'."""
         try:
-            return self.page.locator(PBILocators.PTW_NAV_CONTAINER).inner_text().strip()
+            return self.page.locator(PBILocators.PTW_NAV_CONTAINER).text_content().strip()
         except Exception:
             return ""
 

@@ -1,0 +1,50 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Dashboard config utilizing sample Excel file as data source
+# ──────────────────────────────────────────────────────────────────────────────
+
+dashboard:
+  name: "Public Sales Dashboard (Excel)"
+  url: "https://app.powerbi.com/view?r=eyJrIjoiOTlkMzc3YzEtZmIyMS00MmRjLWIxYzgtMzVhNmM2MmViNTE1IiwidCI6ImI4YTczMWUzLTE2NjAtNDNiZS1hNzY3LTdiNGQ5NzBhODM0MCJ9"
+  pages: []  # Single-page report
+
+source_excel:
+  filepath:   "testdata/sample_sales_data.xlsx"
+  sheet_name: "KPI_Summary"
+
+kpi_validations:
+  - visual_title: "Sales"
+    page: ""
+    excel_column: "sales"
+    excel_agg: "sum"
+    tolerance: 0.01
+
+  - visual_title: "Quantity"
+    page: ""
+    excel_column: "quantity"
+    excel_agg: "sum"
+    tolerance: 0.01
+
+  - visual_title: "Profit"
+    page: ""
+    excel_column: "profit"
+    excel_agg: "sum"
+    tolerance: 0.01
+
+  - visual_title: "Profit Margin"
+    page: ""
+    excel_column: "profit_margin"
+    excel_agg: "mean"
+    tolerance: 0.01
+
+table_validations:
+  # Using the market category sales performance sheet
+  - visual_title: ""
+    visual_type:  "Clustered column chart"
+    visual_index: 0
+    page: ""
+    excel_sheet:  "Sales_Performance"
+    join_keys:
+      - "Market"
+    compare_cols:
+      - "Sales"
+    tolerance: 0.01

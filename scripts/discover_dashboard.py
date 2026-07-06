@@ -43,6 +43,7 @@ import os
 import re
 import sys
 import textwrap
+from playwright_stealth import stealth_sync
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -641,12 +642,20 @@ def main(argv: list[str] | None = None) -> int:
 
     generated_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    print(f"\n🚀  Starting discovery for: {args.url}")
+    print(f"\n  Starting discovery for: {args.url}")
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=args.headless)
-        context = browser.new_context(viewport={"width": 1440, "height": 900})
+        browser = pw.chromium.launch(
+            headless=args.headless,
+            args=["--disable-blink-features=AutomationControlled"],
+            ignore_default_args=["--enable-automation"]
+        )
+        context = browser.new_context(
+            viewport={"width": 1440, "height": 900},
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
         page    = context.new_page()
+        stealth_sync(page)
 
         dashboard_page = PBIDashboardPage(page)
         dashboard_page.open(args.url)
@@ -662,7 +671,7 @@ def main(argv: list[str] | None = None) -> int:
         browser.close()
 
     # --- Generate YAML ---
-    print("\n📝  Generating YAML config…")
+    print("\n  Generating YAML config…")
     yaml_content = generate_yaml(
         url=args.url,
         name=args.name,

@@ -35,10 +35,13 @@ def suggest_sql_via_llm(
     Returns:
         Tuple of (sql_query, confidence, join_keys, compare_cols)
     """
-    api_key = os.environ.get("FOUNDRY_API_KEY")
-    endpoint = os.environ.get("FOUNDRY_ENDPOINT")
-    api_version = os.environ.get("FOUNDRY_API_VERSION", "2024-12-01-preview")
-    model = os.environ.get("FOUNDRY_MODEL", "gpt-5.2-chat")
+    from config.settings import (
+        FOUNDRY_API_KEY, FOUNDRY_ENDPOINT, FOUNDRY_MODEL, FOUNDRY_API_VERSION
+    )
+    api_key = FOUNDRY_API_KEY
+    endpoint = FOUNDRY_ENDPOINT
+    api_version = FOUNDRY_API_VERSION
+    model = FOUNDRY_MODEL
 
     if not api_key or not endpoint:
         log.error("FOUNDRY_API_KEY or FOUNDRY_ENDPOINT not found in environment. Returning empty SQL.")

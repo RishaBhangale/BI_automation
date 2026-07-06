@@ -86,7 +86,8 @@ def validate_kpi(
             source_value = fetch_scalar(db_engine, sql_query)
 
         elif excel_column and excel_filepath:
-            df = load_source_excel(excel_filepath, excel_sheet or "Sheet1")
+            sheet = kpi_config.get("excel_sheet") or excel_sheet
+            df = load_source_excel(excel_filepath, sheet or "Sheet1")
             source_value = aggregate_column(df, excel_column, excel_agg)
 
         else:
@@ -236,7 +237,8 @@ def validate_table(
             source_df = fetch_db_data(db_engine, sql_query)
 
         elif excel_filepath:
-            source_df = load_source_excel(excel_filepath, excel_sheet or "Sheet1")
+            sheet = table_config.get("excel_sheet") or excel_sheet
+            source_df = load_source_excel(excel_filepath, sheet or "Sheet1")
 
         else:
             return _make_result(

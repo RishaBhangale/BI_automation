@@ -1,3 +1,4 @@
+import os
 from utils.encryption_utils import decrypt_value
 
 
@@ -86,6 +87,14 @@ def get_db_password() -> str:
     if DB_PASSWORD_ENC:
         return decrypt_value(DB_PASSWORD_ENC)
     return DB_PASSWORD_PLAIN
+
+
+# ── Azure OpenAI / Foundry Credentials ────────────────────────────────────────
+FOUNDRY_API_KEY     = os.getenv("FOUNDRY_API_KEY", "")
+FOUNDRY_ENDPOINT    = os.getenv("FOUNDRY_ENDPOINT", "")
+FOUNDRY_MODEL       = os.getenv("FOUNDRY_MODEL", "gpt-5.2-chat")
+FOUNDRY_API_VERSION = os.getenv("FOUNDRY_API_VERSION", "2024-12-01-preview")
+
 
 
 
