@@ -100,7 +100,7 @@ def generate_report(
   .kv{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}
   .kv .label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
   .kv .value{font-size:14px;font-weight:500;color:var(--ink)}
-  .kv .value.mono{font-family:var(--mono);font-size:12.5px;font-weight:400}
+  .kv .value.mono{font-family:var(--mono);font-size:12.5px;font-weight:400;overflow-wrap:break-word;word-break:break-all;max-width:100%}
   .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:18px}
   .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 12px;text-align:center}
   .tile .t-label{font-size:11px;color:var(--muted);font-weight:500;margin-bottom:6px}
@@ -143,6 +143,7 @@ def generate_report(
   .tc-body{border-top:1px solid var(--line)}
   .step{padding:16px 20px;border-left:3px solid var(--pass-line);border-top:1px solid var(--line)}
   .step:first-child{border-top:none}
+  .step.ok{border-left-color:var(--pass);background:#f0fdf4}
   .step.bad{border-left-color:var(--fail);background:var(--fail-bg)}
   .step-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
   .s-dot{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
@@ -217,7 +218,7 @@ def generate_report(
         is_bad   = step.get("failed", False)
         dot_cls  = "bad" if is_bad else "ok"
         dot_icon = "✕" if is_bad else "✓"
-        step_cls = "bad" if is_bad else ""
+        step_cls = "bad" if is_bad else "ok"
         first_ts = step["lines"][0][1] if step["lines"] else ""
         lines_html = "<br>".join(render_line(lvl, ts, txt) for lvl, ts, txt in step["lines"])
 
@@ -335,7 +336,7 @@ def generate_report(
     <div class="card">
       <p class="card-title">Test Run Details</p>
       <div class="kv">
-        <div><div class="label">Base URL</div><div class="value mono">{html_module.escape(base_url)}</div></div>
+        <div><div class="label">Base URL</div><div class="value mono" title="{html_module.escape(base_url)}">{html_module.escape(base_url[:60] + ('...' if len(base_url) > 60 else ''))}</div></div>
         <div><div class="label">Browser</div><div class="value">{html_module.escape(browser)}</div></div>
         <div><div class="label">Viewport</div><div class="value mono">{html_module.escape(viewport)}</div></div>
         <div><div class="label">Duration</div><div class="value mono">{duration_str}</div></div>

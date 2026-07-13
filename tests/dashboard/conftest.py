@@ -57,6 +57,7 @@ DASHBOARD_RESULTS:       List[TestResult] = []
 _dash_test_start_times:  Dict[str, float] = {}
 _dash_log_records:       Dict[str, list]  = {}
 _current_dashboard_config: Optional[dict] = None   # set by dashboard_config fixture
+_validation_ran: bool = False  # True only when a non-discovery validation test runs
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -241,6 +242,7 @@ def pytest_runtest_call(item):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+    global _validation_ran
     outcome = yield
     report  = outcome.get_result()
 
@@ -248,6 +250,10 @@ def pytest_runtest_makereport(item, call):
         return
     if not _is_dashboard_test(item):
         return
+
+    # Mark that a real validation test ran (not just discovery)
+    if "discover" not in item.name:
+        _validation_ran = True
 
     start    = _dash_test_start_times.get(item.nodeid, datetime.now().timestamp())
     duration = datetime.now().timestamp() - start
@@ -324,8 +330,8 @@ def pytest_runtest_makereport(item, call):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def pytest_sessionfinish(session, exitstatus):
-    if not DASHBOARD_RESULTS:
-        return  # No dashboard tests ran — skip report
+    if not DASHBOARD_RESULTS or not _validation_ran:
+        return  # No validation tests ran — skip report generation
 
     dash_name = (
         _current_dashboard_config["dashboard"].get("name", "Dashboard")
@@ -338,7 +344,15 @@ def pytest_sessionfinish(session, exitstatus):
     config_path = session.config.getoption("--dashboard-config") or "unknown"
     config_file = Path(config_path).name
 
-    output_path = Path(REPORT_DIR) / "dashboard_validation_report.html"
+    from datetime import datetime
+    import shutil
+
+    timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dash_slug   = (dash_name or "dashboard").lower().replace(" ", "_")[:30]
+    report_name = f"dashboard_validation_{dash_slug}_{timestamp}.html"
+    output_path = Path(REPORT_DIR) / report_name
+    latest_path = Path(REPORT_DIR) / "dashboard_validation_latest.html"
+
     try:
         generate_report(
             results          = DASHBOARD_RESULTS,
@@ -353,9 +367,13 @@ def pytest_sessionfinish(session, exitstatus):
             executed_by      = "qe.automation",
             test_data_source = config_file,
         )
+        # Also keep a "latest" copy for quick access
+        shutil.copy2(str(output_path), str(latest_path))
         log.info(f"Dashboard validation report saved → {output_path}")
+        log.info(f"Latest report symlink       → {latest_path}")
     except Exception as e:
         log.error(f"Failed to generate dashboard HTML report: {e}")
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

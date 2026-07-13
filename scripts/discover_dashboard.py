@@ -43,7 +43,7 @@ import os
 import re
 import sys
 import textwrap
-from playwright_stealth import stealth_sync
+from playwright_stealth import Stealth
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -442,6 +442,17 @@ source_excel:
 
         for v_idx, v in kpis:
             title = v.get("title", "")
+
+            # Skip entries whose title is a bare number / value — not a real visual title.
+            # These arise when multi-KPI card decomposition misclassifies a value line
+            # as a label (e.g. "38", "112" from an Average Age card).
+            if v.get("is_noisy_title"):
+                lines.append(
+                    f"\n  # \u26a0\ufe0f  SKIPPED \u2014 '{title}' looks like a value, not a visual title."
+                    f"\n  #     Verify on the dashboard and add manually if needed."
+                )
+                continue
+
             page_field = "" if is_single_page else page_name
 
             sg = suggestions.get((page_idx, v_idx), {})
@@ -655,7 +666,7 @@ def main(argv: list[str] | None = None) -> int:
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
         page    = context.new_page()
-        stealth_sync(page)
+        Stealth().apply_stealth_sync(page)
 
         dashboard_page = PBIDashboardPage(page)
         dashboard_page.open(args.url)

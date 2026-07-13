@@ -704,6 +704,11 @@ class PBIDashboardPage(BasePage):
         Run the JS evaluation to get all visual containers with their
         aria-roledescription and first text line (title).
 
+        For Multi-row card visuals, decomposes each visual into individual
+        sub-KPI entries (one dict per sub-value) so every KPI is discoverable.
+        The decomposition is fully generalised via JS DOM crawl — no selectors
+        are hardcoded for a specific dashboard.
+
         Returns raw data — callers filter by type.
         """
         raw = self.page.evaluate("""
@@ -714,21 +719,103 @@ class PBIDashboardPage(BasePage):
                 );
 
                 // Noise patterns for titles that are NOT real visual names:
-                // - Y-axis tick values: "$0K", "($200K)", "$0.0M", "100%"
-                // - Arrow/symbol chars: "⇗", "⇘"
-                // - Pure numbers: "0", "100"
                 function isNoisyTitle(title) {
                     if (!title || title.length === 0) return true;
-                    // Single arrow/symbol char (length ≤ 2)
                     if (title.length <= 2 && /^[⇗⇘⇒⇑⇓→↑↓▲▼]/.test(title)) return true;
-                    // Starts with $ or ( — y-axis value
-                    if (/^[$\\(]/.test(title)) return true;
-                    // Purely numeric
+                    if (/^[\\$\\(]/.test(title)) return true;
                     if (/^[\\d,\\.\\s%]+$/.test(title)) return true;
-                    // Short number-like string e.g. "$0K", "100K"
-                    if (/^[$\\(]?[\\d,\\.]+[KMBkmbTt%]?\\)?$/.test(title)) return true;
+                    if (/^[\\$\\(]?[\\d,\\.]+[KMBkmbTt%]?\\)?$/.test(title)) return true;
                     return false;
                 }
+
+                // ── Detect whether a Card visual is actually a multi-value card ──
+                // A Card with N KPI pairs has the pattern:
+                //   line0: KPI_label_1  (text, not a pure number)
+                //   line1: KPI_value_1  (numeric or short)
+                //   line2: KPI_label_2
+                //   line3: KPI_value_2  ...
+                // We identify this by checking that lines alternate between
+                // "looks like a label" (contains letters, length > 2) and
+                // "looks like a value" (short, may be numeric or text).
+                // Returns [] for single-KPI cards.
+                function decomposeMultiKpiCard(vc, roleDesc) {
+                    const allText = vc ? vc.innerText.trim() : '';
+                    const lines = allText.split('\\n').map(l => l.trim()).filter(Boolean);
+                    const rect = vc ? vc.getBoundingClientRect() : {x:0,y:0,width:0,height:0};
+
+                    // ── Strategy 1: CSS sub-item selectors (Multi-row card DOM) ──
+                    const containerSelectors = [
+                        "[class*='cardItemContainer']",
+                        "[class*='cardItem']",
+                        "[class*='multiRowCard'] [class*='cell']",
+                        "[class*='row'] [class*='data']",
+                    ];
+                    const labelSelectors = ["[class*='caption']","[class*='label']","[class*='category']","[class*='title']"];
+                    const valueSelectors = ["[class*='value']","[class*='callout']","[class*='data']"];
+
+                    let bestItems = [];
+                    if (vc) {
+                        for (const sel of containerSelectors) {
+                            const items = Array.from(vc.querySelectorAll(sel));
+                            if (items.length > bestItems.length) bestItems = items;
+                        }
+                    }
+
+                    if (bestItems.length >= 2) {
+                        // DOM sub-items found — extract label+value from each
+                        const subEntries = [];
+                        bestItems.forEach((item, idx) => {
+                            let label = '', value = '';
+                            for (const s of labelSelectors) { const el = item.querySelector(s); if (el && el.innerText.trim()) { label = el.innerText.trim(); break; } }
+                            for (const s of valueSelectors) { const el = item.querySelector(s); if (el && el.innerText.trim()) { value = el.innerText.trim(); break; } }
+                            if (!label) { const il = item.innerText.trim().split('\\n').map(l=>l.trim()).filter(Boolean); label=il[0]||''; value=il[1]||''; }
+                            if (label) subEntries.push({ title: label, value, type: roleDesc, parent_type: roleDesc, sub_index: idx, fullText: `${label}\\n${value}`, is_noisy_title: isNoisyTitle(label), x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+                        });
+                        if (subEntries.length >= 2) return subEntries;
+                    }
+
+                    // ── Strategy 2: innerText alternating-line parsing ──
+                    // PBI Card visuals containing N KPIs render as:
+                    //   label1 \\n value1 \\n label2 \\n value2 ...
+                    // where labels contain letters and values are short.
+                    // We need at least 2 pairs (4 lines) to call it multi-value.
+                    const isLabel = l => /[a-zA-Z_]/.test(l) && l.length > 2;
+                    const isValue = l => l.length <= 50;  // values are short
+
+                    // Check alternating pattern starting at line 0
+                    if (lines.length >= 4) {
+                        const pairs = [];
+                        let i = 0;
+                        while (i < lines.length - 1) {
+                            const lbl = lines[i];
+                            const val = lines[i + 1];
+                            if (isLabel(lbl) && isValue(val) && !isNoisyTitle(lbl)) {
+                                pairs.push([lbl, val]);
+                                i += 2;
+                            } else {
+                                break;
+                            }
+                        }
+                        if (pairs.length >= 2) {
+                            return pairs.map(([lbl, val], idx) => ({
+                                title: lbl,
+                                value: val,
+                                type: roleDesc,
+                                parent_type: roleDesc,
+                                sub_index: idx,
+                                fullText: `${lbl}\\n${val}`,
+                                is_noisy_title: isNoisyTitle(lbl),
+                                x: rect.x, y: rect.y,
+                                width: rect.width, height: rect.height,
+                            }));
+                        }
+                    }
+
+                    return [];  // Not a multi-value card
+                }
+
+                // Card types that may contain multiple KPI values
+                const MULTI_KPI_TYPES = new Set(['Card', 'Multi-row card']);
 
                 for (const div of innerDivs) {
                     const roleDesc = div.getAttribute('aria-roledescription') || '';
@@ -736,22 +823,27 @@ class PBIDashboardPage(BasePage):
                     const allText  = (vc ? vc.innerText : div.innerText || '').trim();
                     const lines    = allText.split('\\n').map(l => l.trim()).filter(Boolean);
                     const title    = lines.length > 0 ? lines[0] : '';
-                    
+
                     let x = 0, y = 0, width = 0, height = 0;
                     if (vc) {
                         const rect = vc.getBoundingClientRect();
-                        x = rect.x;
-                        y = rect.y;
-                        width = rect.width;
-                        height = rect.height;
+                        x = rect.x; y = rect.y; width = rect.width; height = rect.height;
                     } else {
                         const rect = div.getBoundingClientRect();
-                        x = rect.x;
-                        y = rect.y;
-                        width = rect.width;
-                        height = rect.height;
+                        x = rect.x; y = rect.y; width = rect.width; height = rect.height;
                     }
 
+                    // ── Attempt multi-KPI decomposition for Card / Multi-row card ──
+                    if (MULTI_KPI_TYPES.has(roleDesc) && vc) {
+                        const subKpis = decomposeMultiKpiCard(vc, roleDesc);
+                        if (subKpis.length >= 2) {
+                            // Push each sub-KPI as its own discoverable entry
+                            for (const sub of subKpis) results.push(sub);
+                            continue;  // skip the single parent-card push
+                        }
+                    }
+
+                    // Single-value visual (or non-card type) — push as-is
                     results.push({
                         title,
                         type:     roleDesc,
@@ -764,6 +856,7 @@ class PBIDashboardPage(BasePage):
             }
         """)
         return raw or []
+
 
 
     def _get_org_visual_titles(self) -> list[str]:
@@ -974,15 +1067,17 @@ class PBIDashboardPage(BasePage):
         """
         Extract card value for Publish-to-Web reports via JS evaluation.
 
-        KEY FINDING: For Card visuals, innerText structure is:
+        Handles both standalone Card visuals AND sub-KPIs inside Multi-row card
+        visuals. For Multi-row cards the method searches ALL text lines across
+        ALL multi-row visual containers until a line matching ``visual_title``
+        is found, then returns the value paired with that label.
+
+        KEY FINDING: For single Card visuals, innerText structure is:
             Line 0: Visual title (e.g. 'Sales')
             Line 1: (empty)
             Line 2: KPI value (e.g. '$1.7M')
-            Line 3: (empty)
-            Line 4: 'YoY' label
-            Line 5: comparison value
 
-        We return the FIRST numeric-looking non-empty line after the title.
+        For Multi-row card visuals, pairs alternate as label then value.
         """
         safe_title = visual_title.replace("'", "\\'")
         raw_value = self.page.evaluate(f"""
@@ -990,22 +1085,65 @@ class PBIDashboardPage(BasePage):
                 const innerDivs = document.querySelectorAll(
                     "[aria-roledescription]"
                 );
+
+                // ── Pass 1: Exact first-line match (standalone Card) ──
+                // A standalone Card's innerText starts with its title on line 0.
+                // We only accept this match if the title is truly line[0] — i.e.
+                // this visual "owns" the title, not just contains it in the middle.
                 for (const div of innerDivs) {{
                     const vc = div.closest('visual-container');
                     const allText = (vc ? vc.innerText : div.innerText || '').trim();
                     const lines   = allText.split('\\n').map(l => l.trim()).filter(Boolean);
                     if (lines.length === 0 || lines[0] !== '{safe_title}') continue;
 
-                    // Return the first line after the title that looks like a number
+                    // Return the first non-title line that looks like a KPI value.
+                    // Skip lines that look like dates (contain a weekday/month name)
+                    // or sub-KPI labels (contain 'of ' or end with '_name'/'_%').
+                    const datePattern = /\\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)\\b/i;
+                    const labelPattern = / of |_name|_%|^Sum |^First |^Count |^Average |^Max |^Min /i;
                     for (let i = 1; i < lines.length; i++) {{
                         const line = lines[i];
-                        // Must contain at least one digit and be reasonably short
-                        if (/[0-9]/.test(line) && line.length < 30 && !/^YoY/.test(line)) {{
+                        if (datePattern.test(line)) continue;   // skip dates
+                        if (labelPattern.test(line)) continue;  // skip sub-KPI labels
+                        // Accept: numeric value, percentage, short text
+                        if (line.length < 40 && line.length > 0 && !/^YoY/.test(line)) {{
                             return line;
                         }}
                     }}
-                    // Fallback: return second non-empty line
+                    // Fallback: second non-empty line
                     return lines.length > 1 ? lines[1] : allText;
+                }}
+
+                // ── Pass 2: Sub-KPI search across ALL card-type visuals ──
+                // Power BI renders multi-value cards as 'Card' OR 'Multi-row card'.
+                // We search every visual's full text for a line equal to the requested
+                // title, then return the NEXT non-empty line as the value.
+                // This handles sub-KPIs like 'Sum of danceability_%' sitting inside
+                // a 'Sum of acousticness_%' Card visual.
+                for (const div of innerDivs) {{
+                    const vc = div.closest('visual-container');
+                    const allText = (vc ? vc.innerText : div.innerText || '').trim();
+                    const lines   = allText.split('\\n').map(l => l.trim()).filter(Boolean);
+
+                    // Skip if title is line[0] — already handled by Pass 1
+                    if (lines.length > 0 && lines[0] === '{safe_title}') continue;
+
+                    for (let i = 0; i < lines.length; i++) {{
+                        if (lines[i] === '{safe_title}') {{
+                            // Value is the next non-empty line
+                            for (let j = i + 1; j < lines.length; j++) {{
+                                if (lines[j]) return lines[j];
+                            }}
+                        }}
+                    }}
+
+                    // Also try tab-separated pairs on the same line
+                    for (const line of lines) {{
+                        const parts = line.split('\\t').map(p => p.trim()).filter(Boolean);
+                        if (parts.length === 2 && parts[0] === '{safe_title}') {{
+                            return parts[1];
+                        }}
+                    }}
                 }}
                 return null;
             }}
@@ -1014,7 +1152,16 @@ class PBIDashboardPage(BasePage):
         if not raw_value:
             raise ValueError(
                 f"Could not extract value for card '{visual_title}'. "
-                f"Verify the visual title matches exactly and it is a Card visual."
+                f"Verify the visual title matches exactly and it is a Card or Multi-row card visual."
+            )
+        log.info(f"Card '{visual_title}' → raw value: '{raw_value}'")
+        return raw_value
+
+
+        if not raw_value:
+            raise ValueError(
+                f"Could not extract value for card '{visual_title}'. "
+                f"Verify the visual title matches exactly and it is a Card or Multi-row card visual."
             )
         log.info(f"Card '{visual_title}' → raw value: '{raw_value}'")
         return raw_value
@@ -1035,6 +1182,86 @@ class PBIDashboardPage(BasePage):
     # Table / Chart Data Extraction ("Show as a table")
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    def _extract_chart_data_ptw_aria(self, visual_title: str) -> list[dict]:
+        """
+        Extract chart data from Power BI's accessibility aria-label attributes.
+
+        Power BI renders aria-labels on every chart data point (bar, line point,
+        pie slice, etc.) for screen reader accessibility. These look like:
+          "The Weeknd. Sum of streams. 4,655,506,388."
+          "2023. Revenue. $1.2M."
+
+        This method scrapes those aria-labels directly — NO clicks, NO context
+        menu, works perfectly in headless mode.
+
+        Args:
+            visual_title: Exact first-line title of the chart visual.
+
+        Returns:
+            List of dicts with keys 'category', 'measure', 'value'.
+            Empty list if no aria-label data points found.
+        """
+        safe_title = visual_title.replace("'", "\\'")
+        rows = self.page.evaluate(f"""
+            () => {{
+                // Find the visual container whose first text line matches the title
+                const innerDivs = document.querySelectorAll('[aria-roledescription]');
+                let targetVc = null;
+                for (const div of innerDivs) {{
+                    const vc = div.closest('visual-container');
+                    if (!vc) continue;
+                    const firstLine = (vc.innerText || '').trim().split('\\n')[0].trim();
+                    if (firstLine === '{safe_title}') {{
+                        targetVc = vc;
+                        break;
+                    }}
+                }}
+                if (!targetVc) return [];
+
+                // Collect all elements with aria-label inside this visual container.
+                // PBI renders data point aria-labels on <rect>, <circle>, <path>,
+                // <g> and other SVG elements, plus on <div> for some visual types.
+                const candidates = targetVc.querySelectorAll('[aria-label]');
+                const rows = [];
+                const seen = new Set();
+
+                for (const el of candidates) {{
+                    const label = (el.getAttribute('aria-label') || '').trim();
+                    if (!label || label.length < 3) continue;
+                    if (seen.has(label)) continue;
+                    seen.add(label);
+
+                    // PBI format: "Category. Measure. Value." (3 dot-separated parts)
+                    // Strip trailing period, then split on '. '
+                    const clean = label.replace(/\\.$/, '');
+                    const parts = clean.split('. ');
+
+                    if (parts.length === 3) {{
+                        rows.push({{
+                            category: parts[0].trim(),
+                            measure:  parts[1].trim(),
+                            value:    parts[2].trim(),
+                        }});
+                    }} else if (parts.length === 2) {{
+                        rows.push({{
+                            category: parts[0].trim(),
+                            value:    parts[1].trim(),
+                        }});
+                    }} else if (parts.length > 3) {{
+                        // Some visuals put extra context: take first as category, last as value
+                        rows.push({{
+                            category: parts[0].trim(),
+                            measure:  parts.slice(1, -1).join(', '),
+                            value:    parts[parts.length - 1].trim(),
+                        }});
+                    }}
+                    // Ignore single-part labels (axis ticks, tooltips, etc.)
+                }}
+                return rows;
+            }}
+        """)
+        return rows or []
+
     def extract_table_data(
         self,
         visual_title: str,
@@ -1042,32 +1269,56 @@ class PBIDashboardPage(BasePage):
         visual_index: int | None = None,
     ) -> list[dict]:
         """
-        Extract underlying data from a chart/table visual using
-        Power BI's "Show as a table" / "Show data" feature.
+        Extract underlying data from a chart/table visual.
 
-        Process:
-          1. Right-click the visual to open the context menu.
-          2. Click "Show as a table".
-          3. Wait for PBI to render the data as an HTML table.
-          4. Scrape table headers and rows.
-          5. Click "Back to report" to return to normal view.
+        For PTW (Publish-to-Web) mode:
+          Strategy A — Aria-label scraping (headless-safe, no clicks):
+            Reads Power BI's accessibility aria-labels directly from SVG data points.
+            Returns {category, measure, value} dicts.
+          Strategy B — \"Show as a table\" UI flow (requires headed or accessible chart):
+            Right-clicks / hovers to open context menu → Show as a table.
+
+        For Org mode:
+          Only Strategy B (right-click context menu) is used.
 
         Args:
             visual_title: Exact title of the chart or table visual.  Pass an
                           empty string if using type+index strategy.
             visual_type:  ``aria-roledescription`` of the visual (e.g.
-                          ``"Clustered column chart"``) — used when
+                          ``\"Clustered column chart\"``) — used when
                           ``visual_title`` is blank.
             visual_index: 0-based index among visuals of ``visual_type``.
 
         Returns:
             List of dicts, one per data row. Keys are column headers.
-            Example: [{"region": "North", "sales": "123456"}, ...]
+            Example: [{\"region\": \"North\", \"sales\": \"123456\"}, ...]
             Note: All values are strings — use validation_utils to parse numerics.
         """
+
         label = visual_title or f"{visual_type}[{visual_index}]"
         log.info(f"Extracting table data for: '{label}'")
         ctx = self._get_context()
+
+        # ── Strategy A (PTW only): aria-label scraping — headless-safe, no clicks ──
+        if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB and visual_title:
+            try:
+                aria_rows = self._extract_chart_data_ptw_aria(visual_title)
+                if aria_rows:
+                    log.info(
+                        f"[aria] Extracted {len(aria_rows)} data points from "
+                        f"'{label}' via accessibility aria-labels"
+                    )
+                    return aria_rows
+                else:
+                    log.debug(
+                        f"[aria] No aria-label data points found in '{label}' "
+                        f"— falling through to Show-as-table UI flow"
+                    )
+            except Exception as e:
+                log.debug(f"[aria] Extraction failed for '{label}': {e} — trying UI flow")
+
+        # ── Strategy B: Show as a table UI flow ──────────────────────────────────
+
 
         show_as_table_sel = (
             PBILocators.PTW_SHOW_AS_TABLE
@@ -1095,18 +1346,93 @@ class PBIDashboardPage(BasePage):
             else PBILocators.ORG_DATA_TABLE_CELL
         )
 
-        # Right-click the visual to open context menu (supports title OR type+index)
+        # ── Open the visual context menu ─────────────────────────────────────
+        # PTW mode: right-click does NOT trigger PBI's context menu on publish-
+        # to-web embeds. Instead, hover the visual to reveal the header buttons,
+        # then click the '...' (More Options) button.
+        # Org mode: right-click works normally.
         title_el = self._find_visual_by_title(visual_title, visual_type, visual_index)
-        title_el.click(button="right", force=True)
+        context_opened = False
 
-        context_menu = ctx.locator(
-            PBILocators.PTW_CONTEXT_MENU
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_CONTEXT_MENU
-        )
-        context_menu.wait_for(state="visible", timeout=5_000)
+        if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB:
+            # Strategy 1: Get element coordinates → move mouse directly → More Options
+            # We use page.mouse.move() instead of locator.hover() because hover() has
+            # strict visibility pre-checks that fail in headless mode when the element
+            # is found but not 100% in the active viewport.
+            try:
+                # Scroll into view first
+                title_el.evaluate("el => el.scrollIntoView({block:'center', inline:'center'})")
+                self.page.wait_for_timeout(400)
 
-        # Check if "Show as a table" is actually available in the context menu
+                # Get bounding rect via JS — works even when hover() would reject it
+                rect = title_el.evaluate("""el => {
+                    const r = el.getBoundingClientRect();
+                    return {x: r.left + r.width/2, y: r.top + r.height/2,
+                            w: r.width, h: r.height};
+                }""")
+                cx, cy = rect["x"], rect["y"]
+
+                if cx > 0 and cy > 0 and rect["w"] > 0:
+                    # Move mouse to center of the visual
+                    self.page.mouse.move(cx, cy)
+                    self.page.wait_for_timeout(700)  # let PBI fade-in the header buttons
+                else:
+                    raise ValueError(f"Element bounding rect is zero/off-screen: {rect}")
+
+                # Look for More Options scoped inside the visual container
+                more_btn = title_el.locator(
+                    "button[aria-label='More options'], "
+                    "button[title='More options'], "
+                    "[class*='visualHeaderItemsContainer'] button:last-of-type, "
+                    "[class*='moreOptions']"
+                ).first
+                more_btn.wait_for(state="visible", timeout=3_000)
+                more_btn.click()
+
+                ctx.locator(PBILocators.PTW_CONTEXT_MENU).wait_for(
+                    state="visible", timeout=4_000
+                )
+                context_opened = True
+                log.debug(f"Context menu opened via mouse.move+More Options for '{label}'")
+            except Exception as e:
+                log.debug(f"mouse.move+More Options failed for '{label}': {e} — trying right-click")
+
+            # Strategy 2: JS dispatch mouseover events + right-click
+            if not context_opened:
+                try:
+                    # Dispatch JS hover events directly (bypasses Playwright checks)
+                    title_el.evaluate("""el => {
+                        el.dispatchEvent(new MouseEvent('mouseover', {bubbles:true}));
+                        el.dispatchEvent(new MouseEvent('mouseenter', {bubbles:true}));
+                    }""")
+                    self.page.wait_for_timeout(500)
+
+                    title_el.click(button="right", force=True, timeout=5_000)
+                    ctx.locator(PBILocators.PTW_CONTEXT_MENU).wait_for(
+                        state="visible", timeout=4_000
+                    )
+                    context_opened = True
+                    log.debug(f"Context menu opened via JS events + right-click for '{label}'")
+                except Exception as e:
+                    log.debug(f"JS events + right-click failed for '{label}': {e}")
+
+
+        else:
+            # Org mode — right-click works
+            title_el.click(button="right", force=True)
+            context_menu = ctx.locator(PBILocators.ORG_CONTEXT_MENU)
+            context_menu.wait_for(state="visible", timeout=5_000)
+            context_opened = True
+
+        if not context_opened:
+            raise ValueError(
+                f"Could not open context menu for visual '{label}'. "
+                f"The dashboard may not support 'Show as a table' in PTW embed mode, "
+                f"or the visual header buttons are not accessible in headless mode. "
+                f"Try running with headed=True to debug."
+            )
+
+        # Check if \"Show as a table\" is actually available in the context menu
         show_as_table_el = ctx.locator(show_as_table_sel)
         try:
             show_as_table_el.wait_for(state="visible", timeout=3_000)
@@ -1119,6 +1445,7 @@ class PBIDashboardPage(BasePage):
                 f"(Visual → Format → Show as a table). "
                 f"Contact the report author to enable it, or remove this visual from table_validations."
             )
+
 
         show_as_table_el.click()
 

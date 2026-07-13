@@ -1,0 +1,151 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Spotify Dashboard — Validation Config
+# Updated: 2026-07-10  (titles confirmed via live DOM discovery)
+# Dashboard:  spotify_test
+# URL:        https://app.powerbi.com/view?r=eyJrIjoiYzNiYmQxYTEtNTFlZS00NDZiLTk1YzQtOWViZDcwZTE1ZTQyIiwidCI6ImI1YWYyNDUxLWUyMWItNGFhMi1iNGI1LWRjNTkwNzkwOGRkOCJ9
+# Pages:      1 (single-page report)
+#
+# Visual layout confirmed from live discovery:
+#   • 2 standalone Card visuals: "Average Stream per Year", "Top Song Vs Average"
+#   • 1 multi-value Card: "First track_name" (contains sub-KPIs)
+#   • 1 multi-value Card: "Sum of acousticness_%" (contains sub-KPIs)
+#   • 3 chart visuals: Donut, Stacked bar, Line chart
+#
+# Validation mode: expected_value (direct YAML comparison, no DB/Excel aggregation)
+# is_text: true  → case-insensitive substring match (for text KPIs)
+# is_text: false → numeric comparison with tolerance
+#
+# ⚡ REVIEW CHECKLIST:
+#   1. Run: pytest tests/dashboard/test_kpi_validation.py --dashboard-config=<this_file> -s
+#   2. Check the HTML report at: reports/html_reports/dashboard_validation_report.html
+# ──────────────────────────────────────────────────────────────────────────────
+
+dashboard:
+  name: "spotify_test"
+  url: "https://app.powerbi.com/view?r=eyJrIjoiYzNiYmQxYTEtNTFlZS00NDZiLTk1YzQtOWViZDcwZTE1ZTQyIiwidCI6ImI1YWYyNDUxLWUyMWItNGFhMi1iNGI1LWRjNTkwNzkwOGRkOCJ9"
+  pages: []  # Single-page report
+
+source_db:
+  driver:   ""
+  host:     ""
+  port:     ""
+  database: ""
+  username: ""
+  password: ""
+
+source_excel:
+  filepath:   ""   # Not used — expected_value mode
+  sheet_name: ""
+
+# ──────────────────────────────────────────────────────────────────────────────
+# KPI Validations
+#
+# Titles are EXACT matches from live DOM discovery (2026-07-10).
+# Sub-KPIs (e.g. "First artist(s)_name") live inside a multi-value Card visual
+# and are extracted via Pass 2 of _extract_card_value_ptw (sub-KPI line search).
+#
+# INTENTIONAL MISMATCHES (designed to generate FAIL rows in report):
+#   - "First artist(s)_name": expected The Beatles, dashboard shows The Weeknd → FAIL
+# ──────────────────────────────────────────────────────────────────────────────
+kpi_validations:
+
+  # ── Standalone Card visuals ─────────────────────────────────────────────────
+  - visual_title:   "Average Stream per Year"
+    page:           ""
+    expected_value: 514140000    # Dashboard displays "514.14M"
+    is_text:        false
+    tolerance:      0.02         # 2% — formatted value loses precision
+
+  - visual_title:   "Top Song Vs Average"
+    page:           ""
+    expected_value: 999.0        # INTENTIONAL MISMATCH — dashboard shows 620.4% → demonstrates FAIL in report
+    is_text:        false
+    tolerance:      0.01
+
+  # ── Multi-value Card: "First track_name" ───────────────────────────────────
+  # This Card renders multiple KPIs: track name + artist name
+  - visual_title:   "First track_name"
+    page:           ""
+    expected_value: "Blinding Lights"
+    is_text:        true
+    tolerance:      0.01
+
+  - visual_title:   "First artist(s)_name"
+    page:           ""
+    expected_value: "The Weeknd"   # Correct expected value — dashboard shows "The Weeknd" → PASS
+    is_text:        true
+    tolerance:      0.01
+
+  # ── Multi-value Card: "Sum of acousticness_%" ───────────────────────────────
+  # This Card renders 4 KPIs: acousticness, danceability, liveness, speechiness
+  - visual_title:   "Sum of acousticness_%"
+    page:           ""
+    expected_value: 0            # Dashboard displays "0"
+    is_text:        false
+    tolerance:      0.01
+
+  - visual_title:   "Sum of danceability_%"
+    page:           ""
+    expected_value: 50           # Dashboard displays "50"
+    is_text:        false
+    tolerance:      0.01
+
+  - visual_title:   "Sum of liveness_%"
+    page:           ""
+    expected_value: 9            # Dashboard displays "9" (approximate — update after first run)
+    is_text:        false
+    tolerance:      0.01
+
+  - visual_title:   "Sum of speechiness_%"
+    page:           ""
+    expected_value: 7            # Dashboard displays "7" (approximate — update after first run)
+    is_text:        false
+    tolerance:      0.01
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Chart Validations
+# ──────────────────────────────────────────────────────────────────────────────
+table_validations:
+
+  - visual_title: "Top 10 Artists"
+    visual_type:  "Donut chart"
+    visual_index: 0
+    page:         ""
+    sql_query:    ""
+    join_keys:    [""]
+    compare_cols: [""]
+    tolerance:    0.01
+
+  - visual_title: "Sum of streams by track_name"
+    visual_type:  "Stacked bar chart"
+    visual_index: 0
+    page:         ""
+    sql_query:    ""
+    join_keys:    [""]
+    compare_cols: [""]
+    tolerance:    0.01
+
+  - visual_title: "Count of Track Names by Date"
+    visual_type:  "Line chart"
+    visual_index: 0
+    page:         ""
+    sql_query:    ""
+    join_keys:    [""]
+    compare_cols: [""]
+    tolerance:    0.01
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Slicer State Validation
+# ──────────────────────────────────────────────────────────────────────────────
+expected_filters:
+  - slicer_title: "Select"
+    page:         ""
+    expected_value: "Select\nall"
+  - slicer_title: "Artist"
+    page:         ""
+    expected_value: "Select all"
+  - slicer_title: "Date"
+    page:         ""
+    expected_value: "Wednesday, January 1, 1930"

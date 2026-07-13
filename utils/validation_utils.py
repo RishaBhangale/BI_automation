@@ -65,6 +65,11 @@ def parse_pbi_number(raw: str) -> Optional[float]:
     # Strip currency symbols and spaces: $, £, €, ₹, ¥
     cleaned = re.sub(r"[£$€₹¥\s]", "", cleaned)
 
+    # Strip trailing trend/arrow symbols that Power BI appends to percentage KPIs:
+    # e.g. "620.4% ▲" → "620.4%", "45% ▼" → "45%"
+    cleaned = re.sub(r"[\s▲▼↑↓⇗⇘⇑⇓→←⟶]+$", "", cleaned).strip()
+
+
     # Strip percentage sign — keep the numeric value as-is (87.5% → 87.5)
     is_percent = cleaned.endswith("%")
     if is_percent:

@@ -88,7 +88,49 @@ def test_all_kpis(dashboard_page, db_engine, dashboard_config):
             log.error(f"FAIL — {r['visual_title']}: {r['detail']}")
 
     log.info(f"KPI Summary: {passed}/{total} passed")
-    log.info("STEP3_END")
+
+    # ── Step 4 ─────────────────────────────────────────────────────────────────
+    log.info("STEP4_START|Chart data snapshot (Show as a table)")
+    chart_configs = dashboard_config.get("table_validations", [])
+    if not chart_configs:
+        log.info("No chart validations configured — skipping chart snapshot")
+    else:
+        from locators.pbi_locators import PBILocators
+        snap_pass = 0
+        snap_fail = 0
+        for chart_cfg in chart_configs:
+            ctitle  = chart_cfg.get("visual_title", "")
+            ctype   = chart_cfg.get("visual_type", "")
+            cidx    = chart_cfg.get("visual_index") or 0
+            cpage   = chart_cfg.get("page", "")
+            if cpage:
+                try:
+                    dashboard_page.switch_to_page(cpage)
+                except Exception:
+                    pass
+            try:
+                rows = dashboard_page.extract_table_data(
+                    visual_title=ctitle,
+                    visual_type=ctype or None,
+                    visual_index=int(cidx),
+                )
+                if rows:
+                    cols    = list(rows[0].keys()) if rows else []
+                    preview = " | ".join(str(v) for v in list(rows[0].values())[:4]) if rows else "(empty)"
+                    log.info(
+                        f"[CHART SNAP] '{ctitle or ctype}' — "
+                        f"{len(rows)} rows, columns: {cols[:6]} — "
+                        f"row[0]: {preview}"
+                    )
+                    snap_pass += 1
+                else:
+                    log.info(f"[CHART SNAP] '{ctitle or ctype}' — 0 rows extracted (chart may be empty)")
+                    snap_fail += 1
+            except Exception as e:
+                log.warning(f"[CHART SNAP] '{ctitle or ctype}' — could not extract: {e}")
+                snap_fail += 1
+        log.info(f"Chart snapshot summary: {snap_pass}/{len(chart_configs)} extracted")
+    log.info("STEP4_END")
 
     failure_summary = "\n".join(
         f"  \u2717 [{r['page']}] {r['visual_title']}: {r['detail']}"

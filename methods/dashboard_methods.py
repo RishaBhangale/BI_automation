@@ -90,8 +90,31 @@ def validate_kpi(
             df = load_source_excel(excel_filepath, sheet or "Sheet1")
             source_value = aggregate_column(df, excel_column, excel_agg)
 
+        elif kpi_config.get("expected_value") is not None:
+            # Direct YAML expected_value comparison — no DB or Excel aggregation needed.
+            # Use is_text: true in the YAML for text-based KPIs (track names, dates, etc.)
+            is_text = kpi_config.get("is_text", False)
+            expected_raw = kpi_config["expected_value"]
+            if is_text:
+                # Case-insensitive substring match (dashboard may abbreviate)
+                passed = str(expected_raw).strip().lower() in dashboard_raw.strip().lower()
+                detail = (
+                    f"dashboard='{dashboard_raw}' expected='{expected_raw}' "
+                    f"[text match: {'PASS' if passed else 'FAIL'}]"
+                )
+                log.info(f"[{'PASS' if passed else 'FAIL'}] '{visual_title}': {detail}")
+                return _make_result(visual_title, page_name, passed, detail)
+            else:
+                try:
+                    source_value = float(expected_raw)
+                except (TypeError, ValueError):
+                    return _make_result(
+                        visual_title, page_name, False,
+                        f"expected_value '{expected_raw}' could not be converted to float"
+                    )
+
         else:
-            # No source DB or Excel configured.
+            # No source DB, Excel, or expected_value configured.
             # extraction_only mode: just verify the value can be extracted and parsed.
             # This is useful for smoke tests on public dashboards where no source is available.
             from utils.validation_utils import parse_pbi_number

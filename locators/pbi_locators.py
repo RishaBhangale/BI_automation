@@ -111,7 +111,7 @@ class PBILocators:
         'Map', 'Filled map', 'Shape map', 'Azure map',
         # Tabular
         'Table', 'Matrix',
-        # Gauge / bullet
+        # Gauge / bullet — validated as table data (not KPI card)
         'Gauge', 'Card (new)',
     }
 
@@ -145,6 +145,29 @@ class PBILocators:
         "[class*='kpi']",
     ]
 
+    # ── Multi-row card sub-item selectors ───────────────────────────────────
+    # Power BI packs multiple KPI sub-values inside a single Multi-row card
+    # visual container. These selectors are candidate patterns discovered via
+    # dynamic JS DOM crawl — NOT hardcoded for any specific dashboard.
+    # The extraction logic in pbi_dashboard_page.py tries them in order and
+    # uses the one that yields the most sub-items.
+    PTW_MULTIROW_CARD_ITEM    = (
+        "[class*='cardItemContainer'], "
+        "[class*='cardItem'], "
+        "[class*='row'] [class*='card']"
+    )
+    PTW_MULTIROW_CARD_LABEL   = (
+        "[class*='caption'], "
+        "[class*='label'], "
+        "[class*='category'], "
+        "[class*='title']"
+    )
+    PTW_MULTIROW_CARD_VALUE   = (
+        "[class*='value'], "
+        "[class*='callout'], "
+        "[class*='data']"
+    )
+
     # ── Loading state ───────────────────────────────────────────────────────
     # The explore-canvas is the report rendering area.
     # Wait for it to appear before interacting.
@@ -175,6 +198,16 @@ class PBILocators:
     PTW_CONTEXT_MENU       = "div[class*='contextMenu'], ul[class*='contextMenu']"
     PTW_SHOW_AS_TABLE      = "button:has-text('Show as a table'), li:has-text('Show data')"
     PTW_BACK_TO_REPORT     = "button:has-text('Back to report')"
+    # The '...' More Options button that appears when hovering a visual in PTW mode.
+    # This is the correct way to open the context menu on PTW embeds
+    # (right-click does NOT trigger the PBI context menu on publish-to-web).
+    PTW_MORE_OPTIONS       = (
+        "button[aria-label='More options'], "
+        "button[title='More options'], "
+        "[class*='visualHeaderItemsContainer'] button:last-of-type, "
+        "[class*='moreOptions'], "
+        "[aria-label*='more' i]"
+    )
 
     # ── Data table (after "Show as a table") ────────────────────────────────
     PTW_DATA_TABLE         = "[class*='dataViewTable'], [class*='pivotTable']"

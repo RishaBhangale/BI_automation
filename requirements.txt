@@ -16,3 +16,4 @@ psycopg2-binary       # PostgreSQL
 # pyodbc                # SQL Server (mssql+pyodbc)
 # snowflake-sqlalchemy  # Snowflake
 # pymysql               # MySQL (mysql+pymysql)
+playwright-stealth>=2.0.0
