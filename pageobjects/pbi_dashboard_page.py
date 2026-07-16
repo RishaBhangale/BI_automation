@@ -871,9 +871,8 @@ class PBIDashboardPage(BasePage):
         """
         Find the <visual-container> element for a named visual (Publish-to-Web mode).
 
-        Strategy: uses JS to find the [aria-roledescription] div whose parent visual-container
-        first text line matches the visual title, then tags it with a data-pw-title
-        attribute so Playwright can locate it.
+        Used by KPI card extraction — returns the outer visual-container, which
+        is sufficient for reading innerText/aria-labels on its children.
 
         Args:
             visual_title: Exact first-line title of the visual.
@@ -895,11 +894,14 @@ class PBIDashboardPage(BasePage):
                     const allText = (vc ? vc.innerText : div.innerText || '').trim();
                     const firstLine = allText.split('\\n')[0].trim();
                     if (firstLine === '{safe_title}') {{
-                        // Tag the outer visual-container so Playwright can find it
+                        // Tag both the outer shell AND the inner div so callers can
+                        // use whichever has real pixel dimensions.
                         if (vc) {{
                             vc.setAttribute('data-pw-title', '{safe_title}');
-                            return true;
                         }}
+                        // Tag the inner div — this one always has real pixel dimensions
+                        div.setAttribute('data-pw-inner-title', '{safe_title}');
+                        return true;
                     }}
                 }}
                 return false;
@@ -913,6 +915,37 @@ class PBIDashboardPage(BasePage):
                 f"Available: {available}"
             )
         return self.page.locator(f"visual-container[data-pw-title='{safe_title}']")
+
+    def _find_visual_inner_div_ptw(self, visual_title: str) -> "Locator":
+        """
+        Return the INNER [aria-roledescription] div for a named PTW visual.
+
+        Unlike _find_visual_container_ptw (which returns the outer
+        visual-container custom element), this returns the child div that
+        Power BI renders with real pixel dimensions. This is the correct
+        element to hover or click for showing the '...' More Options button,
+        because the outer visual-container has zero width/height in PTW embeds.
+
+        Args:
+            visual_title: Exact first-line title of the visual.
+
+        Returns:
+            Playwright Locator for the inner [aria-roledescription] div.
+
+        Raises:
+            ValueError: If no visual with the given title is found.
+        """
+        # _find_visual_container_ptw already tags the inner div with data-pw-inner-title
+        # as a side-effect — call it to ensure tagging is done, then return the inner div.
+        self._find_visual_container_ptw(visual_title)  # ensures tagging
+        safe_title = visual_title.replace("'", "\\'")
+        inner = self.page.locator(f"[data-pw-inner-title='{safe_title}']")
+        if inner.count() == 0:
+            raise ValueError(
+                f"Inner div for visual '{visual_title}' not found after tagging. "
+                f"This is unexpected — check DOM structure."
+            )
+        return inner.first
 
     def _find_visual_by_type_index_ptw(
         self, visual_type: str, visual_index: int
@@ -961,10 +994,9 @@ class PBIDashboardPage(BasePage):
                 const vc  = div.closest('visual-container');
                 if (vc) {{
                     vc.setAttribute('{tag_attr}', '{tag_value}');
-                    return true;
                 }}
-                // No visual-container — tag the div itself
-                div.setAttribute('{tag_attr}', '{tag_value}');
+                // Always tag the inner div — it has real pixel dimensions
+                div.setAttribute('data-pw-inner-type-idx', '{tag_value}');
                 return true;
             }}
         """)
@@ -1204,7 +1236,134 @@ class PBIDashboardPage(BasePage):
         safe_title = visual_title.replace("'", "\\'")
         rows = self.page.evaluate(f"""
             () => {{
-                // Find the visual container whose first text line matches the title
+                const innerDivs = document.querySelectorAll('[aria-roledescription]');
+                let targetVc = null;
+                for (const div of innerDivs) {{
+                    const vc = div.closest('visual-container');
+                    if (!vc) continue;
+                    const firstLine = (vc.innerText || '').trim().split('\\n')[0].trim();
+                    if (firstLine === '{safe_title}') {{ targetVc = vc; break; }}
+                }}
+                if (!targetVc) return [];
+
+                // ── Pass 1: Standard "Category. Measure. Value." aria-label format ──
+                const candidates = targetVc.querySelectorAll('[aria-label]');
+                const rows = [];
+                const seen = new Set();
+                for (const el of candidates) {{
+                    const label = (el.getAttribute('aria-label') || '').trim();
+                    if (!label || label.length < 3) continue;
+                    if (seen.has(label)) continue;
+                    seen.add(label);
+                    const clean = label.replace(/\\.$/, '');
+                    const parts = clean.split('. ');
+                    if (parts.length === 3) {{
+                        rows.push({{ category: parts[0].trim(), measure: parts[1].trim(), value: parts[2].trim() }});
+                    }} else if (parts.length === 2) {{
+                        rows.push({{ category: parts[0].trim(), value: parts[1].trim() }});
+                    }} else if (parts.length > 3) {{
+                        rows.push({{ category: parts[0].trim(), measure: parts.slice(1,-1).join(', '), value: parts[parts.length-1].trim() }});
+                    }}
+                    // Single-part labels are axis ticks — skip
+                }}
+                if (rows.length > 0) return rows;
+
+                // ── Pass 2: column-chart-rect + axis-tick-text pairing ─────────────
+                // Large bar/column charts: PBI puts raw numeric values as aria-label
+                // on [data-automation-type="column-chart-rect"] rects, and category
+                // names in [data-automation-type="axis-tick-text"] text elements.
+                // Match N-th bar rect → N-th axis tick label (mod category count).
+                const barRects = Array.from(targetVc.querySelectorAll(
+                    '[data-automation-type="column-chart-rect"],[data-automation-type="bar-chart-rect"]'
+                ));
+                const axisTickEls = Array.from(targetVc.querySelectorAll(
+                    '[data-automation-type="axis-tick-text"]'
+                ));
+                // PBI renders every text string TWICE (visual + accessibility shadow),
+                // producing "Blinding LightsBlinding Lights" from textContent.
+                // dedup() detects and removes the repeat.
+                const dedup = s => {{
+                    if (s.length % 2 !== 0) return s;
+                    const half = s.slice(0, s.length / 2);
+                    return (half + half === s) ? half : s;
+                }};
+                const axisLabels = [...new Set(
+                    axisTickEls
+                        .map(el => dedup((el.textContent || '').trim()))
+                        .filter(t => t && !/^[\\d.,]+$/.test(t))
+                )];
+
+                if (barRects.length > 0 && axisLabels.length > 0) {{
+                    const nCats = axisLabels.length;
+                    const seenKey = new Set();
+                    barRects.forEach((rect, i) => {{
+                        const val = (rect.getAttribute('aria-label') || '').trim();
+                        const cat = axisLabels[i % nCats];
+                        if (!cat || !val) return;
+                        const key = cat + '|' + val;
+                        if (seenKey.has(key)) return;
+                        seenKey.add(key);
+                        rows.push({{ category: cat, value: val }});
+                    }});
+                    if (rows.length > 0) return rows;
+                }}
+
+                // ── Pass 3: SVG <text> category + adjacent numeric value ────────────
+                // Fallback for any chart where only SVG text is rendered.
+                const numericRe = /^[\\d,\\.\\s%$€£¥bn]+$/i;
+                const svgTexts = Array.from(targetVc.querySelectorAll('text'))
+                    .map(t => (t.textContent || '').trim()).filter(t => t.length > 1);
+                const cats = [...new Set(svgTexts.filter(t => !numericRe.test(t)))];
+                const vals = [...new Set(svgTexts.filter(t => numericRe.test(t) && !/^[\\s]+$/.test(t)))];
+                if (cats.length > 0 && vals.length > 0 && cats.length === vals.length) {{
+                    cats.forEach((c, i) => rows.push({{ category: c, value: vals[i] }}));
+                }}
+
+                return rows;
+            }}
+        """)
+        return rows or []
+
+    def _extract_table_visual_ptw_dom(self, visual_title: str) -> list[dict]:
+        """
+        Extract data from a PBI Table or Matrix visual in PTW mode by scraping
+        the DOM's grid/table role elements directly — NO clicks, NO context menu.
+
+        Power BI Table and Matrix visuals render their data as:
+          <div role="grid" aria-rowcount="N" aria-colcount="M">
+            <div role="rowgroup">                    ← header
+              <div role="row">
+                <div role="columnheader">Col A</div>
+                <div role="columnheader">Col B</div>
+              </div>
+            </div>
+            <div role="rowgroup">                    ← body (virtualised!)
+              <div role="row">
+                <div role="gridcell">val1</div>
+                <div role="gridcell">val2</div>
+              </div>
+              ...
+            </div>
+          </div>
+
+        Limitations:
+          • Virtualised scrolling — only currently rendered rows are in the DOM
+            (typically ~20-40 rows depending on row height and visual size).
+          • aria-rowcount on the grid tells us the TRUE total row count, which
+            we surface as metadata so the caller knows this is a partial extract.
+
+        Args:
+            visual_title: Exact first-line title of the visual.
+
+        Returns:
+            List of dicts. Keys are column header texts. Each dict is one row.
+            The first dict may contain a special key '__meta__' with:
+              {'total_rows': N, 'visible_rows': M, 'partial': True/False}
+        """
+        safe_title = visual_title.replace("'", "\\'")
+        result = self.page.evaluate(f"""
+            () => {{
+                // Find the visual-container whose title matches
                 const innerDivs = document.querySelectorAll('[aria-roledescription]');
                 let targetVc = null;
                 for (const div of innerDivs) {{
@@ -1216,51 +1375,83 @@ class PBIDashboardPage(BasePage):
                         break;
                     }}
                 }}
-                if (!targetVc) return [];
+                if (!targetVc) return {{ error: 'visual not found', rows: [] }};
 
-                // Collect all elements with aria-label inside this visual container.
-                // PBI renders data point aria-labels on <rect>, <circle>, <path>,
-                // <g> and other SVG elements, plus on <div> for some visual types.
-                const candidates = targetVc.querySelectorAll('[aria-label]');
-                const rows = [];
-                const seen = new Set();
+                // Find the grid element (PBI table visual uses role='grid')
+                const grid = targetVc.querySelector('[role="grid"], [role="treegrid"]');
+                if (!grid) return {{ error: 'no grid found', rows: [] }};
 
-                for (const el of candidates) {{
-                    const label = (el.getAttribute('aria-label') || '').trim();
-                    if (!label || label.length < 3) continue;
-                    if (seen.has(label)) continue;
-                    seen.add(label);
+                const totalRows  = parseInt(grid.getAttribute('aria-rowcount') || '0', 10);
+                const totalCols  = parseInt(grid.getAttribute('aria-colcount')  || '0', 10);
 
-                    // PBI format: "Category. Measure. Value." (3 dot-separated parts)
-                    // Strip trailing period, then split on '. '
-                    const clean = label.replace(/\\.$/, '');
-                    const parts = clean.split('. ');
-
-                    if (parts.length === 3) {{
-                        rows.push({{
-                            category: parts[0].trim(),
-                            measure:  parts[1].trim(),
-                            value:    parts[2].trim(),
-                        }});
-                    }} else if (parts.length === 2) {{
-                        rows.push({{
-                            category: parts[0].trim(),
-                            value:    parts[1].trim(),
-                        }});
-                    }} else if (parts.length > 3) {{
-                        // Some visuals put extra context: take first as category, last as value
-                        rows.push({{
-                            category: parts[0].trim(),
-                            measure:  parts.slice(1, -1).join(', '),
-                            value:    parts[parts.length - 1].trim(),
-                        }});
-                    }}
-                    // Ignore single-part labels (axis ticks, tooltips, etc.)
+                // Read column headers from the first rowgroup's columnheader cells
+                const headers = [];
+                const headerCells = grid.querySelectorAll(
+                    '[role="columnheader"], [role="rowheader"]:first-child'
+                );
+                for (const cell of headerCells) {{
+                    // PBI puts the text in a span inside the header cell
+                    const txt = (cell.innerText || '').trim().replace(/\\n/g, ' ');
+                    if (txt) headers.push(txt);
                 }}
-                return rows;
+
+                // Read data rows from gridcell elements
+                const rows = [];
+                const dataRows = grid.querySelectorAll('[role="row"]:not([aria-hidden="true"])');
+                for (const row of dataRows) {{
+                    const cells = row.querySelectorAll('[role="gridcell"], [role="rowheader"]');
+                    if (cells.length === 0) continue;
+                    const rowData = {{}};
+                    cells.forEach((cell, i) => {{
+                        const key = headers[i] || `col_${{i}}`;
+                        rowData[key] = (cell.innerText || '').trim().replace(/\\n/g, ' ');
+                    }});
+                    // Skip rows that are all empty (PBI sometimes renders ghost rows)
+                    if (Object.values(rowData).every(v => v === '')) continue;
+                    rows.push(rowData);
+                }};
+
+                return {{
+                    total_rows:   totalRows,
+                    visible_rows: rows.length,
+                    partial:      totalRows > 0 && rows.length < totalRows,
+                    headers:      headers,
+                    rows:         rows,
+                }};
             }}
         """)
-        return rows or []
+
+        if not result or result.get("error"):
+            log.debug(
+                f"[dom-table] No grid found in '{visual_title}': "
+                f"{result.get('error', 'unknown error')}"
+            )
+            return []
+
+        total   = result.get("total_rows", 0)
+        visible = result.get("visible_rows", 0)
+        partial = result.get("partial", False)
+        rows    = result.get("rows", [])
+
+        if partial:
+            log.warning(
+                f"[dom-table] '{visual_title}' — virtualised table: "
+                f"{visible} of {total} rows in DOM. "
+                f"Only visible rows extracted. "
+                f"For full data use SQL direct comparison."
+            )
+        else:
+            log.info(
+                f"[dom-table] '{visual_title}' — extracted {visible} rows "
+                f"(total per aria-rowcount: {total})"
+            )
+
+        # Prepend a metadata sentinel row so callers know it's partial
+        if partial and rows:
+            meta = {"__meta__": f"PARTIAL: {visible}/{total} rows visible in DOM"}
+            rows = [meta] + rows
+
+        return rows
 
     def extract_table_data(
         self,
@@ -1275,7 +1466,9 @@ class PBIDashboardPage(BasePage):
           Strategy A — Aria-label scraping (headless-safe, no clicks):
             Reads Power BI's accessibility aria-labels directly from SVG data points.
             Returns {category, measure, value} dicts.
-          Strategy B — \"Show as a table\" UI flow (requires headed or accessible chart):
+          Strategy A2 — DOM grid/table row scraping (headless-safe, no clicks):
+            Reads PBI Table/Matrix visuals directly from the DOM using role='grid'.
+          Strategy B — "Show as a table" UI flow (requires headed or accessible chart):
             Right-clicks / hovers to open context menu → Show as a table.
 
         For Org mode:
@@ -1291,7 +1484,7 @@ class PBIDashboardPage(BasePage):
 
         Returns:
             List of dicts, one per data row. Keys are column headers.
-            Example: [{\"region\": \"North\", \"sales\": \"123456\"}, ...]
+            Example: [{"region": "North", "sales": "123456"}, ...]
             Note: All values are strings — use validation_utils to parse numerics.
         """
 
@@ -1317,8 +1510,31 @@ class PBIDashboardPage(BasePage):
             except Exception as e:
                 log.debug(f"[aria] Extraction failed for '{label}': {e} — trying UI flow")
 
-        # ── Strategy B: Show as a table UI flow ──────────────────────────────────
+        # ── Strategy A2 (PTW only): DOM grid/table row scraping ──────────────────
+        # For Table and Matrix visuals in PTW — PBI renders data as div[role='grid']
+        # with div[role='gridcell'] children. No clicks or context menus needed.
+        # Note: virtualised scrolling means only visible rows (~20-40) are in DOM.
+        if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB and visual_title:
+            try:
+                dom_rows = self._extract_table_visual_ptw_dom(visual_title)
+                if dom_rows:
+                    data_rows = [r for r in dom_rows if "__meta__" not in r]
+                    log.info(
+                        f"[dom-table] Extracted {len(data_rows)} visible rows from "
+                        f"'{label}' via DOM grid scraping"
+                    )
+                    return dom_rows  # includes meta row so report shows partial warning
+                else:
+                    log.debug(
+                        f"[dom-table] No grid rows found in '{label}' "
+                        f"— falling through to Show-as-table UI flow"
+                    )
+            except Exception as e:
+                log.debug(f"[dom-table] Extraction failed for '{label}': {e} — trying UI flow")
 
+        # ── Strategy B: Show as a table UI flow ──────────────────────────────────
+        # PTW: disabled by PBI for most visual types (no More Options button rendered).
+        # Org mode: right-click context menu always works.
 
         show_as_table_sel = (
             PBILocators.PTW_SHOW_AS_TABLE
@@ -1347,24 +1563,36 @@ class PBIDashboardPage(BasePage):
         )
 
         # ── Open the visual context menu ─────────────────────────────────────
-        # PTW mode: right-click does NOT trigger PBI's context menu on publish-
-        # to-web embeds. Instead, hover the visual to reveal the header buttons,
-        # then click the '...' (More Options) button.
-        # Org mode: right-click works normally.
-        title_el = self._find_visual_by_title(visual_title, visual_type, visual_index)
+        # PTW mode: the outer visual-container custom element has ZERO pixel
+        # dimensions in PTW embeds — can't hover or click it. The inner
+        # [aria-roledescription] div has real dimensions (e.g. 450×300) and
+        # is what PBI attaches header hover effects to.
+        # Org mode: right-click on the outer container works normally.
         context_opened = False
 
         if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB:
-            # Strategy 1: Get element coordinates → move mouse directly → More Options
-            # We use page.mouse.move() instead of locator.hover() because hover() has
-            # strict visibility pre-checks that fail in headless mode when the element
-            # is found but not 100% in the active viewport.
+            # Resolve the inner div with real pixel dimensions
+            if visual_title:
+                title_el = self._find_visual_inner_div_ptw(visual_title)
+            else:
+                # type+index: _find_visual_by_title tags inner div as data-pw-inner-type-idx
+                self._find_visual_by_title(visual_title, visual_type, visual_index)
+                tag_value = f"{visual_type}_{visual_index}"
+                title_el = self.page.locator(
+                    f"[data-pw-inner-type-idx='{tag_value}']"
+                ).first
+        else:
+            title_el = self._find_visual_by_title(visual_title, visual_type, visual_index)
+
+        if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB:
+            # Strategy 1: Get element coordinates → move mouse → More Options button
+            # Now that title_el is the inner div (real pixel dimensions), this works.
             try:
                 # Scroll into view first
                 title_el.evaluate("el => el.scrollIntoView({block:'center', inline:'center'})")
                 self.page.wait_for_timeout(400)
 
-                # Get bounding rect via JS — works even when hover() would reject it
+                # Get bounding rect — the inner div has real dimensions unlike the shell
                 rect = title_el.evaluate("""el => {
                     const r = el.getBoundingClientRect();
                     return {x: r.left + r.width/2, y: r.top + r.height/2,
@@ -1373,13 +1601,13 @@ class PBIDashboardPage(BasePage):
                 cx, cy = rect["x"], rect["y"]
 
                 if cx > 0 and cy > 0 and rect["w"] > 0:
-                    # Move mouse to center of the visual
+                    log.debug(f"Inner div bounding rect for '{label}': {rect}")
                     self.page.mouse.move(cx, cy)
                     self.page.wait_for_timeout(700)  # let PBI fade-in the header buttons
                 else:
-                    raise ValueError(f"Element bounding rect is zero/off-screen: {rect}")
+                    raise ValueError(f"Inner div bounding rect is zero/off-screen: {rect}")
 
-                # Look for More Options scoped inside the visual container
+                # Look for More Options button scoped inside the visual
                 more_btn = title_el.locator(
                     "button[aria-label='More options'], "
                     "button[title='More options'], "
@@ -1397,10 +1625,9 @@ class PBIDashboardPage(BasePage):
             except Exception as e:
                 log.debug(f"mouse.move+More Options failed for '{label}': {e} — trying right-click")
 
-            # Strategy 2: JS dispatch mouseover events + right-click
+            # Strategy 2: JS dispatch mouseover events + right-click fallback
             if not context_opened:
                 try:
-                    # Dispatch JS hover events directly (bypasses Playwright checks)
                     title_el.evaluate("""el => {
                         el.dispatchEvent(new MouseEvent('mouseover', {bubbles:true}));
                         el.dispatchEvent(new MouseEvent('mouseenter', {bubbles:true}));
@@ -1416,13 +1643,13 @@ class PBIDashboardPage(BasePage):
                 except Exception as e:
                     log.debug(f"JS events + right-click failed for '{label}': {e}")
 
-
         else:
-            # Org mode — right-click works
+            # Org mode — right-click works on the outer container
             title_el.click(button="right", force=True)
             context_menu = ctx.locator(PBILocators.ORG_CONTEXT_MENU)
             context_menu.wait_for(state="visible", timeout=5_000)
             context_opened = True
+
 
         if not context_opened:
             raise ValueError(

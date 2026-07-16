@@ -70,6 +70,66 @@ KPI_TYPES: frozenset[str] = frozenset({
 # Visual types that we treat as charts/tables (data extraction possible)
 CHART_TYPES: frozenset[str] = PBILocators.PTW_TESTABLE_TYPES - KPI_TYPES
 
+# ── Chart extraction capability ────────────────────────────────────────────────
+# Chart types where PBI renders aria-label on every SVG data point.
+# _extract_chart_data_ptw_aria() works reliably on these in headless mode.
+ARIA_EXTRACTABLE_TYPES: frozenset[str] = frozenset({
+    "Clustered bar chart",
+    "Clustered column chart",
+    "Stacked bar chart",
+    "Stacked column chart",
+    "100% stacked bar chart",
+    "100% stacked column chart",
+    "Pie chart",
+    "Donut chart",
+    "Treemap",
+    "Funnel",
+    "Waterfall chart",
+    "Ribbon chart",
+    # Line/area charts work when data point markers are enabled by the author
+    "Line chart",
+    "Area chart",
+    "Line and stacked column chart",
+    "Line and clustered column chart",
+    # Scatter renders a circle per data point
+    "Scatter chart",
+})
+
+# Chart types that need "Show as a table" (requires UI hover/click on inner div)
+# or direct SQL comparison instead of aria scraping.
+SHOW_AS_TABLE_TYPES: frozenset[str] = frozenset({
+    "Table",
+    "Matrix",
+    "Map",
+    "Filled map",
+    "Azure map",
+    "Shape map",
+    "Decomposition tree",
+    "Key influencers",
+    "Smart narrative",
+    "Q&A visual",
+    "Paginated report visual",
+    "Python visual",
+    "R visual",
+})
+
+
+def _chart_extraction_method(vtype: str) -> str:
+    """
+    Return the extraction method label for a given chart type.
+
+    Returns:
+        "aria"          — Data extractable via aria-label scraping (headless-safe).
+        "show_as_table" — Requires 'Show as a table' UI flow or SQL comparison.
+        "unknown"       — Type not classified; try aria first, then fall back.
+    """
+    if vtype in ARIA_EXTRACTABLE_TYPES:
+        return "aria"
+    if vtype in SHOW_AS_TABLE_TYPES:
+        return "show_as_table"
+    return "unknown"
+
+
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
@@ -476,10 +536,37 @@ source_excel:
 
     lines.append("")
 
-    # ── Table Validations ──
+    # ── Table Validations — Chart Extraction Coverage Matrix ──────────────────
+    # Classify each discovered chart by how data can be extracted.
+    aria_charts   = [v for p in pages_data for v in p["visuals"]
+                     if v.get("category") == "chart"
+                     and _chart_extraction_method(v.get("type", "")) == "aria"]
+    sat_charts    = [v for p in pages_data for v in p["visuals"]
+                     if v.get("category") == "chart"
+                     and _chart_extraction_method(v.get("type", "")) == "show_as_table"]
+    unk_charts    = [v for p in pages_data for v in p["visuals"]
+                     if v.get("category") == "chart"
+                     and _chart_extraction_method(v.get("type", "")) == "unknown"]
+
     lines.append(f"\n# {'─'*78}")
     lines.append(f"# Auto-discovered Charts ({chart_total} found)")
-    lines.append("# Each entry uses 'Show as a table' to extract underlying data.")
+    lines.append("# ")
+    lines.append("# EXTRACTION METHOD LEGEND:")
+    lines.append("#   ✅ aria   — Data read from Power BI accessibility aria-labels.")
+    lines.append("#             Headless-safe. Works in all modes. No UI clicks.")
+    lines.append("#   ⚠️  sat    — Requires 'Show as a table' UI flow (hover + More Options).")
+    lines.append("#             Uses the inner [aria-roledescription] div (real px dims).")
+    lines.append("#             Falls back to SQL direct comparison if UI flow fails.")
+    lines.append("#   ❓ unk    — Type not classified. aria attempted first, then sat.")
+    lines.append("# ")
+    lines.append(f"# COVERAGE SUMMARY for this dashboard:")
+    lines.append(f"#   ✅ {len(aria_charts):>2} aria-extractable  — " +
+                 ", ".join(v.get("title") or v.get("type", "?") for v in aria_charts) or "(none)")
+    lines.append(f"#   ⚠️  {len(sat_charts):>2} show-as-table    — " +
+                 ", ".join(v.get("title") or v.get("type", "?") for v in sat_charts) or "(none)")
+    lines.append(f"#   ❓ {len(unk_charts):>2} unknown          — " +
+                 ", ".join(v.get("title") or v.get("type", "?") for v in unk_charts) or "(none)")
+    lines.append("# ")
     lines.append("# Strategy A = located by title | Strategy B = located by type+index")
     lines.append(f"# {'─'*78}")
     lines.append("table_validations:")
@@ -517,15 +604,31 @@ source_excel:
                 cmnt  = CONFIDENCE_COMMENT.get(confidence, "")
                 conf_comment = f"  # {emoji} — {cmnt}\n"
 
+            # Determine extraction method for this chart type
+            extraction = _chart_extraction_method(vtype)
+            if extraction == "aria":
+                method_icon = "✅ aria"
+                method_note = "Data points read via aria-label — headless-safe, no UI clicks needed."
+            elif extraction == "show_as_table":
+                method_icon = "⚠️  sat "
+                method_note = "Show as a table flow needed — hover inner div to reveal More Options."
+            else:
+                method_icon = "❓ unk "
+                method_note = "Type not classified — aria attempted first, then Show as a table."
+
             # Strategy A — title-based
             if strategy == "title":
-                desc_note = f"  # Chart: \"{title}\" — Strategy A (title-based)\n"
+                desc_note = (
+                    f"  # {method_icon} Chart: \"{title}\" — Strategy A (title-based)\n"
+                    f"  # {method_note}\n"
+                )
                 loc_block = f'  - visual_title: "{title}"\n    visual_type:  ""\n    visual_index: null\n'
             # Strategy B — type+index
             else:
                 chart_label = desc or f"{vtype}[{tidx}]"
                 desc_note = (
-                    f"  # Chart: \"{chart_label}\" — Strategy B (type+index)\n"
+                    f"  # {method_icon} Chart: \"{chart_label}\" — Strategy B (type+index)\n"
+                    f"  # {method_note}\n"
                     f"  # Title is in a separate Text box visual. Locating by type+index.\n"
                 )
                 loc_block = f'  - visual_title: ""\n    visual_type:  "{vtype}"\n    visual_index: {tidx}\n'
