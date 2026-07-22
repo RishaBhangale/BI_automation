@@ -96,6 +96,26 @@ FOUNDRY_MODEL       = os.getenv("FOUNDRY_MODEL", "gpt-5.2-chat")
 FOUNDRY_API_VERSION = os.getenv("FOUNDRY_API_VERSION", "2024-12-01-preview")
 
 
+# ── Power BI REST API — Tier 2 extraction (optional) ──────────────────────────
+# Required ONLY when your dashboard contains visuals that cannot be scraped from
+# the browser DOM (Maps, AI visuals, Python/R scripts, Custom AppSource visuals).
+#
+# How to obtain these values:
+#   1. Client IT creates an Azure AD App Registration.
+#   2. The App's Service Principal is added as a Viewer in the PBI workspace.
+#   3. PBI tenant admin enables "Allow service principals to use Power BI APIs".
+#   4. The client provides Tenant ID, Client ID, Client Secret, and Dataset ID.
+#
+# Set these via environment variables (recommended for CI) or fill in directly
+# for local development. Never commit a real client_secret to git.
+#
+# The Dataset ID is per-dashboard — set it in the YAML config under pbi_api.dataset_id.
+# These three values are global (shared across all dashboards run from this machine).
+PBI_TENANT_ID     = os.getenv("PBI_TENANT_ID", "")    # Azure AD Tenant ID (GUID)
+PBI_CLIENT_ID     = os.getenv("PBI_CLIENT_ID", "")    # App Registration Client ID (GUID)
+PBI_CLIENT_SECRET = os.getenv("PBI_CLIENT_SECRET", "") # App Registration Client Secret
+
+
 
 
 

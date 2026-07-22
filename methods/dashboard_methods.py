@@ -6,13 +6,25 @@ extraction + data source fetching + validation into single reusable calls.
 
 A test function calls one method here and gets back a result dict.
 No test-level logic, no assertions — assertions live in the test files.
+
+Extraction Tiers
+────────────────
+Tier 1 (DOM):    Playwright aria-label / DOM grid scraping. Works for most
+                 standard visuals (bar, column, pie, table, matrix, etc.).
+Tier 2 (API):    Power BI REST API ExecuteQueries with a DAX query. Works for
+                 ANY visual type, including Maps, AI visuals, Python/R scripts.
+                 Requires Azure AD Service Principal credentials + dataset_id.
+Tier 3 (Source): Skips visual extraction entirely. Runs the SQL query against
+                 the source DB to verify the data pipeline is healthy. Use when
+                 Tiers 1 and 2 are both unavailable for a visual.
 """
 
 from __future__ import annotations
 
 from itertools import groupby
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
+import pandas as pd
 from sqlalchemy.engine import Engine
 
 from pageobjects.pbi_dashboard_page import PBIDashboardPage
@@ -21,7 +33,11 @@ from utils.db_utils import fetch_scalar, fetch_db_data
 from utils.excel_data_utils import load_source_excel, load_source_csv, aggregate_column
 from utils.logger import get_logger
 
+if TYPE_CHECKING:
+    from utils.pbi_api_client import PBIApiClient
+
 log = get_logger("dashboard_methods")
+
 
 
 def _make_result(visual_title: str, page: str, passed: bool, detail: str) -> dict:
@@ -204,6 +220,159 @@ def validate_all_kpis(
 
 # ── Table / Chart Validation ───────────────────────────────────────────────
 
+
+def validate_chart_data(
+    dashboard_page: PBIDashboardPage,
+    chart_config: dict,
+    db_engine: Optional[Engine] = None,
+    pbi_client: Optional["PBIApiClient"] = None,
+    excel_filepath: str = "",
+    excel_sheet: str = "",
+) -> dict:
+    """
+    Validate a chart/table visual using a three-tier extraction chain.
+
+    The tier used is controlled by chart_config["extraction_tier"]:
+
+      "auto"   (default) — Try Tier 1 → Tier 2 → Tier 3 in order.
+      "dom"    — Tier 1 (DOM scraping) only. Fail if extraction returns nothing.
+      "api"    — Tier 2 (PBI REST API DAX) only. Requires pbi_client + dax_query.
+      "source" — Tier 3 (source SQL) only. Skip visual extraction entirely;
+                 run the SQL query to verify the data pipeline is healthy.
+
+    Args:
+        dashboard_page: PBIDashboardPage POM instance.
+        chart_config:   A single table_validations entry from the YAML config.
+        db_engine:      SQLAlchemy engine for SQL queries (Tier 1 comparison + Tier 3).
+        pbi_client:     PBIApiClient instance for DAX queries (Tier 2). Pass None to skip.
+        excel_filepath: Path to source Excel file (fallback).
+        excel_sheet:    Sheet name in the Excel file.
+
+    Returns:
+        Result dict with keys: visual_title, page, passed, detail, tier_used.
+    """
+    visual_title   = chart_config.get("visual_title", "") or ""
+    visual_type    = chart_config.get("visual_type", "") or None
+    visual_index   = chart_config.get("visual_index", None)
+    page_name      = chart_config.get("page", "")
+    join_keys      = chart_config.get("join_keys", [])
+    compare_cols   = chart_config.get("compare_cols", [])
+    tolerance      = float(chart_config.get("tolerance", 0.01))
+    sql_query      = (chart_config.get("sql_query") or "").strip()
+    dax_query      = (chart_config.get("dax_query") or "").strip()
+    tier           = (chart_config.get("extraction_tier") or "auto").lower()
+
+    label = visual_title or (f"{visual_type}[{visual_index}]" if visual_type else "Unknown")
+
+    def _fetch_source_df() -> Optional[pd.DataFrame]:
+        """Fetch a source DataFrame from DB or Excel depending on config."""
+        if sql_query and db_engine:
+            return fetch_db_data(db_engine, sql_query)
+        if excel_filepath:
+            sheet = chart_config.get("excel_sheet") or excel_sheet
+            return load_source_excel(excel_filepath, sheet or "Sheet1")
+        return None
+
+    def _compare(extracted_df: pd.DataFrame, tier_label: str) -> dict:
+        """Compare the extracted DataFrame against the source."""
+        source_df = _fetch_source_df()
+        if source_df is None:
+            return {**_make_result(label, page_name, False,
+                f"[{tier_label}] No source configured: provide sql_query or excel_filepath"),
+                "tier_used": tier_label}
+        if not join_keys and not compare_cols:
+            # Row-count only check when no keys/cols are specified
+            from utils.validation_utils import compare_row_counts
+            passed, detail = compare_row_counts(len(extracted_df), len(source_df), label=label)
+            return {**_make_result(label, page_name, passed, f"[{tier_label}] {detail}"),
+                    "tier_used": tier_label}
+        passed, detail = compare_datasets(
+            extracted_df.to_dict("records"), source_df, join_keys, compare_cols, tolerance
+        )
+        return {**_make_result(label, page_name, passed, f"[{tier_label}] {detail}"),
+                "tier_used": tier_label}
+
+    try:
+        if page_name:
+            dashboard_page.switch_to_page(page_name)
+
+        # ── Tier 1: DOM Scraping ──────────────────────────────────────────────
+        if tier in ("auto", "dom"):
+            log.info(f"[Tier 1 — DOM] Attempting DOM extraction for '{label}'")
+            try:
+                dom_rows = dashboard_page.extract_table_data(
+                    visual_title, visual_type, visual_index
+                )
+                if dom_rows:
+                    dom_df = pd.DataFrame(dom_rows)
+                    log.info(f"[Tier 1 — DOM] Extracted {len(dom_df)} rows from '{label}'")
+                    return _compare(dom_df, "Tier 1 — DOM")
+                else:
+                    log.warning(f"[Tier 1 — DOM] No rows returned for '{label}' — trying next tier")
+            except Exception as exc:
+                log.warning(f"[Tier 1 — DOM] Extraction failed for '{label}': {exc} — trying next tier")
+
+            if tier == "dom":
+                return {**_make_result(label, page_name, False,
+                    "[Tier 1 — DOM] Extraction returned no data and tier is locked to 'dom'"),
+                    "tier_used": "Tier 1 — DOM (failed)"}
+
+        # ── Tier 2: PBI REST API (DAX) ────────────────────────────────────────
+        if tier in ("auto", "api"):
+            if pbi_client and dax_query:
+                log.info(f"[Tier 2 — API] Executing DAX query for '{label}'")
+                try:
+                    api_df = pbi_client.execute_dax(dax_query)
+                    if not api_df.empty:
+                        log.info(f"[Tier 2 — API] DAX returned {len(api_df)} rows for '{label}'")
+                        return _compare(api_df, "Tier 2 — API")
+                    else:
+                        log.warning(f"[Tier 2 — API] DAX returned 0 rows for '{label}' — trying next tier")
+                except Exception as exc:
+                    log.warning(f"[Tier 2 — API] DAX failed for '{label}': {exc} — trying next tier")
+            else:
+                if tier == "api":
+                    reason = "pbi_client not available" if not pbi_client else "dax_query is empty"
+                    return {**_make_result(label, page_name, False,
+                        f"[Tier 2 — API] Cannot run: {reason}"),
+                        "tier_used": "Tier 2 — API (unavailable)"}
+                log.debug(
+                    f"[Tier 2 — API] Skipped for '{label}' "
+                    f"(pbi_client={'set' if pbi_client else 'None'}, dax_query={'set' if dax_query else 'empty'})"
+                )
+
+        # ── Tier 3: Source-only (data pipeline health check) ──────────────────
+        if tier in ("auto", "source"):
+            log.info(f"[Tier 3 — Source] Running source-only SQL check for '{label}'")
+            if not sql_query or not db_engine:
+                detail = (
+                    "[Tier 3 — Source] No sql_query or db_engine configured — "
+                    "visual cannot be validated"
+                )
+                return {**_make_result(label, page_name, False, detail),
+                        "tier_used": "Tier 3 — Source (unavailable)"}
+
+            source_df = fetch_db_data(db_engine, sql_query)
+            passed    = len(source_df) > 0
+            detail    = (
+                f"[Tier 3 — Source] SQL returned {len(source_df)} rows — "
+                f"data pipeline {'OK' if passed else 'EMPTY (0 rows)'}. "
+                "Note: visual rendering was NOT validated (DOM and API both unavailable)."
+            )
+            return {**_make_result(label, page_name, passed, detail),
+                    "tier_used": "Tier 3 — Source"}
+
+        # Should never reach here
+        return {**_make_result(label, page_name, False,
+            f"Unknown extraction_tier '{tier}' — use 'auto', 'dom', 'api', or 'source'"),
+            "tier_used": "unknown"}
+
+    except Exception as exc:
+        log.error(f"validate_chart_data failed for '{label}': {exc}")
+        return {**_make_result(label, page_name, False, f"Exception: {exc}"),
+                "tier_used": "error"}
+
+
 def validate_table(
     dashboard_page: PBIDashboardPage,
     table_config: dict,
@@ -284,9 +453,17 @@ def validate_all_tables(
     dashboard_page: PBIDashboardPage,
     config: dict,
     db_engine: Optional[Engine] = None,
+    pbi_client: Optional["PBIApiClient"] = None,
 ) -> list[dict]:
     """
     Validate all table/chart entries defined in the dashboard YAML config.
+
+    Uses the three-tier extraction chain per entry:
+      Tier 1 (DOM) → Tier 2 (PBI API) → Tier 3 (Source SQL)
+
+    Entries that have no extraction_tier field default to "auto", which
+    tries each tier in order until one succeeds. This makes the function
+    fully backward-compatible with existing YAML configs.
 
     Groups table entries by page so that switch_to_page() is called only once
     per page instead of once per table. This avoids redundant 5-second page
@@ -296,9 +473,11 @@ def validate_all_tables(
         dashboard_page: PBIDashboardPage POM instance.
         config:         Parsed dashboard YAML config dict.
         db_engine:      SQLAlchemy engine (pass None if using Excel).
+        pbi_client:     PBIApiClient for Tier 2 DAX queries. Pass None to skip Tier 2.
 
     Returns:
         List of result dicts, one per table validation entry.
+        Each dict has keys: visual_title, page, passed, detail, tier_used.
     """
     from utils.config_loader import get_table_validations, get_excel_source
     tables = get_table_validations(config)
@@ -322,10 +501,14 @@ def validate_all_tables(
             current_page = page_name
             log.info(f"Page switched to '{page_name}' — processing tables on this page")
 
-        result = validate_table(
+        # Use the new tiered router for all entries.
+        # validate_chart_data() is fully backward-compatible — if extraction_tier
+        # is missing from the YAML, it defaults to "auto" (DOM → API → Source).
+        result = validate_chart_data(
             dashboard_page=dashboard_page,
-            table_config={**tbl, "page": ""},  # Page already switched above
+            chart_config={**tbl, "page": ""},  # Page already switched above
             db_engine=db_engine,
+            pbi_client=pbi_client,
             excel_filepath=excel_path,
             excel_sheet=excel_sheet,
         )

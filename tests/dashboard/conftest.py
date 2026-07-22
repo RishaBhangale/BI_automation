@@ -44,6 +44,7 @@ from config.settings import (
     SSO_USERNAME, get_sso_password,
     BROWSER_WIDTH, BROWSER_HEIGHT,
     REPORT_DIR,
+    PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET,
 )
 
 log = get_logger("dashboard_conftest")
@@ -133,6 +134,69 @@ def db_engine(dashboard_config: dict):
     yield engine
     engine.dispose()
     log.info("DB engine disposed")
+
+
+@pytest.fixture(scope="session")
+def pbi_client(dashboard_config: dict):
+    """
+    Create a Power BI API client for Tier 2 DAX-based extraction (optional).
+
+    Activates ONLY when ALL of the following are true:
+      1. The dashboard YAML config has a non-empty pbi_api.dataset_id.
+      2. PBI_TENANT_ID, PBI_CLIENT_ID, and PBI_CLIENT_SECRET are set in
+         environment variables or config/settings.py.
+      3. The API connection test passes (authenticate + trivial DAX query).
+
+    If any condition is missing, returns None silently.
+    Existing tests that do not reference pbi_client are unaffected.
+
+    FRAMEWORK FIXTURE — do not modify.
+    PER-DASHBOARD — set pbi_api.dataset_id in the YAML config.
+                    Set PBI_TENANT_ID / PBI_CLIENT_ID / PBI_CLIENT_SECRET via env vars.
+    """
+    api_cfg    = dashboard_config.get("pbi_api", {}) or {}
+    dataset_id = (api_cfg.get("dataset_id") or "").strip()
+
+    if not dataset_id:
+        log.info(
+            "PBI REST API (Tier 2) not configured — "
+            "pbi_api.dataset_id is empty in the YAML config. Skipping."
+        )
+        yield None
+        return
+
+    if not all([PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET]):
+        missing = [
+            name for name, val in [
+                ("PBI_TENANT_ID", PBI_TENANT_ID),
+                ("PBI_CLIENT_ID", PBI_CLIENT_ID),
+                ("PBI_CLIENT_SECRET", PBI_CLIENT_SECRET),
+            ] if not val
+        ]
+        log.warning(
+            f"PBI REST API (Tier 2) skipped — pbi_api.dataset_id is set but "
+            f"the following credentials are missing: {missing}. "
+            f"Set them via environment variables or config/settings.py."
+        )
+        yield None
+        return
+
+    from utils.pbi_api_client import PBIApiClient
+    client = PBIApiClient(PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET, dataset_id)
+
+    if client.test_connection():
+        log.info(
+            f"PBI REST API (Tier 2) ready — dataset_id='{dataset_id}'"
+        )
+        yield client
+    else:
+        log.warning(
+            f"PBI REST API (Tier 2) connection failed — dataset_id='{dataset_id}'. "
+            "Continuing without Tier 2. Check credentials and workspace permissions."
+        )
+        yield None
+
+
 
 
 @pytest.fixture(scope="session")

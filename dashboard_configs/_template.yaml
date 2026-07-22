@@ -76,9 +76,43 @@ kpi_validations:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Power BI REST API (Tier 2 — OPTIONAL)
+# ──────────────────────────────────────────────────────────────────────────────
+# Fill in ONLY when your dashboard contains visuals that cannot be read from the
+# browser DOM: Maps, AI visuals, Python/R scripts, Custom AppSource visuals, etc.
+#
+# What you need from the client:
+#   dataset_id  — Power BI Dataset (Semantic Model) GUID.
+#                 Find it: PBI Service → Datasets → Settings → copy GUID from URL.
+#
+# What your team needs to configure (one-time, in .env or environment variables):
+#   PBI_TENANT_ID     — Azure AD Tenant ID
+#   PBI_CLIENT_ID     — App Registration Client ID
+#   PBI_CLIENT_SECRET — App Registration Client Secret
+#
+# How to get the DAX query for a visual:
+#   1. Open the report in Power BI Desktop (if available).
+#   2. View → Performance Analyzer → Start recording → Refresh visuals.
+#   3. Click "Copy query" next to the visual you want.
+#   4. Paste that query into the dax_query field below.
+# ──────────────────────────────────────────────────────────────────────────────
+pbi_api:
+  dataset_id: ""            # TODO: Power BI Dataset GUID (leave empty to skip Tier 2)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Table / Chart Validations
-# Each entry extracts the underlying data from a visual via "Show as a table"
-# and compares it row-by-row against the SQL result.
+# Each entry extracts the underlying data from a visual via DOM scraping (Tier 1),
+# PBI REST API DAX query (Tier 2), or source SQL only (Tier 3) and compares it
+# against the SQL or Excel result.
+#
+# extraction_tier controls which method is used:
+#   "auto"   — (default) Try Tier 1 (DOM) → Tier 2 (API, if configured) → Tier 3 (source SQL)
+#   "dom"    — DOM scraping only (Tier 1). Skip API and source fallbacks.
+#   "api"    — PBI REST API only (Tier 2). Requires pbi_api.dataset_id + DAX query.
+#   "source" — Skip visual extraction entirely. Run SQL against source DB to verify
+#              the data pipeline is healthy. Use for visuals that cannot be scraped
+#              AND the client has not provided Azure AD credentials.
 #
 # Locating strategy — choose ONE of the following per entry:
 #
@@ -97,12 +131,14 @@ kpi_validations:
 # every visual, so you can pick the right strategy for each chart.
 # ──────────────────────────────────────────────────────────────────────────────
 table_validations:
-  # ── Strategy A: locate by title ──────────────────────────────────────────
+  # ── Tier 1 Example: DOM scraping (aria or grid) — most common charts ──────
   - visual_title: ""                # TODO: Exact first-line text of the chart/table visual
     visual_type:  ""                # Leave empty when using visual_title
     visual_index: null              # Leave null when using visual_title
     page: ""                        # TODO: Which page this visual is on
+    extraction_tier: "auto"         # "auto" | "dom" | "api" | "source"
     sql_query: ""                   # TODO: SQL returning the equivalent dataset
+    dax_query: ""                   # TODO: DAX query (required only for Tier 2 / api tier)
     # Columns to align the two datasets on (must exist in both dashboard and SQL result)
     join_keys:
       - ""                          # TODO: e.g., "region"
@@ -111,12 +147,37 @@ table_validations:
       - ""                          # TODO: e.g., "total_sales"
     tolerance: 0.01
 
+  # ── Tier 2 Example: PBI REST API (Maps, AI visuals, etc.) ────────────────
+  # - visual_title: "Sales by Region"
+  #   page: "Executive Summary"
+  #   extraction_tier: "api"
+  #   sql_query: "SELECT region, SUM(revenue) as total_sales FROM fact_sales GROUP BY region"
+  #   dax_query: |
+  #     EVALUATE SUMMARIZECOLUMNS(
+  #       'Geography'[Region],
+  #       "total_sales", SUM('Sales'[Revenue])
+  #     )
+  #   join_keys: ["region"]
+  #   compare_cols: ["total_sales"]
+  #   tolerance: 0.01
+
+  # ── Tier 3 Example: Source-only (no visual extraction, data pipeline check) ─
+  # - visual_title: "AI Insights"
+  #   page: "Insights"
+  #   extraction_tier: "source"
+  #   sql_query: "SELECT * FROM ai_insights_summary"
+  #   join_keys: []
+  #   compare_cols: []
+  #   tolerance: 0.01
+
   # ── Strategy B: locate by type + index (title-less charts) ───────────────
   # - visual_title: ""              # Leave blank
   #   visual_type:  "Clustered column chart"   # aria-roledescription value
   #   visual_index: 0               # 0-based index of this chart type on the page
   #   page: ""
+  #   extraction_tier: "auto"
   #   sql_query: ""
+  #   dax_query: ""
   #   join_keys: []
   #   compare_cols: []
   #   tolerance: 0.01
@@ -140,3 +201,4 @@ expected_filters:
   # - slicer_title: "Region"
   #   page: "Executive Summary"
   #   expected_value: "All"
+

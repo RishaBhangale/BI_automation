@@ -291,8 +291,25 @@ class PBIDashboardPage(BasePage):
         """
         Return total number of pages in the report.
 
-        Reads the page indicator text (e.g. "1of19" or "1 of 3") from
+        Reads the page indicator text (e.g. "1of3" or "1 of 19") from
         the logo-bar-navigation element. Works for arrow-nav reports.
+
+        ── Edge Case: Section listings concatenated into indicator ───────────
+        Some PBI reports render the indicator and section nav labels as one
+        continuous text node with no separator:
+
+            "1of31- Ticket Volume & Classification2- Efficiency & Resolution3-..."
+
+        This is "1 of 3" (3 pages) + "1- Section Name" + "2- ..." concatenated.
+        A greedy `of(\d+)` would incorrectly match "of31" → 31 pages.
+
+        Fix: use a non-greedy match with a lookahead that detects when a
+        section-listing digit-dash pattern follows immediately:
+
+            of(\d+?)(?=\d+\s*-)   →  "of3" (then lookahead sees "1-") ✓
+
+        If no section listings are present (clean "1of19"), the lookahead
+        won't match and we fall back to the standard greedy match → 19 ✓
 
         Returns:
             Total page count as int, or 1 if indicator not found.
@@ -300,46 +317,114 @@ class PBIDashboardPage(BasePage):
         try:
             nav = self.page.locator(PBILocators.PTW_NAV_CONTAINER)
             nav.wait_for(state="attached", timeout=5_000)
-            
+
             import re
+
             # Poll for a few seconds if it says "0" (PBI loads it asynchronously)
             for _ in range(15):
-                text = nav.text_content().strip()
-                match = re.search(r'of\s*(\d+)', text, re.IGNORECASE)
+                raw_text = nav.text_content().strip()
+
+                # ── Step 1: Non-greedy + lookahead (for section-list concat) ──
+                # Handles "1of31- Section Name" → 3
+                # of(\d+?)  — match minimum digits
+                # (?=\d+\s*-) — only if immediately followed by digit(s)+dash
+                match = re.search(r'of(\d+?)(?=\d+\s*-)', raw_text, re.IGNORECASE)
+
+                if not match:
+                    # ── Step 2: Standard greedy fallback ──────────────────────
+                    # Handles clean indicators like "1of19", "1 of 3"
+                    match = re.search(r'of\s*(\d+)', raw_text, re.IGNORECASE)
+
                 if match:
                     count = int(match.group(1))
                     if count > 0:
-                        log.debug(f"Page count from indicator '{text}': {count}")
+                        log.debug(
+                            f"Page count from indicator '{raw_text}': {count}"
+                        )
                         return count
+
                 self.page.wait_for_timeout(1000)
-                
+
             log.warning("Page count remained 0 or unmatched after waiting.")
         except PwTimeoutError:
             log.debug("logo-bar-navigation not found — report may use tab navigation")
         return 1
 
+
     def go_to_next_page(self) -> None:
-        """Click the Next Page arrow button. For arrow-nav reports."""
-        try:
-            btn = self.page.locator(PBILocators.PTW_NAV_NEXT_PAGE)
-            btn.wait_for(state="visible", timeout=3_000)
-            btn.click()
-        except PwTimeoutError:
-            # Fallback selectors
-            self.page.locator(PBILocators.PTW_NAV_NEXT_FALLBACK).first.click()
-        self.page.wait_for_timeout(2_000)  # wait for page transition
+        """
+        Click the Next Page arrow button. For arrow-nav reports.
+
+        The button can be temporarily disabled (aria-disabled="true") while the
+        current page is still rendering. This method waits for it to become
+        enabled before clicking, avoiding the TimeoutError seen on slow/large
+        dashboards.
+        """
+        self._click_nav_button(direction="next")
+        self.page.wait_for_timeout(2_000)  # wait for page transition to start
         log.debug(f"Navigated to next page (now: {self._get_page_indicator_text()})")
 
     def go_to_previous_page(self) -> None:
-        """Click the Previous Page arrow button. For arrow-nav reports."""
-        try:
-            btn = self.page.locator(PBILocators.PTW_NAV_PREV_PAGE)
-            btn.wait_for(state="visible", timeout=3_000)
-            btn.click()
-        except PwTimeoutError:
-            self.page.locator(PBILocators.PTW_NAV_PREV_FALLBACK).first.click()
+        """
+        Click the Previous Page arrow button. For arrow-nav reports.
+
+        Waits for the button to become enabled before clicking.
+        """
+        self._click_nav_button(direction="prev")
         self.page.wait_for_timeout(2_000)
         log.debug(f"Navigated to previous page (now: {self._get_page_indicator_text()})")
+
+    def _click_nav_button(self, direction: str, max_wait_ms: int = 10_000) -> None:
+        """
+        Locate and click a navigation button (next or prev), waiting until it
+        is enabled (not aria-disabled) before clicking.
+
+        Power BI temporarily sets aria-disabled="true" on navigation buttons
+        while a page transition is in progress. Trying to click during this
+        window raises a TimeoutError. This helper polls until enabled.
+
+        Args:
+            direction:   "next" or "prev"
+            max_wait_ms: Maximum ms to wait for the button to become enabled.
+        """
+        if direction == "next":
+            primary_sel  = PBILocators.PTW_NAV_NEXT_PAGE
+            fallback_sel = PBILocators.PTW_NAV_NEXT_FALLBACK
+        else:
+            primary_sel  = PBILocators.PTW_NAV_PREV_PAGE
+            fallback_sel = PBILocators.PTW_NAV_PREV_FALLBACK
+
+        # Resolve the button element — try primary selector first
+        try:
+            btn = self.page.locator(primary_sel)
+            btn.wait_for(state="visible", timeout=3_000)
+        except PwTimeoutError:
+            btn = self.page.locator(fallback_sel).first
+
+        # Wait for the button to be enabled (not aria-disabled)
+        poll_ms  = 500
+        elapsed  = 0
+        while elapsed < max_wait_ms:
+            is_disabled = btn.evaluate(
+                "el => el.disabled || el.getAttribute('aria-disabled') === 'true'"
+            )
+            if not is_disabled:
+                break
+            log.debug(
+                f"Nav button ({direction}) is disabled — waiting {poll_ms}ms "
+                f"({elapsed}/{max_wait_ms}ms elapsed)"
+            )
+            self.page.wait_for_timeout(poll_ms)
+            elapsed += poll_ms
+        else:
+            log.warning(
+                f"Nav button ({direction}) was still disabled after {max_wait_ms}ms — "
+                "attempting click anyway"
+            )
+
+        btn.click()
+
+
 
     def navigate_all_pages(self) -> dict[int, list[str]]:
         """

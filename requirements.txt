@@ -10,6 +10,8 @@ sqlalchemy
 pyyaml
 openai
 pydantic
+msal           # Azure AD authentication for Power BI REST API (Tier 2)
+requests       # HTTP client for Power BI REST API (Tier 2)
 
 # DB drivers — uncomment the one matching your source database:
 psycopg2-binary       # PostgreSQL
