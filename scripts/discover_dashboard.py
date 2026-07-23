@@ -264,12 +264,24 @@ def run_phase_a(
         # Classify visuals
         for v in visuals:
             vtype = v["type"]
+            title = v.get("title", "").strip()
+            full_text = v.get("fullText", "")
+
+            # Reclassify Parameter/Slider controls that claim to be "Card" in aria-roledescription
+            is_parameter_slicer = False
             if vtype in KPI_TYPES:
+                if any(p in title for p in ["TopN", "BottomN", "Top N", "Bottom N", "Parameter"]):
+                    is_parameter_slicer = True
+                elif not any(c in full_text for c in ["%", "$", "Target:", "vs PM", "vs PQTD", "vs PTD"]):
+                    if any(p in full_text for p in ["TopN", "BottomN", "Field"]):
+                        is_parameter_slicer = True
+
+            if is_parameter_slicer or "slicer" in vtype.lower():
+                v["category"] = "slicer"
+            elif vtype in KPI_TYPES:
                 v["category"] = "kpi"
             elif vtype in CHART_TYPES:
                 v["category"] = "chart"
-            elif vtype == "Slicer":
-                v["category"] = "slicer"
             else:
                 v["category"] = "other"
 
@@ -381,6 +393,33 @@ def run_phase_b(
 def _indent(text: str, spaces: int) -> str:
     pad = " " * spaces
     return "\n".join(pad + line if line.strip() else line for line in text.splitlines())
+
+
+def _safe_title(title: str, max_len: int = 80) -> str:
+    """
+    Sanitize a visual title for safe embedding in a YAML string.
+
+    Power BI table/matrix visuals have no header title in the DOM on some
+    dashboard themes.  When that happens, the title field falls back to the
+    first body line — which can be the entire table body (multi-line, 300+
+    chars).  Embedding that raw into a YAML double-quoted string breaks the
+    file and produces garbage like 300 lines of data inside a visual_title.
+
+    This function:
+      1. Takes only the FIRST line of the title string.
+      2. Strips leading/trailing whitespace and YAML-unsafe quote chars.
+      3. Truncates to max_len characters.
+    """
+    if not title:
+        return ""
+    # Take only the first non-empty line
+    first_line = next((l.strip() for l in title.splitlines() if l.strip()), "")
+    # Remove embedded double-quotes (would break YAML double-quoted string)
+    first_line = first_line.replace('"', "'")
+    # Truncate
+    if len(first_line) > max_len:
+        first_line = first_line[:max_len].rstrip() + "…"
+    return first_line
 
 
 def _sql_block(sql: str, spaces: int) -> str:
@@ -501,14 +540,15 @@ source_excel:
             lines.append(f"\n  # ── Page: '{page_name}' ──")
 
         for v_idx, v in kpis:
-            title = v.get("title", "")
+            raw_title = v.get("title", "")
+            title = _safe_title(raw_title)
 
             # Skip entries whose title is a bare number / value — not a real visual title.
             # These arise when multi-KPI card decomposition misclassifies a value line
             # as a label (e.g. "38", "112" from an Average Age card).
-            if v.get("is_noisy_title"):
+            if v.get("is_noisy_title") or not title:
                 lines.append(
-                    f"\n  # \u26a0\ufe0f  SKIPPED \u2014 '{title}' looks like a value, not a visual title."
+                    f"\n  # \u26a0\ufe0f  SKIPPED \u2014 '{_safe_title(raw_title)}' looks like a value, not a visual title."
                     f"\n  #     Verify on the dashboard and add manually if needed."
                 )
                 continue
@@ -561,11 +601,11 @@ source_excel:
     lines.append("# ")
     lines.append(f"# COVERAGE SUMMARY for this dashboard:")
     lines.append(f"#   ✅ {len(aria_charts):>2} aria-extractable  — " +
-                 ", ".join(v.get("title") or v.get("type", "?") for v in aria_charts) or "(none)")
+                 ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in aria_charts) or "(none)")
     lines.append(f"#   ⚠️  {len(sat_charts):>2} show-as-table    — " +
-                 ", ".join(v.get("title") or v.get("type", "?") for v in sat_charts) or "(none)")
+                 ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in sat_charts) or "(none)")
     lines.append(f"#   ❓ {len(unk_charts):>2} unknown          — " +
-                 ", ".join(v.get("title") or v.get("type", "?") for v in unk_charts) or "(none)")
+                 ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in unk_charts) or "(none)")
     lines.append("# ")
     lines.append("# Strategy A = located by title | Strategy B = located by type+index")
     lines.append(f"# {'─'*78}")
@@ -616,20 +656,24 @@ source_excel:
                 method_icon = "❓ unk "
                 method_note = "Type not classified — aria attempted first, then Show as a table."
 
-            # Strategy A — title-based
-            if strategy == "title":
+            safe_title = _safe_title(title)
+            safe_desc  = _safe_title(desc)
+
+            # Strategy A — title-based (has a clean, unique visual header title)
+            # Strategy B — type+index (untitled visual; locate by type + position)
+            if strategy == "title" and safe_title:
                 desc_note = (
-                    f"  # {method_icon} Chart: \"{title}\" — Strategy A (title-based)\n"
+                    f"  # {method_icon} Chart: \"{safe_title}\" — Strategy A (title-based)\n"
                     f"  # {method_note}\n"
                 )
-                loc_block = f'  - visual_title: "{title}"\n    visual_type:  ""\n    visual_index: null\n'
-            # Strategy B — type+index
+                loc_block = f'  - visual_title: "{safe_title}"\n    visual_type:  ""\n    visual_index: null\n'
             else:
-                chart_label = desc or f"{vtype}[{tidx}]"
+                # Fallback to Strategy B when title is empty/noisy
+                chart_label = safe_desc or f"{vtype}[{tidx}]"
                 desc_note = (
                     f"  # {method_icon} Chart: \"{chart_label}\" — Strategy B (type+index)\n"
                     f"  # {method_note}\n"
-                    f"  # Title is in a separate Text box visual. Locating by type+index.\n"
+                    f"  # Title is empty or body-text. Locating by type+index.\n"
                 )
                 loc_block = f'  - visual_title: ""\n    visual_type:  "{vtype}"\n    visual_index: {tidx}\n'
 

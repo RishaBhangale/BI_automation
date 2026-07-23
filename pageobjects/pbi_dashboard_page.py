@@ -117,11 +117,17 @@ class PBIDashboardPage(BasePage):
         log.info(f"Navigating to: {url}")
 
         self.page.goto(url, timeout=PBI_RENDER_TIMEOUT)
-        self.page.wait_for_load_state("networkidle", timeout=PBI_RENDER_TIMEOUT)
 
         if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB:
+            # PTW: skip networkidle — map visuals (Azure Maps, Filled Map) make
+            # continuous tile requests that never settle.  The explore-canvas
+            # selector in _wait_for_ptw_render() is the authoritative ready signal.
             self._wait_for_ptw_render()
-        # For org reports, caller must invoke login_via_sso() next if redirected.
+        else:
+            # Org report: wait for DOM + subresources ("load"), not networkidle.
+            # networkidle is unreliable on dashboards with live/streaming tiles.
+            self.page.wait_for_load_state("load", timeout=PBI_RENDER_TIMEOUT)
+            # For org reports, caller must invoke login_via_sso() next if redirected.
 
     def _wait_for_ptw_render(self) -> None:
         """
@@ -311,6 +317,14 @@ class PBIDashboardPage(BasePage):
         If no section listings are present (clean "1of19"), the lookahead
         won't match and we fall back to the standard greedy match → 19 ✓
 
+        ── DOM Validation ────────────────────────────────────────────────────
+        After parsing the indicator text, the result is validated against the
+        next-page button's visibility.  PBI sets `hidden` on nav buttons when
+        the report has only one navigable page.  If the next button is hidden
+        we return 1 regardless of what the indicator text says — this catches
+        the rare case where the indicator text itself is misleading (e.g.
+        "1of11" when section label "1- Overview" concatenates with "1of1").
+
         Returns:
             Total page count as int, or 1 if indicator not found.
         """
@@ -341,6 +355,30 @@ class PBIDashboardPage(BasePage):
                         log.debug(
                             f"Page count from indicator '{raw_text}': {count}"
                         )
+
+                        # ── DOM validation: trust the button over the text ──
+                        # If the next-page button is hidden, PBI itself is saying
+                        # there is nowhere to navigate — treat as single page.
+                        # This catches indicator misparses like "1of11" that are
+                        # really "1of1" + section label "1-" concatenated.
+                        if count > 1:
+                            try:
+                                next_btn = self.page.locator(
+                                    PBILocators.PTW_NAV_NEXT_PAGE
+                                ).first
+                                is_hidden = next_btn.evaluate(
+                                    "el => el.hidden || el.closest('[hidden]') !== null"
+                                )
+                                if is_hidden:
+                                    log.warning(
+                                        f"Indicator says {count} pages but next-page "
+                                        "button is hidden — report is single-page. "
+                                        f"(Indicator text was: '{raw_text}')"
+                                    )
+                                    return 1
+                            except Exception:
+                                pass  # selector not found — nav buttons absent → 1 page
+
                         return count
 
                 self.page.wait_for_timeout(1000)
@@ -383,6 +421,10 @@ class PBIDashboardPage(BasePage):
         while a page transition is in progress. Trying to click during this
         window raises a TimeoutError. This helper polls until enabled.
 
+        If the button has `hidden` attribute it means PBI has determined there
+        is no page to navigate to (single-page report or already at boundary).
+        In that case we raise ValueError immediately rather than timing out.
+
         Args:
             direction:   "next" or "prev"
             max_wait_ms: Maximum ms to wait for the button to become enabled.
@@ -397,9 +439,28 @@ class PBIDashboardPage(BasePage):
         # Resolve the button element — try primary selector first
         try:
             btn = self.page.locator(primary_sel)
-            btn.wait_for(state="visible", timeout=3_000)
+            btn.wait_for(state="attached", timeout=3_000)  # attached, not visible
         except PwTimeoutError:
             btn = self.page.locator(fallback_sel).first
+
+        # ── Early exit if button is hidden ──────────────────────────────────
+        # PBI sets hidden="" on nav buttons when no further navigation exists.
+        # Clicking a hidden element always fails; bail out immediately.
+        try:
+            is_hidden = btn.evaluate(
+                "el => el.hidden || el.closest('[hidden]') !== null "
+                "|| window.getComputedStyle(el).display === 'none'"
+            )
+            if is_hidden:
+                raise ValueError(
+                    f"Nav button ({direction}) is hidden — report has no more pages "
+                    "in this direction. If page count > 1 was reported, the indicator "
+                    "text was misread (section label concatenation quirk)."
+                )
+        except ValueError:
+            raise
+        except Exception:
+            pass  # evaluate failed (element detached) — proceed and let click fail naturally
 
         # Wait for the button to be enabled (not aria-disabled)
         poll_ms  = 500
@@ -627,8 +688,15 @@ class PBIDashboardPage(BasePage):
             log.info(f"discover_all_pages: arrow-nav {page_label}/{page_count}")
             results.append(self._snapshot_current_page(page_label, idx))
             if idx < page_count - 1:
-                self.go_to_next_page()
-
+                try:
+                    self.go_to_next_page()
+                except ValueError as e:
+                    # Nav button is hidden — indicator text was misread.
+                    # Stop here; we've already captured all real pages.
+                    log.warning(
+                        f"Stopping arrow-nav at page {idx + 1}/{page_count}: {e}"
+                    )
+                    break
 
         return results
 
@@ -683,10 +751,11 @@ class PBIDashboardPage(BasePage):
         self._wait_for_stable_visuals()
         visuals = self.discover_all_visuals_raw()
 
-        # Auto-discover slicers: any visual of type 'Slicer'
+        # Auto-discover slicers: any visual of type containing 'slicer' or category 'slicer'
         slicers = []
         for v in visuals:
-            if v.get('type') == 'Slicer':
+            vtype_lower = v.get('type', '').lower()
+            if 'slicer' in vtype_lower or v.get('category') == 'slicer':
                 # Try the scraped title first; fall back to first line of fullText
                 slicer_title = v.get('title', '').strip()
                 if not slicer_title:
@@ -803,13 +872,27 @@ class PBIDashboardPage(BasePage):
                     "[aria-roledescription]"
                 );
 
-                // Noise patterns for titles that are NOT real visual names:
+                // Noise patterns for titles that are NOT real visual names.
+                // ── IMPORTANT: "Scroll up" MUST be here ──────────────────────
+                // PBI Table/Matrix visuals render a scroll affordance ("Scroll up")
+                // as the very first text node in the visual body, BEFORE any data
+                // rows. This means lines[0] of vc.innerText = "Scroll up" for
+                // Table/Matrix visuals. Flagging it as noisy causes the discover
+                // script to use strategy="type_index" (locate by type+position)
+                // instead of strategy="title", which is the correct behaviour for
+                // untitled tables.
                 function isNoisyTitle(title) {
                     if (!title || title.length === 0) return true;
+                    // Arrow / directional symbols only
                     if (title.length <= 2 && /^[⇗⇘⇒⇑⇓→↑↓▲▼]/.test(title)) return true;
+                    // Leading currency/paren
                     if (/^[\\$\\(]/.test(title)) return true;
+                    // Pure numbers / percentages
                     if (/^[\\d,\\.\\s%]+$/.test(title)) return true;
+                    // Formatted numeric values like "$4.2M", "87.5%"
                     if (/^[\\$\\(]?[\\d,\\.]+[KMBkmbTt%]?\\)?$/.test(title)) return true;
+                    // Scroll affordance text from Table/Matrix visual body
+                    if (/^Scroll (up|down|left|right)$/i.test(title)) return true;
                     return false;
                 }
 
@@ -903,11 +986,33 @@ class PBIDashboardPage(BasePage):
                 const MULTI_KPI_TYPES = new Set(['Card', 'Multi-row card']);
 
                 for (const div of innerDivs) {
-                    const roleDesc = div.getAttribute('aria-roledescription') || '';
+                    let roleDesc = div.getAttribute('aria-roledescription') || '';
                     const vc = div.closest('visual-container');
                     const allText  = (vc ? vc.innerText : div.innerText || '').trim();
                     const lines    = allText.split('\\n').map(l => l.trim()).filter(Boolean);
-                    const title    = lines.length > 0 ? lines[0] : '';
+
+                    // ── Fallback type detection for visuals with empty aria-roledescription ──
+                    // Power BI Table / Matrix visuals in PTW mode often lack an
+                    // aria-roledescription attribute on their container.
+                    // Detect them by inspecting DOM structure and text content.
+                    if (!roleDesc || roleDesc === '') {
+                        if (
+                            (vc && vc.querySelector("[role='grid'], [role='table'], div.pivotTableCellWrapper, [class*='tableContainer'], [class*='matrixContainer']")) ||
+                            /^Scroll (up|down|left|right)/i.test(allText) ||
+                            lines.some(l => /^(Row Selection|Rank|Agent ID|Agent Name)$/i.test(l))
+                        ) {
+                            roleDesc = 'Table';
+                        }
+                    }
+
+                    // Title = lines[0] of the visual's full innerText.
+                    // For Table/Matrix: lines[0] = "Scroll up" → isNoisyTitle=true
+                    //   → discover script uses type_index strategy (correct).
+                    // For KPI Card: lines[0] = label text e.g. "Page Views"
+                    //   → used as the visual title (correct).
+                    // For Charts: lines[0] = first axis tick or aria label
+                    //   → may be noisy; discover script falls back to type_index.
+                    const title = lines.length > 0 ? lines[0] : '';
 
                     let x = 0, y = 0, width = 0, height = 0;
                     if (vc) {
