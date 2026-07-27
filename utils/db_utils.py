@@ -5,10 +5,13 @@ Provides a minimal, read-only interface to the source database.
 All functions are generic — they do not contain any dashboard-specific
 SQL queries. SQL lives in the dashboard YAML config files.
 
-Dependencies:
-    pip install sqlalchemy
-    pip install psycopg2-binary    # for PostgreSQL
-    pip install pyodbc             # for SQL Server (mssql+pyodbc)
+Supported drivers (set ``driver`` in your dashboard YAML source_db section):
+    mssql+pymssql   → Azure SQL / SQL Server via pymssql   ACTIVE
+                      pip install pymssql
+    postgresql      → PostgreSQL via psycopg2
+                      pip install psycopg2-binary
+    mssql+pyodbc    → SQL Server via system ODBC driver
+                      requires Microsoft ODBC Driver for SQL Server
 """
 
 from __future__ import annotations
@@ -31,7 +34,7 @@ def get_db_engine(uri: str) -> Engine:
 
     Args:
         uri: SQLAlchemy connection URI, e.g.
-             "postgresql://user:pass@host:5432/dbname"
+             "mssql+pymssql://user:pass@server:1433/dbname"
 
     Returns:
         A SQLAlchemy Engine instance.
@@ -45,6 +48,32 @@ def get_db_engine(uri: str) -> Engine:
     log.info(f"Creating DB engine for: {uri.split('@')[-1]}")  # Log host/db only, no creds
     engine = create_engine(uri, pool_pre_ping=True)
     return engine
+
+
+def engine_from_config(config: dict) -> Optional[Engine]:
+    """
+    Build a SQLAlchemy engine directly from a parsed dashboard YAML config dict.
+
+    Reads the ``source_db`` section of the config, builds the URI, and
+    returns a ready-to-use engine.  Returns None if DB is not configured.
+
+    Args:
+        config: Parsed dashboard config dict (from config_loader.load_dashboard_config).
+
+    Returns:
+        SQLAlchemy Engine instance, or None if source_db is not configured.
+
+    Example:
+        config = load_dashboard_config("dashboard_configs/agent_detection.yaml")
+        engine = engine_from_config(config)
+        df = fetch_db_data(engine, "SELECT TOP 5 * FROM dbo.SALES")
+    """
+    from config.db_config import build_db_uri
+    uri = build_db_uri(config)
+    if not uri:
+        log.warning("source_db not configured in YAML — skipping DB engine creation")
+        return None
+    return get_db_engine(uri)
 
 
 def test_connection(engine: Engine) -> bool:
@@ -74,6 +103,8 @@ def fetch_db_data(engine: Engine, query: str) -> pd.DataFrame:
     Args:
         engine: SQLAlchemy Engine instance.
         query:  SQL query string. Should be a SELECT statement.
+                For SQL Server use TOP N instead of LIMIT N, e.g.:
+                    SELECT TOP 100 * FROM dbo.SALES
 
     Returns:
         pandas DataFrame containing the query results.
@@ -100,7 +131,7 @@ def fetch_scalar(engine: Engine, query: str) -> Optional[float]:
     Args:
         engine: SQLAlchemy Engine instance.
         query:  SQL query that returns exactly one row with one column,
-                e.g. "SELECT SUM(revenue) FROM fact_sales"
+                e.g. "SELECT SUM(Sales) FROM dbo.SALES"
 
     Returns:
         The scalar value as a float, or None if the result is NULL.

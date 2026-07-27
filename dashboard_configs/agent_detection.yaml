@@ -10,7 +10,7 @@
 #
 # ⚡ REVIEW CHECKLIST:
 #   1. Verify each visual entry matches what you see on screen
-#   2. Review SQL queries (focus on ⚠️ MEDIUM and ❌ UNMATCHED)
+#   2. Review SQL queries (focus on MEDIUM and UNMATCHED)
 #   3. Fill in source_db credentials (or source_excel path)
 #   4. Run: pytest tests/dashboard/ --dashboard-config=<this_file>
 # ──────────────────────────────────────────────────────────────────────────────
@@ -21,15 +21,15 @@ dashboard:
   pages: []  # Single-page report
 
 source_db:
-  driver:   ""    # TODO: e.g. "postgresql" or "mssql+pyodbc"
-  host:     ""    # TODO
-  port:     ""    # TODO
-  database: ""    # TODO
-  username: ""    # TODO
-  password: ""    # TODO: or "${DB_PASSWORD}" 
+  driver:   "${DB_DRIVER}"
+  host:     "${DB_HOST}"
+  port:     "${DB_PORT}"
+  database: "${DB_NAME}"
+  username: "${DB_USER}"
+  password: "${DB_PASSWORD}"
 
 source_excel:
-  filepath:   ""  # TODO: path to Excel export (alternative to DB)
+  filepath:   ""  # Not used — DB configured above
   sheet_name: ""
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -62,23 +62,23 @@ kpi_validations:
 # Auto-discovered Charts (5 found)
 # 
 # EXTRACTION METHOD LEGEND:
-#   ✅ aria   — Data read from Power BI accessibility aria-labels.
+#   aria   — Data read from Power BI accessibility aria-labels.
 #             Headless-safe. Works in all modes. No UI clicks.
-#   ⚠️  sat    — Requires 'Show as a table' UI flow (hover + More Options).
+#   sat    — Requires 'Show as a table' UI flow (hover + More Options).
 #             Uses the inner [aria-roledescription] div (real px dims).
 #             Falls back to SQL direct comparison if UI flow fails.
 #   ❓ unk    — Type not classified. aria attempted first, then sat.
 # 
 # COVERAGE SUMMARY for this dashboard:
-#   ✅  4 aria-extractable  — Total MTD Sales, Avg MTD Sales by Agents, Avg MTD % change by Agents, Avg Discount per Transaction
-#   ⚠️   1 show-as-table    — Scroll up
+#    4 aria-extractable  — Total MTD Sales, Avg MTD Sales by Agents, Avg MTD % change by Agents, Avg Discount per Transaction
+#    1 show-as-table    — Scroll up
 #   ❓  0 unknown          — 
 # 
 # Strategy A = located by title | Strategy B = located by type+index
 # ──────────────────────────────────────────────────────────────────────────────
 table_validations:
 
-  # ⚠️  sat  Chart: "Table[0]" — Strategy B (type+index)
+  # sat  Chart: "Table[0]" — Strategy B (type+index)
   # Show as a table flow needed — hover inner div to reveal More Options.
   # Title is empty or body-text. Locating by type+index.
   - visual_title: ""
@@ -92,7 +92,7 @@ table_validations:
       - ""  # TODO: numeric column(s) to compare
     tolerance: 0.01
 
-  # ✅ aria Chart: "Total MTD Sales" — Strategy A (title-based)
+  # aria Chart: "Total MTD Sales" — Strategy A (title-based)
   # Data points read via aria-label — headless-safe, no UI clicks needed.
   - visual_title: "Total MTD Sales"
     visual_type:  ""
@@ -105,7 +105,7 @@ table_validations:
       - ""  # TODO: numeric column(s) to compare
     tolerance: 0.01
 
-  # ✅ aria Chart: "Avg MTD Sales by Agents" — Strategy A (title-based)
+  # aria Chart: "Avg MTD Sales by Agents" — Strategy A (title-based)
   # Data points read via aria-label — headless-safe, no UI clicks needed.
   - visual_title: "Avg MTD Sales by Agents"
     visual_type:  ""
@@ -118,7 +118,7 @@ table_validations:
       - ""  # TODO: numeric column(s) to compare
     tolerance: 0.01
 
-  # ✅ aria Chart: "Avg MTD % change by Agents" — Strategy A (title-based)
+  # aria Chart: "Avg MTD % change by Agents" — Strategy A (title-based)
   # Data points read via aria-label — headless-safe, no UI clicks needed.
   - visual_title: "Avg MTD % change by Agents"
     visual_type:  ""
@@ -131,7 +131,7 @@ table_validations:
       - ""  # TODO: numeric column(s) to compare
     tolerance: 0.01
 
-  # ✅ aria Chart: "Avg Discount per Transaction" — Strategy A (title-based)
+  # aria Chart: "Avg Discount per Transaction" — Strategy A (title-based)
   # Data points read via aria-label — headless-safe, no UI clicks needed.
   - visual_title: "Avg Discount per Transaction"
     visual_type:  ""

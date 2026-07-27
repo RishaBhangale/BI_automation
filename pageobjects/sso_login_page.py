@@ -54,20 +54,33 @@ class SSOLoginPage(BasePage):
 
     def is_on_login_page(self) -> bool:
         """
-        Returns True if the browser is currently showing a Microsoft login page.
-        Used to detect whether SSO login is required before proceeding.
+        Returns True if the browser is currently showing a Microsoft login page
+        or a Power BI singleSignOn wall.
         """
         current = self.page.url
-        return self._MS_LOGIN_DOMAIN in current or self._MS_LIVE_DOMAIN in current
+        return (
+            self._MS_LOGIN_DOMAIN in current or 
+            self._MS_LIVE_DOMAIN in current or
+            "/singleSignOn" in current
+        )
 
     def enter_email(self, email: str) -> None:
         """
         Type the SSO email address and click Next.
-
-        Args:
-            email: Microsoft account email, e.g. "test-user@yourorg.onmicrosoft.com"
+        Handles both the Power BI singleSignOn page and the standard Microsoft login.
         """
         log.info(f"SSO: Entering email for '{email}'")
+        if "/singleSignOn" in self.page.url:
+            self.page.wait_for_selector("input#email")
+            self.page.fill("input#email", email)
+            self.page.click("button:has-text('Submit')")
+            # Wait for redirect to Microsoft login
+            self.page.wait_for_url(f"**/{self._MS_LOGIN_DOMAIN}/**", timeout=15_000)
+            self.page.wait_for_load_state("networkidle", timeout=15_000)
+            # If the redirect passed login_hint, it might skip straight to password.
+            # We don't need to do anything here; enter_password will handle the next screen.
+            return
+            
         self.page.wait_for_selector(self._EMAIL_INPUT)
         self.page.fill(self._EMAIL_INPUT, email)
         self.page.click(self._NEXT_BTN)
@@ -113,7 +126,7 @@ class SSOLoginPage(BasePage):
         except PwTimeoutError:
             log.info("SSO: 'Stay signed in?' prompt did not appear — skipping")
 
-    def wait_for_redirect_to_pbi(self, timeout_ms: int = 30_000) -> None:
+    def wait_for_redirect_to_pbi(self, timeout_ms: int = 60_000) -> None:
         """
         Wait until the browser has left the Microsoft login domain and
         arrived at the Power BI report URL.
@@ -121,7 +134,7 @@ class SSOLoginPage(BasePage):
         Raises:
             PwTimeoutError: If the redirect does not complete within timeout.
         """
-        log.info("SSO: Waiting for redirect back to Power BI...")
+        log.info("SSO: Waiting for redirect back to Power BI (Waiting up to 60s for MFA approval)...")
         self.page.wait_for_url(f"**/{self._PBI_DOMAIN}/**", timeout=timeout_ms)
         log.info(f"SSO: Redirect complete. URL: {self.page.url}")
 
@@ -133,6 +146,12 @@ class SSOLoginPage(BasePage):
             email:    Microsoft account email.
             password: Account password (plaintext, already decrypted by caller).
         """
+        if not email or not password:
+            raise ValueError(
+                "SSO login required, but SSO_USERNAME or SSO_PASSWORD is not set in .env. "
+                "Please configure them in your .env file."
+            )
+            
         self.enter_email(email)
         self.enter_password(password)
         self.handle_stay_signed_in(click_yes=False)

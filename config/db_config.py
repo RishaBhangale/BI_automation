@@ -13,6 +13,8 @@ Usage:
 
 from __future__ import annotations
 from typing import Optional
+from urllib.parse import quote_plus
+
 from config.settings import (
     DB_DRIVER, DB_HOST, DB_PORT, DB_NAME, DB_USER, get_db_password
 )
@@ -22,6 +24,9 @@ def build_db_uri(dashboard_config: Optional[dict] = None) -> str:
     """
     Construct and return a SQLAlchemy connection URI string.
 
+    Passwords and usernames containing special characters (e.g. @, #, %)
+    are URL-encoded automatically to prevent URI parse errors.
+
     Args:
         dashboard_config: Parsed dashboard YAML dict. If provided and contains
                           a non-empty ``source_db`` section, values from the
@@ -29,16 +34,8 @@ def build_db_uri(dashboard_config: Optional[dict] = None) -> str:
 
     Returns:
         A SQLAlchemy-compatible URI string, e.g.
-        ``"postgresql://user:pass@host:5432/dbname"``.
+        ``"mssql+pymssql://user:Devdb%402026@host:1433/dbname"``.
         Returns an empty string if the driver or host is not configured.
-
-    Notes:
-        - If source_db section is empty/missing in the YAML, falls back to
-          the global template values in settings.py.
-        - Passwords are resolved via get_db_password() which handles
-          encrypted tokens.
-        - Caller must check for empty string — it means DB is not configured
-          and tests should fall back to Excel/CSV source.
     """
     # Attempt to read from dashboard YAML config
     if dashboard_config:
@@ -67,6 +64,10 @@ def build_db_uri(dashboard_config: Optional[dict] = None) -> str:
     if not driver or not host:
         return ""  # Not configured — caller must handle gracefully
 
+    # URL-encode credentials so special chars (@ # % etc.) don't break the URI
+    encoded_user = quote_plus(user)
+    encoded_pass = quote_plus(password)
+
     if port:
-        return f"{driver}://{user}:{password}@{host}:{port}/{dbname}"
-    return f"{driver}://{user}:{password}@{host}/{dbname}"
+        return f"{driver}://{encoded_user}:{encoded_pass}@{host}:{port}/{dbname}"
+    return f"{driver}://{encoded_user}:{encoded_pass}@{host}/{dbname}"

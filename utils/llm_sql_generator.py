@@ -64,7 +64,7 @@ def suggest_sql_via_llm(
     if slicers:
         slicer_context = "Active Dashboard Slicers (these MUST be included as WHERE clauses):\n"
         for s in slicers:
-            slicer_context += f"- {s['slicer_title']}: {s.get('expected_value')}\n"
+            slicer_context += f"- {s.get('title')}: {s.get('values')}\n"
 
     prompt = f"""
 You are an expert Data Engineer writing validation SQL queries for a dashboard testing framework.
@@ -100,8 +100,7 @@ INSTRUCTIONS:
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            response_format=SQLSuggestion,
-            temperature=0.1
+            response_format=SQLSuggestion
         )
         
         parsed_response = completion.choices[0].message.parsed

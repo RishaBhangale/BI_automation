@@ -190,7 +190,7 @@ class PBIDashboardPage(BasePage):
             )
         except PwTimeoutError:
             log.debug("Org report spinner not detected — assuming render complete")
-        self.page.wait_for_load_state("networkidle", timeout=PBI_RENDER_TIMEOUT)
+        self.page.wait_for_load_state("load", timeout=PBI_RENDER_TIMEOUT)
         log.info("Org report render complete")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -236,19 +236,45 @@ class PBIDashboardPage(BasePage):
 
         # Try tab-based navigation first
         ctx = self._get_context()
-        tab_by_name = (
-            PBILocators.PTW_PAGE_TAB_BY_NAME
+        tab_sel = (
+            PBILocators.PTW_PAGE_TAB
             if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_PAGE_TAB_BY_NAME
+            else PBILocators.ORG_PAGE_TAB
         )
-        selector = tab_by_name.format(page_name=page_name)
+        
         try:
+            # Wait for tabs to be present
+            ctx.locator(tab_sel).first.wait_for(state="attached", timeout=3_000)
+            
+            tabs = ctx.locator(tab_sel).all()
+            target_tab = None
+            for tab in tabs:
+                title = tab.get_attribute("title") or tab.inner_text()
+                if title and title.strip() == page_name:
+                    target_tab = tab
+                    break
+            
+            if target_tab:
+                target_tab.wait_for(state="visible", timeout=3_000)
+                target_tab.click()
+                self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                log.info(f"Tab navigation: now on page '{page_name}'")
+                return
+                
+            # If not found by iteration, try original exact locator
+            tab_by_name = (
+                PBILocators.PTW_PAGE_TAB_BY_NAME
+                if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
+                else PBILocators.ORG_PAGE_TAB_BY_NAME
+            )
+            selector = tab_by_name.format(page_name=page_name)
             tab = ctx.locator(selector)
             tab.wait_for(state="visible", timeout=3_000)
             tab.click()
             self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
             log.info(f"Tab navigation: now on page '{page_name}'")
             return
+            
         except PwTimeoutError:
             log.debug(f"Tab '{page_name}' not found — trying arrow navigation")
 

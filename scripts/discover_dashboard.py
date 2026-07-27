@@ -240,7 +240,7 @@ def run_phase_a(
 
     Returns the raw pages list from discover_all_pages().
     """
-    print("\n⏳  Phase A: Crawling dashboard pages…")
+    print("\nPhase A: Crawling dashboard pages…")
     pages_data = dashboard_page.discover_all_pages()
     print(f"    Found {len(pages_data)} page(s)")
 
@@ -321,13 +321,13 @@ def run_phase_b(
     from utils.db_utils import get_db_engine
     import json
 
-    print("\n⏳  Phase B: Connecting to database…")
+    print("\nPhase B: Connecting to database…")
     try:
         engine = get_db_engine(db_uri)
         schema = introspect_schema(engine)
         print(f"    Schema: {len(schema['tables'])} table(s) introspected")
     except Exception as e:
-        print(f"    ⚠️  DB connection failed: {e}")
+        print(f"    DB connection failed: {e}")
         print("    Skipping SQL suggestion — queries will be empty (TODO).")
         return {}
 
@@ -505,7 +505,7 @@ source_db:
 {phase_b_note}#
 # ⚡ REVIEW CHECKLIST:
 #   1. Verify each visual entry matches what you see on screen
-#   2. Review SQL queries (focus on ⚠️ MEDIUM and ❌ UNMATCHED)
+#   2. Review SQL queries (focus on MEDIUM and UNMATCHED)
 #   3. Fill in source_db credentials (or source_excel path)
 #   4. Run: pytest tests/dashboard/ --dashboard-config=<this_file>
 # {'─'*78}
@@ -592,17 +592,17 @@ source_excel:
     lines.append(f"# Auto-discovered Charts ({chart_total} found)")
     lines.append("# ")
     lines.append("# EXTRACTION METHOD LEGEND:")
-    lines.append("#   ✅ aria   — Data read from Power BI accessibility aria-labels.")
+    lines.append("#   aria   — Data read from Power BI accessibility aria-labels.")
     lines.append("#             Headless-safe. Works in all modes. No UI clicks.")
-    lines.append("#   ⚠️  sat    — Requires 'Show as a table' UI flow (hover + More Options).")
+    lines.append("#   sat    — Requires 'Show as a table' UI flow (hover + More Options).")
     lines.append("#             Uses the inner [aria-roledescription] div (real px dims).")
     lines.append("#             Falls back to SQL direct comparison if UI flow fails.")
     lines.append("#   ❓ unk    — Type not classified. aria attempted first, then sat.")
     lines.append("# ")
     lines.append(f"# COVERAGE SUMMARY for this dashboard:")
-    lines.append(f"#   ✅ {len(aria_charts):>2} aria-extractable  — " +
+    lines.append(f"#   {len(aria_charts):>2} aria-extractable  — " +
                  ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in aria_charts) or "(none)")
-    lines.append(f"#   ⚠️  {len(sat_charts):>2} show-as-table    — " +
+    lines.append(f"#   {len(sat_charts):>2} show-as-table    — " +
                  ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in sat_charts) or "(none)")
     lines.append(f"#   ❓ {len(unk_charts):>2} unknown          — " +
                  ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in unk_charts) or "(none)")
@@ -647,10 +647,10 @@ source_excel:
             # Determine extraction method for this chart type
             extraction = _chart_extraction_method(vtype)
             if extraction == "aria":
-                method_icon = "✅ aria"
+                method_icon = "aria"
                 method_note = "Data points read via aria-label — headless-safe, no UI clicks needed."
             elif extraction == "show_as_table":
-                method_icon = "⚠️  sat "
+                method_icon = "sat "
                 method_note = "Show as a table flow needed — hover inner div to reveal More Options."
             else:
                 method_icon = "❓ unk "
@@ -679,14 +679,14 @@ source_excel:
 
             # Join keys
             if join_keys:
-                jk_yaml = "\n    ".join(f'- "{k}"' for k in join_keys)
+                jk_yaml = "\n      ".join(f'- "{k}"' for k in join_keys)
                 join_block = f"    join_keys:\n      {jk_yaml}"
             else:
                 join_block = "    join_keys:\n      - \"\"  # TODO: column(s) to align on"
 
             # Compare cols
             if compare_cols:
-                cc_yaml = "\n    ".join(f'- "{c}"' for c in compare_cols)
+                cc_yaml = "\n      ".join(f'- "{c}"' for c in compare_cols)
                 cmp_block = f"    compare_cols:\n      {cc_yaml}"
             else:
                 cmp_block = "    compare_cols:\n      - \"\"  # TODO: numeric column(s) to compare"
@@ -750,7 +750,7 @@ def print_summary(
         medium_count = confidences.count("MEDIUM")
         low_count    = confidences.count("LOW")
         none_count   = confidences.count("NONE")
-        sql_line     = f"  SQL Suggestions:  ✅ {high_count} HIGH | ⚠️  {medium_count} MEDIUM | 🔸 {low_count} LOW | ❌ {none_count} UNMATCHED"
+        sql_line     = f"  SQL Suggestions:  {high_count} HIGH | {medium_count} MEDIUM | {low_count} LOW | {none_count} UNMATCHED"
     else:
         sql_line = "  SQL Suggestions:  Disabled (run with --db-uri to enable)"
 
@@ -771,7 +771,7 @@ def print_summary(
     print(f"╠{sep}╣")
     print(f"║  Next steps:{' ' * (width - 13)}║")
     print(f"║    1. Open the YAML file and review all TODO items{' ' * (width - 51)}║")
-    print(f"║    2. Focus review on ⚠️  MEDIUM and ❌ UNMATCHED SQL{' ' * (width - 53)}║")
+    print(f"║    2. Focus review on MEDIUM and UNMATCHED SQL{' ' * (width - 53)}║")
     print(f"║    3. Run: pytest tests/dashboard/ --dashboard-config=<file>{' ' * (width - 61)}║")
     print(f"╚{sep}╝\n")
 
@@ -796,7 +796,7 @@ def main(argv: list[str] | None = None) -> int:
         from config.db_config import build_db_uri
         db_uri = build_db_uri()
         if not db_uri:
-            print("⚠️  --db-env specified but no DB credentials found in settings. Skipping SQL.")
+            print("--db-env specified but no DB credentials found in settings. Skipping SQL.")
 
     generated_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -815,8 +815,15 @@ def main(argv: list[str] | None = None) -> int:
         page    = context.new_page()
         Stealth().apply_stealth_sync(page)
 
+        from config.settings import SSO_USERNAME, get_sso_password
         dashboard_page = PBIDashboardPage(page)
         dashboard_page.open(args.url)
+        dashboard_page.login_via_sso(SSO_USERNAME, get_sso_password())
+
+        # Modern Power BI org reports render visuals in the main DOM just like
+        # Publish-to-Web (no iframe). Force PTW mode so extraction uses main frame locators.
+        from pageobjects.pbi_dashboard_page import EMBED_MODE_PUBLISH_TO_WEB
+        dashboard_page._embed_mode = EMBED_MODE_PUBLISH_TO_WEB
 
         # --- Phase A ---
         pages_data = run_phase_a(dashboard_page, args)

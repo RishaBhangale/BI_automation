@@ -1,6 +1,13 @@
 import os
 from utils.encryption_utils import decrypt_value
 
+# ── Auto-load .env from project root (no-op if python-dotenv is not installed) ─
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=False)  # never overrides vars already set in the shell
+except ImportError:
+    pass  # python-dotenv is optional; CI can inject env vars directly
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION A — FRAMEWORK SETTINGS
@@ -28,7 +35,7 @@ ELEMENT_TIMEOUT      = 10_000
 BROWSER_CHANNEL = "chrome"
 
 # True = no browser window (recommended for CI). False = visible window (local dev).
-HEADLESS = True
+HEADLESS = False
 
 # Dashboard viewport — wider than default so PBI renders all visuals correctly.
 BROWSER_WIDTH  = 1600
@@ -60,30 +67,42 @@ REPORT_DIR     = "reports/html_reports"
 
 # ── Microsoft SSO (Azure AD) — for org/secure Power BI dashboards ─────────────
 # Leave blank for "Publish to Web" public dashboards (no auth required).
-SSO_USERNAME      = ""   # e.g. "test-user@yourorg.onmicrosoft.com"
-SSO_PASSWORD_ENC  = ""   # Encrypted password token (gAAAAAB...)
-SSO_PASSWORD_PLAIN = ""  # Plaintext fallback — local dev ONLY, never in CI
+# Set these in .env (never hardcode here):
+#   SSO_USERNAME=test-user@yourorg.onmicrosoft.com
+#   SSO_PASSWORD=your_plain_password   (or SSO_PASSWORD_ENC for encrypted)
+SSO_USERNAME      = os.getenv("SSO_USERNAME", "")
+SSO_PASSWORD_ENC  = os.getenv("SSO_PASSWORD_ENC", "")   # Encrypted token (gAAAAAB...)
+SSO_PASSWORD_PLAIN = os.getenv("SSO_PASSWORD", "")       # Plain fallback
 
 def get_sso_password() -> str:
-    """Return SSO password. Priority: encrypted token > plaintext fallback > empty."""
+    """Return SSO password. Priority: encrypted token > plain env var > empty."""
     if SSO_PASSWORD_ENC:
         return decrypt_value(SSO_PASSWORD_ENC)
     return SSO_PASSWORD_PLAIN
 
 
 # ── Source Database — global template (override per-dashboard in the YAML) ────
-# These are the global defaults. Each dashboard YAML config's source_db section
-# takes precedence over these when running a specific dashboard.
-DB_DRIVER        = ""   # e.g. "mssql+pyodbc", "postgresql", "snowflake"
-DB_HOST          = ""   # e.g. "db.internal.company.com"
-DB_PORT          = ""   # e.g. "1433", "5432"
-DB_NAME          = ""   # Database / schema name
-DB_USER          = ""   # Read-only service account username
-DB_PASSWORD_ENC  = ""   # Encrypted password token
-DB_PASSWORD_PLAIN = ""  # Plaintext fallback — local dev ONLY
+# Each dashboard YAML config's source_db section takes precedence over these.
+# When the YAML uses ${ENV_VAR} syntax the value is resolved from the env at
+# runtime, so nothing is ever hardcoded in Python or YAML source.
+#
+# Set these in .env (or export in shell / CI secrets) — example:
+#   DB_DRIVER=mssql+pymssql
+#   DB_HOST=myserver.database.windows.net
+#   DB_PORT=1433
+#   DB_NAME=mydatabase
+#   DB_USER=mylogin
+#   DB_PASSWORD=MyP@ssword   (or DB_PASSWORD_ENC for an encrypted token)
+DB_DRIVER        = os.getenv("DB_DRIVER", "")    # e.g. "mssql+pymssql", "postgresql"
+DB_HOST          = os.getenv("DB_HOST",   "")    # e.g. "server.database.windows.net"
+DB_PORT          = os.getenv("DB_PORT",   "")    # e.g. "1433", "5432"
+DB_NAME          = os.getenv("DB_NAME",   "")    # Database / schema name
+DB_USER          = os.getenv("DB_USER",   "")    # Read-only service account username
+DB_PASSWORD_ENC  = os.getenv("DB_PASSWORD_ENC", "")  # Encrypted token (gAAAAAB...)
+DB_PASSWORD_PLAIN = os.getenv("DB_PASSWORD", "")      # Plain password env var
 
 def get_db_password() -> str:
-    """Return DB password. Priority: encrypted token > plaintext fallback > empty."""
+    """Return DB password. Priority: encrypted token > plain env var > empty."""
     if DB_PASSWORD_ENC:
         return decrypt_value(DB_PASSWORD_ENC)
     return DB_PASSWORD_PLAIN

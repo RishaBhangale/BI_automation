@@ -368,7 +368,7 @@ def generate_report(
       <span><i class="lf"></i>Failed step</span>
     </div>
     <div class="toolbar">
-      <input type="text" id="search-box" placeholder="🔍 Search tests..." onkeyup="filterTests()"/>
+      <input type="text" id="search-box" placeholder="Search tests..." onkeyup="filterTests()"/>
       <label style="color:var(--pass)"><input type="checkbox" id="cb-pass" checked onchange="filterTests()" style="accent-color:var(--pass)"/> Passed</label>
       <label style="color:var(--fail)"><input type="checkbox" id="cb-fail" checked onchange="filterTests()" style="accent-color:var(--fail)"/> Failed</label>
       <button onclick="toggleAllDetails(true)">Show all</button>

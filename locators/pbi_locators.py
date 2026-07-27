@@ -24,7 +24,7 @@ MODE B — "Secure Embed / Org Report"  (URL pattern: app.powerbi.com/groups/...
   • NOTE: This mode is for client org dashboards (future use)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️  When Microsoft updates the Power BI web UI, selectors may break.
+When Microsoft updates the Power BI web UI, selectors may break.
     To fix: Open dashboard in Chrome → right-click element → Inspect
     → find stable attribute (aria-label, role, data-testid, class) → update.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

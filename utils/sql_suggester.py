@@ -219,10 +219,10 @@ def suggest_table_sql(
 # ── Confidence Formatting ──────────────────────────────────────────────────────
 
 CONFIDENCE_EMOJI = {
-    "HIGH":   "✅ HIGH",
-    "MEDIUM": "⚠️  MEDIUM",
-    "LOW":    "🔸 LOW",
-    "NONE":   "❌ COULD NOT AUTO-SUGGEST",
+    "HIGH":   "HIGH",
+    "MEDIUM": "MEDIUM",
+    "LOW":    "LOW",
+    "NONE":   "COULD NOT AUTO-SUGGEST",
 }
 
 CONFIDENCE_COMMENT = {
