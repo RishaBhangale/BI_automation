@@ -1,0 +1,1 @@
+-- Mock SQL Query for TC-BIZ-011\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc011.sql\n
