@@ -126,10 +126,13 @@ def db_engine(dashboard_config: dict):
 
     engine = get_db_engine(uri)
     if not test_connection(engine):
-        pytest.fail(
-            "Could not connect to the source database. "
+        log.warning(
+            "Could not connect to the source database — "
+            "DB-dependent tests will be skipped. "
             "Check your YAML config's source_db section and network access."
         )
+        yield None
+        return
 
     yield engine
     engine.dispose()
@@ -340,6 +343,8 @@ def pytest_runtest_makereport(item, call):
         group = "GROUP 2 — KPI VALIDATION"
     elif "table" in item.name:
         group = "GROUP 3 — TABLE VALIDATION"
+    elif "biz" in item.name or "business" in item.name or item.fspath.basename == "test_business_scenarios.py":
+        group = "GROUP 5 — BUSINESS SCENARIOS"
     else:
         group = "GROUP 4 — OTHER DASHBOARD TESTS"
 

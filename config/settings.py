@@ -133,8 +133,3 @@ FOUNDRY_API_VERSION = os.getenv("FOUNDRY_API_VERSION", "2024-12-01-preview")
 PBI_TENANT_ID     = os.getenv("PBI_TENANT_ID", "")    # Azure AD Tenant ID (GUID)
 PBI_CLIENT_ID     = os.getenv("PBI_CLIENT_ID", "")    # App Registration Client ID (GUID)
 PBI_CLIENT_SECRET = os.getenv("PBI_CLIENT_SECRET", "") # App Registration Client Secret
-
-
-
-
-

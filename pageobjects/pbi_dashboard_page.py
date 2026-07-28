@@ -234,55 +234,92 @@ class PBIDashboardPage(BasePage):
         """
         log.info(f"Switching to page: '{page_name}'")
 
-        # Try tab-based navigation first
-        ctx = self._get_context()
         tab_sel = (
             PBILocators.PTW_PAGE_TAB
             if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
             else PBILocators.ORG_PAGE_TAB
         )
-        
-        try:
-            # Wait for tabs to be present
-            ctx.locator(tab_sel).first.wait_for(state="attached", timeout=3_000)
-            
-            tabs = ctx.locator(tab_sel).all()
-            target_tab = None
-            for tab in tabs:
-                title = tab.get_attribute("title") or tab.inner_text()
-                if title and title.strip() == page_name:
-                    target_tab = tab
-                    break
-            
-            if target_tab:
-                target_tab.wait_for(state="visible", timeout=3_000)
-                target_tab.click()
-                self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-                log.info(f"Tab navigation: now on page '{page_name}'")
-                return
-                
-            # If not found by iteration, try original exact locator
-            tab_by_name = (
-                PBILocators.PTW_PAGE_TAB_BY_NAME
-                if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-                else PBILocators.ORG_PAGE_TAB_BY_NAME
-            )
-            selector = tab_by_name.format(page_name=page_name)
-            tab = ctx.locator(selector)
-            tab.wait_for(state="visible", timeout=3_000)
-            tab.click()
-            self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-            log.info(f"Tab navigation: now on page '{page_name}'")
-            return
-            
-        except PwTimeoutError:
-            log.debug(f"Tab '{page_name}' not found — trying arrow navigation")
+        tab_by_name_tpl = (
+            PBILocators.PTW_PAGE_TAB_BY_NAME
+            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
+            else PBILocators.ORG_PAGE_TAB_BY_NAME
+        )
 
-        # Fallback: arrow-based navigation (go to page 1, click Next until we match)
+        def _try_tab_nav_in(ctx) -> bool:
+            """
+            Look for `page_name` tab in `ctx` (iframe locator OR outer page).
+            Returns True if the tab was found and clicked, False otherwise.
+            """
+            try:
+                ctx.locator(tab_sel).first.wait_for(state="attached", timeout=3_000)
+            except PwTimeoutError:
+                return False
+
+            # Strategy A: iterate all tabs, match by inner_text / title attribute
+            tabs = ctx.locator(tab_sel).all()
+            for tab in tabs:
+                try:
+                    title = tab.get_attribute("title") or tab.inner_text()
+                except Exception:
+                    continue
+                if title and title.strip() == page_name:
+                    try:
+                        tab.wait_for(state="visible", timeout=3_000)
+                        tab.click()
+                        self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                        log.info(f"Tab navigation: now on page '{page_name}'")
+                        return True
+                    except PwTimeoutError:
+                        pass
+
+            # Strategy B: exact attribute selector
+            try:
+                selector = tab_by_name_tpl.format(page_name=page_name)
+                tab = ctx.locator(selector)
+                tab.wait_for(state="visible", timeout=3_000)
+                tab.click()
+                self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                log.info(f"Tab navigation (attr selector): now on page '{page_name}'")
+                return True
+            except PwTimeoutError:
+                pass
+
+            return False
+
+        # Pass 1: expected context (iframe for org_report, outer page for publish_to_web)
+        if _try_tab_nav_in(self._get_context()):
+            return
+
+        # Pass 2 (org_report only): modern flat-DOM PBI — tabs live in the outer page,
+        # not inside any iframe. Try self.page directly.
+        if self._embed_mode == EMBED_MODE_ORG_REPORT:
+            log.debug(f"Tab '{page_name}' not in iframe context — trying outer page")
+            if _try_tab_nav_in(self.page):
+                return
+
+        # Pass 3: also try PTW tab selector ([role='tab']) on the outer page,
+        # regardless of embed mode — covers reports that mix tab styles.
+        try:
+            ptw_tabs = self.page.locator(PBILocators.PTW_PAGE_TAB).all()
+            for tab in ptw_tabs:
+                try:
+                    title = tab.get_attribute("title") or tab.inner_text()
+                except Exception:
+                    continue
+                if title and title.strip() == page_name:
+                    tab.wait_for(state="visible", timeout=3_000)
+                    tab.click()
+                    self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                    log.info(f"Tab navigation (PTW selector): now on page '{page_name}'")
+                    return
+        except PwTimeoutError:
+            pass
+
+        # Pass 4: arrow-based navigation (PTW reports that use Prev/Next buttons)
+        log.debug(f"Tab '{page_name}' not found via any tab strategy — trying arrow navigation")
         try:
             self._arrow_navigate_to(page_name)
         except PageNotFoundError:
-            # Collect all available pages for a helpful error message
             available = self.get_all_page_names()
             raise PageNotFoundError(
                 f"Page '{page_name}' not found in this report. "
@@ -1415,16 +1452,35 @@ class PBIDashboardPage(BasePage):
         return raw_value
 
     def _extract_card_value_org(self, visual_title: str) -> str:
-        """Extract card value for org reports (inside iframe)."""
-        frame = self._get_org_frame()
-        value_locator = frame.locator(
+        """Extract card value for org reports (inside iframe or flat DOM)."""
+        value_selector = (
             f"visual-container:has({PBILocators.ORG_VISUAL_TITLE_TEXT}"
             f":has-text('{visual_title}')) {PBILocators.ORG_CARD_VALUE}"
         )
-        value_locator.wait_for(timeout=15_000)
-        raw_value = value_locator.inner_text().strip()
-        log.info(f"Card '{visual_title}' → raw value: '{raw_value}'")
-        return raw_value
+        
+        try:
+            frame = self._get_org_frame()
+            value_locator = frame.locator(value_selector)
+            value_locator.wait_for(timeout=3_000)
+            raw_value = value_locator.inner_text().strip()
+            log.info(f"Card '{visual_title}' → raw value: '{raw_value}' (iframe strategy)")
+            return raw_value
+        except Exception:
+            log.debug(f"Card '{visual_title}' not found via iframe — using flat-DOM approach")
+        
+        # Flat-DOM fallback
+        value_locator = self.page.locator(value_selector)
+        try:
+            value_locator.wait_for(timeout=5_000)
+            raw_value = value_locator.inner_text().strip()
+            log.info(f"Card '{visual_title}' → raw value: '{raw_value}' (flat-DOM strategy)")
+            return raw_value
+        except Exception:
+            pass
+
+        # Ultimate fallback using the PTW JS extractor logic (which is often robust on flat DOMs)
+        log.debug(f"Card '{visual_title}' falling back to PTW JS extractor on flat DOM")
+        return self._extract_card_value_ptw(visual_title)
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Table / Chart Data Extraction ("Show as a table")
@@ -1986,38 +2042,356 @@ class PBIDashboardPage(BasePage):
         """
         Set a slicer to a specific value.
 
+        Tries the following strategies in order:
+          1. Find slicer container via _find_visual_by_title (iframe for classic
+             org reports, outer page for publish-to-web).
+          2. If strategy 1 fails (no iframe / flat-DOM org report), use a
+             JavaScript-based approach directly on self.page to locate the
+             slicer container and click the matching item.
+
         Args:
             slicer_title: Title of the slicer visual.
-            value:        The slicer item to select (e.g., "North", "2024").
+            value:        The slicer item to select (e.g. "California", "2024").
         """
         log.info(f"Setting slicer '{slicer_title}' to '{value}'")
-        container = self._find_visual_by_title(slicer_title)
 
-        search_sel = (
-            PBILocators.PTW_SLICER_SEARCH
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_SLICER_SEARCH
-        )
         item_sel = (
             PBILocators.PTW_SLICER_ITEM
             if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
             else PBILocators.ORG_SLICER_ITEM
         )
+        search_sel = (
+            PBILocators.PTW_SLICER_SEARCH
+            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
+            else PBILocators.ORG_SLICER_SEARCH
+        )
 
+        # --- Strategy 1: iframe / classic visual container path ---
+        container = None
         try:
-            search = container.locator(search_sel)
-            search.wait_for(timeout=3_000)
-            search.fill(value)
-            self.page.wait_for_timeout(500)
-        except PwTimeoutError:
-            log.debug(f"Slicer '{slicer_title}' has no search input — trying direct click")
+            container = self._find_visual_by_title(slicer_title)
+            # Verify it actually points to something real
+            _ = container.count()
+        except Exception:
+            container = None
 
-        item = container.locator(f"{item_sel}:has-text('{value}')")
-        item.click()
+        if container is not None:
+            # Search input (if slicer has one)
+            try:
+                search = container.locator(search_sel)
+                search.wait_for(timeout=3_000)
+                search.fill(value)
+                self.page.wait_for_timeout(500)
+            except PwTimeoutError:
+                log.debug(f"Slicer '{slicer_title}' has no search input — trying direct click")
+
+            item = container.locator(f"{item_sel}:has-text('{value}')")
+            item.click()
+            self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+            log.info(f"Slicer '{slicer_title}' set to '{value}'")
+            return
+
+        # --- Strategy 2: flat-DOM approach for modern org reports (no iframe) ---
+        log.debug(
+            f"Slicer '{slicer_title}' not found via iframe — "
+            f"using flat-DOM approach on outer page"
+        )
+
+        # Step 2a: Diagnostic — log slicer structure to help debug selector mismatches
+        slicer_info = self.page.evaluate("""
+            (targetTitle) => {
+                const info = [];
+                for (const div of document.querySelectorAll('[aria-roledescription]')) {
+                    const vc = div.closest('visual-container') || div.parentElement;
+                    const rawText = (vc ? vc.innerText : div.innerText || '').trim();
+                    const firstLine = rawText.split('\\n')[0].trim();
+                    const role = div.getAttribute('aria-roledescription') || '';
+                    if (!role.toLowerCase().includes('slicer')) continue;
+                    info.push({
+                        role: role,
+                        firstLine: firstLine,
+                        isTarget: firstLine === targetTitle,
+                        slicerItems: (vc || div).querySelectorAll(
+                            "[class*='slicerItemContainer']"
+                        ).length,
+                        listOptions: (vc || div).querySelectorAll(
+                            "[role='option'], [role='listitem']"
+                        ).length,
+                        hasDropdownBtn: !!(vc || div).querySelector(
+                            "[aria-haspopup], [class*='dropdown'], [class*='Dropdown'], "
+                            + "button[class*='slicer']"
+                        ),
+                    });
+                }
+                return info;
+            }
+        """, slicer_title)
+        log.info(f"Slicer DOM diagnostic for '{slicer_title}': {slicer_info}")
+
+        # Step 2b: Find the slicer visual container using Playwright directly on self.page.
+        # We look for ANY element with aria-roledescription containing 'slicer' that
+        # lives inside a visual-container whose first line of text equals slicer_title.
+        visual_data = {"loc": None}
+        for info_item in (slicer_info or []):
+            if info_item.get("isTarget"):
+                visual_data["loc"] = self.page.locator(
+                    f"visual-container:has-text('{slicer_title}')"
+                ).first
+                break
+
+        if visual_data["loc"] is None:
+            visual_data["loc"] = self.page.locator(
+                f"[aria-roledescription*='licer']:near(:text('{slicer_title}'), 100)"
+            ).first
+
+        # Step 2c: Expand the slicer dropdown (if it is a dropdown-style slicer).
+        try:
+            expand_btn_selectors = [
+                "i[class*='dropdown']",
+                "i[class*='Dropdown']",
+                "[class*='chevron']",
+                "[class*='dropdownToggle']",
+                "[class*='dropdown-toggle']",
+                "[class*='slicerDropdown'] button",
+                "button[aria-haspopup='listbox']",
+                "button[aria-haspopup='true']",
+                "[class*='slicerHeader'] button"
+            ]
+            clicked_dropdown = False
+            if visual_data["loc"]:
+                for sel in expand_btn_selectors:
+                    locs = visual_data["loc"].locator(sel)
+                    if locs.count() > 0:
+                        try:
+                            locs.first.click(force=True, timeout=1000)
+                            self.page.wait_for_timeout(800)
+                            log.debug(f"Slicer '{slicer_title}' dropdown expanded via {sel}")
+                            clicked_dropdown = True
+                            break
+                        except Exception:
+                            continue
+            
+            if not clicked_dropdown:
+                # Fallback: Click the current value area (e.g. "All") to trigger the dropdown
+                fallback_loc = self.page.locator(f"visual-container:has-text('{slicer_title}') [class*='slicerText']").first
+                if fallback_loc.count() > 0:
+                    fallback_loc.click(force=True, timeout=1000)
+                    self.page.wait_for_timeout(800)
+                    log.debug(f"Slicer '{slicer_title}' expanded via text click")
+        except Exception as e:
+            log.debug(f"Slicer '{slicer_title}' dropdown toggle error: {e}")
+
+        # Step 2d: Wait briefly for items to render (dropdown slicers need this)
+        self.page.wait_for_timeout(600)
+
+        # Step 2e: Click the item using Playwright real browser events.
+        # This is more reliable than JS .click() because it triggers PBI's event handlers.
+        clicked = False
+        # Wait a moment for animation
+        self.page.wait_for_timeout(500)
+
+        # Step 2d.5: Search box filtering (for virtualized lists)
+        # Power BI virtualizes large lists. If the item isn't in the first ~20, it won't be in the DOM.
+        search_inputs = self.page.locator(".searchInput")
+        try:
+            # Type into the first visible slicer search input
+            for i in range(search_inputs.count()):
+                s_input = search_inputs.nth(i)
+                if s_input.is_visible(timeout=500):
+                    # Use focus and keyboard typing to avoid closing the dropdown
+                    s_input.focus()
+                    s_input.press_sequentially(value, delay=50)
+                    self.page.wait_for_timeout(1000) # Wait for filtering to apply
+                    log.debug(f"Filtered slicer list by typing '{value}' into search box")
+                    break
+        except Exception:
+            pass
+
+        # Most dropdown list popups render directly in the body as siblings, but sometimes in the visual container.
+        # We search the whole page but prefer visible elements.
+        search_root = self.page
+        
+        item_candidates = [
+            f"[class*='slicerItemContainer']:has-text('{value}')",
+            f"[role='option']:has-text('{value}')",
+            f"[role='listitem']:has-text('{value}')",
+            f"[class*='row']:has-text('{value}')",
+            f"text='{value}'",
+        ]
+        
+        for candidate in item_candidates:
+            try:
+                # Find all matching elements in the root
+                locs = search_root.locator(candidate)
+                count = locs.count()
+                for i in range(count):
+                    loc = locs.nth(i)
+                    if loc.is_visible():
+                        loc.click(timeout=3_000)
+                        clicked = True
+                        log.debug(f"Slicer item clicked via selector: {candidate} (match {i})")
+                        break
+                if clicked:
+                    break
+            except Exception:
+                continue
+
+        if not clicked:
+            # Final fallback: JS click (synthetic) on the item text + Auto-scrolling for virtualization
+            safe_value = value.replace("'", "\\'")
+            js_result = self.page.evaluate(f"""
+                async () => {{
+                    const delay = ms => new Promise(res => setTimeout(res, ms));
+                    const findTextNode = () => {{
+                        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+                        let node;
+                        while ((node = walker.nextNode())) {{
+                            if (node.textContent && node.textContent.includes('{safe_value}')) {{
+                                const parent = node.parentElement;
+                                if (parent && parent.offsetHeight > 0) return parent;
+                            }}
+                        }}
+                        return null;
+                    }};
+                    
+                    let target = findTextNode();
+                    if (target) {{
+                        target.click();
+                        return {{clicked: true, text: target.textContent}};
+                    }}
+                    
+                    // Try scrolling if not found (virtualized lists)
+                    const scrollContainers = Array.from(document.querySelectorAll('.scroll-region, .slicer-dropdown-menu, [role="listbox"]')).filter(el => el.scrollHeight > el.clientHeight);
+                    if (scrollContainers.length > 0) {{
+                        const scroller = scrollContainers[scrollContainers.length - 1]; // Use the most deeply nested or last one (popup)
+                        let lastScroll = -1;
+                        scroller.scrollTop = 0;
+                        while (scroller.scrollTop > lastScroll) {{
+                            lastScroll = scroller.scrollTop;
+                            scroller.scrollTop += 150;
+                            await delay(200); // wait for render
+                            target = findTextNode();
+                            if (target) {{
+                                target.click();
+                                return {{clicked: true, text: target.textContent, scrolled: true}};
+                            }}
+                        }}
+                    }}
+                    return {{clicked: false, matches: []}};
+                }}
+            """)
+            if js_result.get("clicked"):
+                clicked = True
+                log.debug(f"Slicer item '{value}' clicked via JS text walker. Match: {js_result.get('text')}. Scrolled: {js_result.get('scrolled', False)}")
+            else:
+                log.debug(f"JS fallback failed to find clickable element. Partial matches found: {js_result.get('matches')}")
+                self.page.screenshot(path="slicer_failure.png")
+
+        if not clicked:
+            raise ValueError(
+                f"Could not set slicer '{slicer_title}' to '{value}'. "
+                f"Slicer DOM info: {slicer_info}. "
+                f"Check that the slicer title and item value match the dashboard exactly."
+            )
+
         self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-        log.info(f"Slicer '{slicer_title}' set to '{value}'")
+        log.info(f"Slicer '{slicer_title}' set to '{value}' (flat-DOM strategy)")
+
+
+
+    def reset_slicer(self, slicer_title: str) -> None:
+        """
+        Reset a slicer back to its default "Select all" / "All" state.
+
+        Tries the following strategies in order:
+          1. Click the "Select all" checkbox in the flat-DOM outer page (JS).
+          2. Click a Clear/eraser button via JS on outer page.
+          3. Classic iframe-based approach via _find_visual_by_title.
+
+        Args:
+            slicer_title: Title of the slicer visual to reset.
+        """
+        log.info(f"Resetting slicer '{slicer_title}' to All")
+        safe_title = slicer_title.replace("'", "\\'")
+
+        # Strategy 1: JS — click Select All checkbox on outer page
+        done = self.page.evaluate(f"""
+            () => {{
+                const allDivs = document.querySelectorAll('[aria-roledescription]');
+                for (const div of allDivs) {{
+                    const vc = div.closest('visual-container') || div.parentElement;
+                    const text = (vc ? vc.innerText : div.innerText || '').trim();
+                    if (text.split('\\n')[0].trim() !== '{safe_title}') continue;
+                    const root = vc || div;
+                    // Look for a Select All control
+                    const selAll = root.querySelector(
+                        "[aria-label='Select all'], [title='Select all'], "
+                        + "input[aria-label*='select all' i]"
+                    );
+                    if (selAll) {{
+                        const checked = selAll.getAttribute('aria-checked');
+                        if (checked !== 'true') {{
+                            selAll.click();
+                            return 'clicked_select_all';
+                        }}
+                        return 'already_all';
+                    }}
+                    // Look for a Clear / erase button
+                    const clearBtn = root.querySelector(
+                        "button[aria-label='Clear'], button[title='Clear'], "
+                        + "[class*='clearIcon'], [class*='eraser']"
+                    );
+                    if (clearBtn) {{
+                        clearBtn.click();
+                        return 'clicked_clear';
+                    }}
+                }}
+                return null;
+            }}
+        """)
+
+        if done:
+            self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+            log.info(f"Slicer '{slicer_title}' reset via JS ({done})")
+            return
+
+        # Strategy 2: Playwright locator on outer page — Select All checkbox
+        try:
+            select_all = self.page.locator(
+                "[aria-label='Select all'], [title='Select all']"
+            ).first
+            if select_all.is_visible(timeout=2_000):
+                checked = select_all.get_attribute("aria-checked")
+                if checked != "true":
+                    select_all.click()
+                    self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                    log.info(f"Slicer '{slicer_title}' reset via Select All locator")
+                    return
+                log.info(f"Slicer '{slicer_title}' already at All")
+                return
+        except PwTimeoutError:
+            pass
+
+        # Strategy 3: iframe-based clear (classic org reports)
+        try:
+            container = self._find_visual_by_title(slicer_title)
+            clear_btn = container.locator(
+                "button[aria-label='Clear'], button[title='Clear'], "
+                "[class*='clearIcon'], [class*='eraser']"
+            ).first
+            if clear_btn.is_visible():
+                clear_btn.click()
+                self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                log.info(f"Slicer '{slicer_title}' reset via iframe Clear button")
+                return
+        except Exception:
+            pass
+
+        log.info(f"Slicer '{slicer_title}' reset attempt complete (no clear action taken)")
+
 
     def get_slicer_value(self, slicer_title: str) -> list[str]:
+
         """
         Read the currently selected value(s) from a slicer visual.
 
