@@ -85,10 +85,13 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
     """
     test_id       = _clean(tc.get("Test ID")) or "UNKNOWN"
     scenario_name = _clean(tc.get("Scenario Name")) or "Unnamed"
-    slicer1_name  = _clean(tc.get("Slicer 1 Name"))
-    slicer1_value = _clean(tc.get("Slicer 1 Value"))
-    slicer2_name  = _clean(tc.get("Slicer 2 Name"))
-    slicer2_value = _clean(tc.get("Slicer 2 Value"))
+    slicers = []
+    for i in range(1, 7):
+        s_name = _clean(tc.get(f"Slicer {i} Name"))
+        s_value = _clean(tc.get(f"Slicer {i} Value"))
+        if s_name and s_value:
+            slicers.append((s_name, s_value))
+
     kpi_to_read   = _clean(tc.get("KPI to Read"))
     sql_file      = _clean(tc.get("SQL File Name"))
 
@@ -114,26 +117,15 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
         log.info("STEP1.5_END")
 
         # ── Step 2 ─────────────────────────────────────────────────────────────
-        if slicer1_name and slicer1_value:
-            log.info(f"STEP2_START|Apply Slicer: {slicer1_name} = {slicer1_value}")
+        for idx, (s_name, s_value) in enumerate(slicers, start=1):
+            log.info(f"STEP2.{idx}_START|Apply Slicer: {s_name} = {s_value}")
             try:
-                dashboard_page.reset_slicer(slicer1_name)
+                dashboard_page.reset_slicer(s_name)
             except Exception:
                 pass
-            dashboard_page.set_slicer(slicer1_name, slicer1_value)
-            applied_slicers.append(slicer1_name)
-            log.info("STEP2_END")
-
-        # ── Step 3 ─────────────────────────────────────────────────────────────
-        if slicer2_name and slicer2_value:
-            log.info(f"STEP3_START|Apply Slicer: {slicer2_name} = {slicer2_value}")
-            try:
-                dashboard_page.reset_slicer(slicer2_name)
-            except Exception:
-                pass
-            dashboard_page.set_slicer(slicer2_name, slicer2_value)
-            applied_slicers.append(slicer2_name)
-            log.info("STEP3_END")
+            dashboard_page.set_slicer(s_name, s_value)
+            applied_slicers.append(s_name)
+            log.info(f"STEP2.{idx}_END")
 
         # ── Step 4 ─────────────────────────────────────────────────────────────
         log.info(f"STEP4_START|Read KPI card: {kpi_to_read}")
