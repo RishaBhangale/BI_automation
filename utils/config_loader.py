@@ -113,57 +113,8 @@ def _validate_config_schema(config: dict) -> None:
         log.warning("[CONFIG] dashboard.url is empty — tests will fail when they try to navigate")
         warnings_found += 1
 
-    # Validate KPI entries
-    kpis = config.get("kpi_validations") or []
-    for i, kpi in enumerate(kpis):
-        label = f"kpi_validations[{i}]"
-
-        if not kpi.get("visual_title", "").strip():
-            log.warning(
-                f"[CONFIG] {label}.visual_title is empty or missing. "
-                f"This KPI will be skipped — fill in the exact visual title from the dashboard."
-            )
-            warnings_found += 1
-
-        has_sql   = bool(kpi.get("sql_query", "").strip())
-        has_excel = bool(kpi.get("excel_column", "").strip())
-        if not has_sql and not has_excel:
-            title = kpi.get('visual_title', f'entry {i}')
-            log.warning(
-                f"[CONFIG] {label} ('{title}') has no sql_query and no excel_column. "
-                f"The KPI value will be EXTRACTED but NOT compared against any source "
-                f"(extraction-only mode). Add sql_query or excel_column to enable validation."
-            )
-            warnings_found += 1
-
-    # Validate table entries
-    tables = config.get("table_validations") or []
-    for i, tbl in enumerate(tables):
-        label = f"table_validations[{i}]"
-
-        if not tbl.get("visual_title", "").strip():
-            log.warning(
-                f"[CONFIG] {label}.visual_title is empty or missing. "
-                f"This table will be skipped — fill in the exact visual title from the dashboard."
-            )
-            warnings_found += 1
-
-        if not tbl.get("join_keys"):
-            title = tbl.get('visual_title', f'entry {i}')
-            log.warning(
-                f"[CONFIG] {label} ('{title}') has no join_keys. "
-                f"Row-by-row comparison requires at least one join key column."
-            )
-            warnings_found += 1
-
-        if not tbl.get("compare_cols"):
-            title = tbl.get('visual_title', f'entry {i}')
-            log.warning(
-                f"[CONFIG] {label} ('{title}') has no compare_cols. "
-                f"No numeric columns will be compared — add at least one column name."
-            )
-            warnings_found += 1
-
+    # KPIs and Tables validation has been removed as we now only run business scenarios.
+    
     if warnings_found == 0:
         log.info("[CONFIG] Validation passed — no issues found in the config")
     else:

@@ -2182,12 +2182,14 @@ class PBIDashboardPage(BasePage):
                             continue
             
             if not clicked_dropdown:
-                # Fallback: Click the current value area (e.g. "All") to trigger the dropdown
-                fallback_loc = self.page.locator(f"visual-container:has-text('{slicer_title}') [class*='slicerText']").first
-                if fallback_loc.count() > 0:
-                    fallback_loc.click(force=True, timeout=1000)
-                    self.page.wait_for_timeout(800)
-                    log.debug(f"Slicer '{slicer_title}' expanded via text click")
+                # Fallback: Click the visual container itself to trigger the dropdown
+                if visual_data.get("loc"):
+                    try:
+                        visual_data["loc"].click(force=True, timeout=1000)
+                        self.page.wait_for_timeout(800)
+                        log.debug(f"Slicer '{slicer_title}' expanded via visual container click")
+                    except Exception as exc:
+                        log.debug(f"Fallback visual container click failed: {exc}")
         except Exception as e:
             log.debug(f"Slicer '{slicer_title}' dropdown toggle error: {e}")
 
@@ -2217,9 +2219,29 @@ class PBIDashboardPage(BasePage):
         except Exception:
             pass
 
-        # Most dropdown list popups render directly in the body as siblings, but sometimes in the visual container.
-        # We search the whole page but prefer visible elements.
-        search_root = self.page
+        # Step 2e: Click the item in the dropdown popup
+        # Most dropdown lists are appended to the body as `.slicer-dropdown-menu` or `[role='listbox']`.
+        # By targeting these specifically, we avoid accidentally clicking the slicer's header.
+        popup_candidates = [
+            ".slicer-dropdown-menu",
+            "[role='listbox']",
+            ".popupContent"
+        ]
+        
+        search_roots = []
+        for p in popup_candidates:
+            locs = self.page.locator(p)
+            count = locs.count()
+            if count > 0:
+                # Use the last one as popups are often appended at the end
+                search_roots.append(locs.nth(count - 1))
+        
+        # Add the visual container itself as a fallback root (for non-dropdown lists)
+        if visual_data.get("loc"):
+            search_roots.append(visual_data["loc"])
+            
+        # Absolute final fallback root: the whole page
+        search_roots.append(self.page)
         
         item_candidates = [
             f"[class*='slicerItemContainer']:has-text('{value}')",
@@ -2229,22 +2251,35 @@ class PBIDashboardPage(BasePage):
             f"text='{value}'",
         ]
         
-        for candidate in item_candidates:
-            try:
-                # Find all matching elements in the root
-                locs = search_root.locator(candidate)
-                count = locs.count()
-                for i in range(count):
-                    loc = locs.nth(i)
-                    if loc.is_visible():
-                        loc.click(timeout=3_000)
-                        clicked = True
-                        log.debug(f"Slicer item clicked via selector: {candidate} (match {i})")
+        for s_root in search_roots:
+            if clicked:
+                break
+            for candidate in item_candidates:
+                try:
+                    locs = s_root.locator(candidate)
+                    count = locs.count()
+                    for i in range(count):
+                        loc = locs.nth(i)
+                        if loc.is_visible():
+                            # Double check we are not clicking the slicer header text!
+                            class_val = loc.get_attribute("class") or ""
+                            if "slicerText" in class_val or "slicer-header" in class_val:
+                                continue
+                            
+                            # If it's already selected, don't click it again (which would unselect it)
+                            if loc.get_attribute("aria-selected") == "true" or "selected" in class_val:
+                                log.debug(f"Slicer item '{value}' is already selected.")
+                                clicked = True
+                                break
+
+                            loc.click(timeout=3_000)
+                            clicked = True
+                            log.debug(f"Slicer item clicked via selector: {candidate} in root {p} (match {i})")
+                            break
+                    if clicked:
                         break
-                if clicked:
-                    break
-            except Exception:
-                continue
+                except Exception:
+                    continue
 
         if not clicked:
             # Final fallback: JS click (synthetic) on the item text + Auto-scrolling for virtualization
@@ -2309,6 +2344,35 @@ class PBIDashboardPage(BasePage):
 
 
 
+
+    def clear_all_slicers(self) -> None:
+        '''
+        Attempts to clear all slicers on the page by finding and clicking 
+        all visible 'Eraser' (clear) icons in slicer headers.
+        '''
+        log.info("Attempting to clear all active slicers on the page...")
+        try:
+            # Look for eraser icons
+            clear_icons = self.page.locator("i[class*='clear'], i[class*='eraser']")
+            total_icons = clear_icons.count()
+            count = 0
+            for i in range(total_icons):
+                icon = clear_icons.nth(i)
+                if icon.is_visible(timeout=500):
+                    icon.click(force=True)
+                    self.page.wait_for_timeout(500)
+                    count += 1
+            log.info(f"Cleared {count} active slicer(s).")
+            
+            # Also attempt global reset button if available
+            reset_btn = self.page.locator("button[aria-label='Reset to default'], button[title='Reset to default']").first
+            if reset_btn.is_visible(timeout=500):
+                reset_btn.click()
+                log.info("Clicked global 'Reset to default' button.")
+                self.page.wait_for_timeout(2000)
+        except Exception as e:
+            log.warning(f"Error while clearing slicers: {e}")
+
     def reset_slicer(self, slicer_title: str) -> None:
         """
         Reset a slicer back to its default "Select all" / "All" state.
@@ -2349,7 +2413,7 @@ class PBIDashboardPage(BasePage):
                     // Look for a Clear / erase button
                     const clearBtn = root.querySelector(
                         "button[aria-label='Clear'], button[title='Clear'], "
-                        + "[class*='clearIcon'], [class*='eraser']"
+                        + "[class*='clearIcon'], [class*='eraser'], i[class*='clear']"
                     );
                     if (clearBtn) {{
                         clearBtn.click();

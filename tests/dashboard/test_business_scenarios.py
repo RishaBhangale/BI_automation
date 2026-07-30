@@ -108,6 +108,11 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
     _fail_message = ""
 
     try:
+        # ── Step 1.5: Clear ALL existing filters ─────────────────────────────
+        log.info("STEP1.5_START|Clear all default slicers to start from a clean state")
+        dashboard_page.clear_all_slicers()
+        log.info("STEP1.5_END")
+
         # ── Step 2 ─────────────────────────────────────────────────────────────
         if slicer1_name and slicer1_value:
             log.info(f"STEP2_START|Apply Slicer: {slicer1_name} = {slicer1_value}")
@@ -180,6 +185,10 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
         _fail_message = f"{test_id} FAILED: {detail}"
         log.info("STEP6_END")
 
+    except Exception as e:
+        _test_passed = False
+        _fail_message = f"{test_id} FAILED during execution: {str(e)}"
+        log.error(_fail_message)
     finally:
         # ── Step 7 (always runs) ───────────────────────────────────────────────
         log.info("STEP7_START|Teardown — reset applied slicers to restore default state")
