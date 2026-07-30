@@ -25,9 +25,9 @@ dashboard:
 source_db:
   driver:   "mssql+pymssql"
   host:     "aibidevsqlsvr.database.windows.net"
-  port:     ""
+  port:     "1433"
   database: "devaibisqldb"
-  username: ""
+  username: "${DB_USER}"
   password: "${DB_PASSWORD}"  # set DB_PASSWORD in .env
 
 source_excel:

@@ -40,23 +40,25 @@ def build_db_uri(dashboard_config: Optional[dict] = None) -> str:
     # Attempt to read from dashboard YAML config
     if dashboard_config:
         src = dashboard_config.get("source_db", {}) or {}
-        driver = src.get("driver", "").strip()
-        host   = src.get("host",   "").strip()
-        port   = str(src.get("port", "")).strip()
-        dbname = src.get("database", "").strip()
-        user   = src.get("username", "").strip()
-        # Password in YAML may reference env var: "${DB_PASSWORD}"
-        raw_pass = str(src.get("password", "")).strip()
-        if raw_pass.startswith("${") and raw_pass.endswith("}"):
-            import os
-            env_var = raw_pass[2:-1]
-            password = os.getenv(env_var, "")
-        else:
-            password = raw_pass or get_db_password()
+
+        def _resolve(val: str, default: str) -> str:
+            val = str(val or "").strip()
+            if val.startswith("${") and val.endswith("}"):
+                import os
+                env_var = val[2:-1]
+                return os.getenv(env_var, default)
+            return val or default
+
+        driver   = _resolve(src.get("driver"), DB_DRIVER)
+        host     = _resolve(src.get("host"), DB_HOST)
+        port     = _resolve(src.get("port"), str(DB_PORT) if DB_PORT else "")
+        dbname   = _resolve(src.get("database"), DB_NAME)
+        user     = _resolve(src.get("username"), DB_USER)
+        password = _resolve(src.get("password"), get_db_password())
     else:
         driver   = DB_DRIVER
         host     = DB_HOST
-        port     = str(DB_PORT)
+        port     = str(DB_PORT) if DB_PORT else ""
         dbname   = DB_NAME
         user     = DB_USER
         password = get_db_password()
