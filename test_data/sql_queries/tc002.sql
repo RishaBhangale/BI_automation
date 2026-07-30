@@ -1,1 +1,2 @@
--- Mock SQL Query for TC-BIZ-002\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc002.sql\n
+-- Auto-generated accurate query for tc002.sql
+SELECT COUNT(DISTINCT Customer_ID) FROM SALES WHERE Segment='Corporate'

@@ -64,6 +64,7 @@ class PBIDashboardPage(BasePage):
         super().__init__(page)
         self._embed_mode: str = EMBED_MODE_ORG_REPORT  # updated after open()
         self._org_frame: Optional[FrameLocator] = None
+        self._current_page: Optional[str] = None        # tracks last navigated-to page
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Context: returns the correct page/frame context for the current embed mode
@@ -234,6 +235,10 @@ class PBIDashboardPage(BasePage):
         """
         log.info(f"Switching to page: '{page_name}'")
 
+        # ── Fast-path: skip navigation if we're already on this page ──────────
+        if self._current_page == page_name:
+            log.debug(f"Already on page '{page_name}' — skipping navigation")
+            return
         tab_sel = (
             PBILocators.PTW_PAGE_TAB
             if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
@@ -244,6 +249,7 @@ class PBIDashboardPage(BasePage):
             if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
             else PBILocators.ORG_PAGE_TAB_BY_NAME
         )
+
 
         def _try_tab_nav_in(ctx) -> bool:
             """
@@ -268,6 +274,7 @@ class PBIDashboardPage(BasePage):
                         tab.click()
                         self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
                         log.info(f"Tab navigation: now on page '{page_name}'")
+                        self._current_page = page_name
                         return True
                     except PwTimeoutError:
                         pass
@@ -280,6 +287,7 @@ class PBIDashboardPage(BasePage):
                 tab.click()
                 self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
                 log.info(f"Tab navigation (attr selector): now on page '{page_name}'")
+                self._current_page = page_name
                 return True
             except PwTimeoutError:
                 pass
@@ -311,6 +319,7 @@ class PBIDashboardPage(BasePage):
                     tab.click()
                     self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
                     log.info(f"Tab navigation (PTW selector): now on page '{page_name}'")
+                    self._current_page = page_name
                     return
         except PwTimeoutError:
             pass
@@ -347,6 +356,7 @@ class PBIDashboardPage(BasePage):
             if target_page in current_indicator or str(page_num) == target_page:
                 log.info(f"Reached target page '{target_page}' (indicator: {current_indicator})")
                 self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                self._current_page = target_page
                 return
             self.go_to_next_page()
 

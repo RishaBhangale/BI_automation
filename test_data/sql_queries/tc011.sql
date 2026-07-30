@@ -1,1 +1,2 @@
--- Mock SQL Query for TC-BIZ-011\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc011.sql\n
+-- Auto-generated accurate query for tc011.sql
+SELECT SUM(Profit) FROM SALES WHERE City='Philadelphia' AND Category='Furniture'

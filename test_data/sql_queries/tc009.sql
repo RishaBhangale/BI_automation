@@ -1,1 +1,2 @@
--- Mock SQL Query for TC-BIZ-009\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc009.sql\n
+-- Auto-generated accurate query for tc009.sql
+SELECT COUNT(DISTINCT Order_ID) FROM SALES WHERE CAST(Order_Date as Date)='2016-05-13'

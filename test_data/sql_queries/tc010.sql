@@ -1,1 +1,2 @@
--- Mock SQL Query for TC-BIZ-010\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc010.sql\n
+-- Auto-generated accurate query for tc010.sql
+SELECT SUM(Sales) FROM SALES WHERE Category='Technology' AND Ship_Mode='First Class'

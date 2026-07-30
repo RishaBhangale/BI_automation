@@ -1,1 +1,2 @@
--- Mock SQL Query for TC-BIZ-008\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc008.sql\n
+-- Auto-generated accurate query for tc008.sql
+SELECT SUM(Quantity) FROM SALES WHERE Category='Furniture'

@@ -1,1 +1,2 @@
--- Mock SQL Query for TC-BIZ-007\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc007.sql\n
+-- Auto-generated accurate query for tc007.sql
+SELECT SUM(Quantity) FROM SALES WHERE Segment='Home Office' AND State='Texas'

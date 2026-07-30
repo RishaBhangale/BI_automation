@@ -1,1 +1,2 @@
--- Mock SQL Query for TC-BIZ-005\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc005.sql\n
+-- Auto-generated accurate query for tc005.sql
+SELECT SUM(Profit) FROM SALES WHERE Sub_Category='Phones'

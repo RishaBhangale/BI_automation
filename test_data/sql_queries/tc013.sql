@@ -1,1 +1,2 @@
--- Mock SQL Query for TC-BIZ-013\nSELECT SUM([Sales]) FROM [SALES] -- Placeholder for test_data/sql_queries/tc013.sql\n
+-- Auto-generated accurate query for tc013.sql
+SELECT COUNT(DISTINCT Product_ID) FROM SALES WHERE Ship_Mode='Second Class' AND Segment='Consumer'
