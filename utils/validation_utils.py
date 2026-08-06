@@ -53,7 +53,7 @@ def parse_pbi_number(raw: str) -> Optional[float]:
     cleaned = raw.strip()
 
     # Handle empty / dash / N/A displays
-    if cleaned in ("", "–", "-", "N/A", "n/a", "null", "Null"):
+    if cleaned in ("", "–", "-", "--", "N/A", "n/a", "null", "Null"):
         return None
 
     # Detect negative in parentheses format: (1,234) → -1234

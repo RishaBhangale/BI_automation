@@ -2155,6 +2155,8 @@ class PBIDashboardPage(BasePage):
             ).first
 
         # Step 2c: Expand the slicer dropdown (if it is a dropdown-style slicer).
+        # After clicking, we WAIT for the popup panel to appear with items — PBI loads async.
+        popup_selectors = [".popupContent", ".slicer-dropdown-menu", "[role='listbox']", "[class*='scrollRegion']"]
         try:
             expand_btn_selectors = [
                 "i[class*='dropdown']",
@@ -2168,81 +2170,121 @@ class PBIDashboardPage(BasePage):
                 "[class*='slicerHeader'] button"
             ]
             clicked_dropdown = False
+            
+            # Ensure no old popups are visible before clicking to avoid false matches later
+            for p_sel in [".popupContent", ".slicer-dropdown-menu", "[role='listbox']"]:
+                try:
+                    self.page.wait_for_selector(p_sel, state="hidden", timeout=1500)
+                except Exception:
+                    pass
+
             if visual_data["loc"]:
                 for sel in expand_btn_selectors:
                     locs = visual_data["loc"].locator(sel)
                     if locs.count() > 0:
                         try:
                             locs.first.click(force=True, timeout=1000)
-                            self.page.wait_for_timeout(800)
                             log.debug(f"Slicer '{slicer_title}' dropdown expanded via {sel}")
                             clicked_dropdown = True
                             break
                         except Exception:
                             continue
-            
+
             if not clicked_dropdown:
                 # Fallback: Click the visual container itself to trigger the dropdown
                 if visual_data.get("loc"):
                     try:
                         visual_data["loc"].click(force=True, timeout=1000)
-                        self.page.wait_for_timeout(800)
                         log.debug(f"Slicer '{slicer_title}' expanded via visual container click")
+                        clicked_dropdown = True
                     except Exception as exc:
                         log.debug(f"Fallback visual container click failed: {exc}")
         except Exception as e:
             log.debug(f"Slicer '{slicer_title}' dropdown toggle error: {e}")
 
-        # Step 2d: Wait briefly for items to render (dropdown slicers need this)
-        self.page.wait_for_timeout(600)
-
-        # Step 2e: Click the item using Playwright real browser events.
-        # This is more reliable than JS .click() because it triggers PBI's event handlers.
-        clicked = False
-        # Wait a moment for animation
-        self.page.wait_for_timeout(500)
-
-        # Step 2d.5: Search box filtering (for virtualized lists)
-        # Power BI virtualizes large lists. If the item isn't in the first ~20, it won't be in the DOM.
-        search_inputs = self.page.locator(".searchInput")
+        # Step 2d: Wait for popup items to actually appear — use Playwright's native wait.
+        # The popup container (.popupContent) may appear instantly, but items load async.
+        # We wait specifically for item elements, not just the container shell.
+        # NOTE: We use :visible on the container to avoid matching old hidden popups left in the DOM.
+        ITEM_SELECTORS_IN_POPUP = [
+            ".popupContent:visible [class*='slicerItemContainer']",
+            ".popupContent:visible [role='option']",
+            ".popupContent:visible [role='listitem']",
+            ".slicer-dropdown-menu:visible [class*='slicerItemContainer']",
+            ".slicer-dropdown-menu:visible [role='option']",
+            "[role='listbox']:visible [role='option']",
+        ]
+        popup_item_found = False
+        combined_sel = ", ".join(ITEM_SELECTORS_IN_POPUP)
         try:
-            # Type into the first visible slicer search input
-            for i in range(search_inputs.count()):
-                s_input = search_inputs.nth(i)
-                if s_input.is_visible(timeout=500):
-                    # Use focus and keyboard typing to avoid closing the dropdown
-                    s_input.focus()
-                    s_input.press_sequentially(value, delay=50)
-                    self.page.wait_for_timeout(1000) # Wait for filtering to apply
-                    log.debug(f"Filtered slicer list by typing '{value}' into search box")
-                    break
+            self.page.wait_for_selector(combined_sel, state="visible", timeout=15_000)
+            log.debug(f"Slicer '{slicer_title}' popup items ready.")
+            popup_item_found = True
         except Exception:
             pass
 
-        # Step 2e: Click the item in the dropdown popup
-        # Most dropdown lists are appended to the body as `.slicer-dropdown-menu` or `[role='listbox']`.
-        # By targeting these specifically, we avoid accidentally clicking the slicer's header.
-        popup_candidates = [
-            ".slicer-dropdown-menu",
-            "[role='listbox']",
-            ".popupContent"
+        if not popup_item_found:
+            log.debug(f"Slicer '{slicer_title}' popup items not detected — proceeding anyway after wait")
+            self.page.wait_for_timeout(1000)
+        else:
+            self.page.wait_for_timeout(200)  # small buffer after items appear
+
+        # Step 2d.5: Search box filtering — CRITICAL for virtualized/long dropdown lists.
+        # Power BI only renders the selected (default) item initially; other items only appear
+        # after typing in the search box. We MUST type the target value to make the item visible.
+        # We type into whichever search input is currently visible (inside the open popup).
+        search_typed = False
+        SEARCH_SELECTORS = [
+            ".popupContent:visible input.searchInput",
+            ".popupContent:visible input[class*='search']",
+            ".popupContent:visible input[placeholder*='search' i]",
+            ".popupContent:visible input[type='text']",
+            ".slicer-dropdown-menu:visible input",
+            "[role='listbox']:visible input",
+            "input.searchInput:visible",  # global fallback
         ]
-        
+        for s_sel in SEARCH_SELECTORS:
+            try:
+                s_el = self.page.locator(s_sel).first
+                if s_el.is_visible(timeout=400):
+                    s_el.click(timeout=1000)  # focus
+                    s_el.fill("")            # clear existing
+                    s_el.press_sequentially(value, delay=40)
+                    self.page.wait_for_timeout(900)  # wait for filter
+                    log.debug(f"Slicer '{slicer_title}' filtered via search box '{s_sel}' → typed '{value}'")
+                    search_typed = True
+                    break
+            except Exception:
+                continue
+
+        if not search_typed:
+            log.debug(f"Slicer '{slicer_title}' no visible search input found — will click item directly")
+
+        # Step 2e: Click the item in the dropdown popup.
+        # Most dropdown lists are appended to the body as `.popupContent` or `[role='listbox']`.
+        clicked = False
+        self.page.wait_for_timeout(200)
+
+        popup_candidates = [
+            ".popupContent:visible",
+            ".slicer-dropdown-menu:visible",
+            "[role='listbox']:visible",
+        ]
+
         search_roots = []
         for p in popup_candidates:
             locs = self.page.locator(p)
             count = locs.count()
             if count > 0:
-                # Use the last one as popups are often appended at the end
                 search_roots.append(locs.nth(count - 1))
-        
-        # Add the visual container itself as a fallback root (for non-dropdown lists)
+
+        # Add the visual container as fallback root (for non-dropdown list slicers)
         if visual_data.get("loc"):
             search_roots.append(visual_data["loc"])
-            
-        # Absolute final fallback root: the whole page
+
+        # Final fallback: whole page
         search_roots.append(self.page)
-        
+
         item_candidates = [
             f"[class*='slicerItemContainer']:has-text('{value}')",
             f"[role='option']:has-text('{value}')",
@@ -2250,38 +2292,85 @@ class PBIDashboardPage(BasePage):
             f"[class*='row']:has-text('{value}')",
             f"text='{value}'",
         ]
-        
+
         for s_root in search_roots:
             if clicked:
                 break
-            for candidate in item_candidates:
-                try:
-                    locs = s_root.locator(candidate)
-                    count = locs.count()
-                    for i in range(count):
-                        loc = locs.nth(i)
-                        if loc.is_visible():
-                            # Double check we are not clicking the slicer header text!
-                            class_val = loc.get_attribute("class") or ""
-                            if "slicerText" in class_val or "slicer-header" in class_val:
-                                continue
+                
+            for scroll_attempt in range(15):
+                if clicked:
+                    break
+                    
+                item_found_in_dom = False
+                
+                for candidate in item_candidates:
+                    try:
+                        locs = s_root.locator(candidate)
+                        count = locs.count()
+                        if count > 0:
+                            item_found_in_dom = True
                             
-                            # If it's already selected, don't click it again (which would unselect it)
-                            if loc.get_attribute("aria-selected") == "true" or "selected" in class_val:
-                                log.debug(f"Slicer item '{value}' is already selected.")
-                                clicked = True
-                                break
+                        for i in range(count):
+                            loc = locs.nth(i)
+                            if loc.is_visible():
+                                class_val = loc.get_attribute("class") or ""
+                                if "slicerText" in class_val or "slicer-header" in class_val:
+                                    continue
+                                
+                                if loc.get_attribute("aria-selected") == "true" or "selected" in class_val:
+                                    log.debug(f"Slicer item '{value}' is already selected.")
+                                    clicked = True
+                                    break
 
-                            loc.click(timeout=3_000)
-                            clicked = True
-                            log.debug(f"Slicer item clicked via selector: {candidate} in root {p} (match {i})")
+                                try:
+                                    loc.click(timeout=3_000)
+                                    clicked = True
+                                    log.debug(f"Slicer item clicked via selector: {candidate} in root {s_root} (match {i}) after {scroll_attempt} scrolls")
+                                    break
+                                except Exception as e:
+                                    log.debug(f"Click attempt failed: {e}")
+                                    continue
+                        if clicked:
                             break
-                    if clicked:
+                    except Exception:
+                        continue
+                
+                if not clicked:
+                    if item_found_in_dom:
+                        # Item IS in DOM but click failed (element covered or not actionable).
+                        # Break scroll loop immediately — don't retry 15 times. Try next search root.
                         break
-                except Exception:
-                    continue
+                    else:
+                        # Item NOT in DOM yet — scroll popup down to reveal virtualized items.
+                        try:
+                            self.page.evaluate("""
+                                () => {
+                                    const containers = [
+                                        ...document.querySelectorAll('.popupContent, [role="listbox"], .slicer-dropdown-menu')
+                                    ].filter(el => el.offsetHeight > 0);
+                                    if (containers.length > 0) {
+                                        const popup = containers[containers.length - 1];
+                                        const innerScrollers = Array.from(popup.querySelectorAll('*'))
+                                            .filter(c => c.scrollHeight > c.clientHeight);
+                                        const scroller = innerScrollers.length > 0
+                                            ? innerScrollers[innerScrollers.length - 1]
+                                            : popup;
+                                        scroller.scrollTop += 300;
+                                    }
+                                }
+                            """)
+                            self.page.wait_for_timeout(400)  # Wait for virtualized render
+                        except Exception as e:
+                            log.debug(f"Scroll evaluate failed: {e}")
+                            break  # Can't scroll — give up on this root
 
         if not clicked:
+            for s_root in search_roots:
+                try:
+                    items_text = s_root.evaluate("el => Array.from(el.querySelectorAll('.slicerItemContainer, [role=\"option\"], [role=\"listitem\"], .row')).map(i => i.innerText).join(', ')")
+                    log.debug(f"DEBUG JS items in container: {items_text}")
+                except Exception as e:
+                    pass
             # Final fallback: JS click (synthetic) on the item text + Auto-scrolling for virtualization
             safe_value = value.replace("'", "\\'")
             js_result = self.page.evaluate(f"""
@@ -2305,16 +2394,19 @@ class PBIDashboardPage(BasePage):
                         return {{clicked: true, text: target.textContent}};
                     }}
                     
-                    // Try scrolling if not found (virtualized lists)
-                    const scrollContainers = Array.from(document.querySelectorAll('.scroll-region, .slicer-dropdown-menu, [role="listbox"]')).filter(el => el.scrollHeight > el.clientHeight);
-                    if (scrollContainers.length > 0) {{
-                        const scroller = scrollContainers[scrollContainers.length - 1]; // Use the most deeply nested or last one (popup)
-                        let lastScroll = -1;
-                        scroller.scrollTop = 0;
-                        while (scroller.scrollTop > lastScroll) {{
-                            lastScroll = scroller.scrollTop;
-                            scroller.scrollTop += 150;
-                            await delay(200); // wait for render
+                    // Try scrolling visible popup containers to find virtualized items
+                    const popups = Array.from(document.querySelectorAll('.popupContent, [role="listbox"], .slicer-dropdown-menu'))
+                        .filter(el => el.offsetHeight > 0);
+                    if (popups.length > 0) {{
+                        const popup = popups[popups.length - 1];
+                        // Find the actual scrollable child
+                        const innerScrollers = Array.from(popup.querySelectorAll('*')).filter(c => c.scrollHeight > c.clientHeight);
+                        const scroller = innerScrollers.length > 0 ? innerScrollers[innerScrollers.length - 1] : popup;
+                        let prevScrollTop = -1;
+                        while (scroller.scrollTop !== prevScrollTop) {{
+                            prevScrollTop = scroller.scrollTop;
+                            scroller.scrollTop += 200;
+                            await delay(250); // wait for virtualized render
                             target = findTextNode();
                             if (target) {{
                                 target.click();
@@ -2377,9 +2469,13 @@ class PBIDashboardPage(BasePage):
         """
         Reset a slicer back to its default "Select all" / "All" state.
 
-        Tries the following strategies in order:
-          1. Click the "Select all" checkbox in the flat-DOM outer page (JS).
-          2. Click a Clear/eraser button via JS on outer page.
+        For dropdown-style slicers (which have no 'Select All' visible without opening),
+        this method first opens the dropdown, then looks for a clear/select-all option.
+        If none exists (slicer has a fixed default), the reset is skipped gracefully.
+
+        Tries strategies in order:
+          1. JS — click Select All or Clear button (works for list slicers).
+          2. Open the dropdown then click Clear/Select All (for dropdown slicers).
           3. Classic iframe-based approach via _find_visual_by_title.
 
         Args:
@@ -2388,7 +2484,7 @@ class PBIDashboardPage(BasePage):
         log.info(f"Resetting slicer '{slicer_title}' to All")
         safe_title = slicer_title.replace("'", "\\'")
 
-        # Strategy 1: JS — click Select All checkbox on outer page
+        # Strategy 1: JS — click Select All or Clear on outer page (works for list slicers)
         done = self.page.evaluate(f"""
             () => {{
                 const allDivs = document.querySelectorAll('[aria-roledescription]');
@@ -2397,54 +2493,104 @@ class PBIDashboardPage(BasePage):
                     const text = (vc ? vc.innerText : div.innerText || '').trim();
                     if (text.split('\\n')[0].trim() !== '{safe_title}') continue;
                     const root = vc || div;
-                    // Look for a Select All control
                     const selAll = root.querySelector(
                         "[aria-label='Select all'], [title='Select all'], "
                         + "input[aria-label*='select all' i]"
                     );
                     if (selAll) {{
                         const checked = selAll.getAttribute('aria-checked');
-                        if (checked !== 'true') {{
-                            selAll.click();
-                            return 'clicked_select_all';
-                        }}
+                        if (checked !== 'true') {{ selAll.click(); return 'clicked_select_all'; }}
                         return 'already_all';
                     }}
-                    // Look for a Clear / erase button
                     const clearBtn = root.querySelector(
                         "button[aria-label='Clear'], button[title='Clear'], "
                         + "[class*='clearIcon'], [class*='eraser'], i[class*='clear']"
                     );
-                    if (clearBtn) {{
-                        clearBtn.click();
-                        return 'clicked_clear';
-                    }}
+                    if (clearBtn) {{ clearBtn.click(); return 'clicked_clear'; }}
                 }}
                 return null;
             }}
         """)
 
-        if done:
+        if done and done != 'already_all':
             self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
             log.info(f"Slicer '{slicer_title}' reset via JS ({done})")
             return
+        if done == 'already_all':
+            log.info(f"Slicer '{slicer_title}' already at All — skipping reset")
+            return
 
-        # Strategy 2: Playwright locator on outer page — Select All checkbox
+        # Strategy 2: For dropdown-style slicers — open the dropdown first,
+        # then look for a 'Select All' or clear option inside the popup.
+        # These slicers don't show clear/select-all until the dropdown is open.
         try:
-            select_all = self.page.locator(
-                "[aria-label='Select all'], [title='Select all']"
-            ).first
-            if select_all.is_visible(timeout=2_000):
-                checked = select_all.get_attribute("aria-checked")
-                if checked != "true":
-                    select_all.click()
-                    self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-                    log.info(f"Slicer '{slicer_title}' reset via Select All locator")
-                    return
-                log.info(f"Slicer '{slicer_title}' already at All")
-                return
-        except PwTimeoutError:
-            pass
+            # Find the target slicer container
+            slicer_info = self.page.evaluate(f"""
+                () => {{
+                    const allDivs = document.querySelectorAll('[aria-roledescription]');
+                    for (const div of allDivs) {{
+                        const vc = div.closest('visual-container') || div.parentElement;
+                        const text = (vc ? vc.innerText : div.innerText || '').trim();
+                        if (text.split('\\n')[0].trim() !== '{safe_title}') continue;
+                        return {{ hasDropdown: !!(vc || div).querySelector(
+                            "[aria-haspopup], [class*='dropdown'], [class*='Dropdown'], button[class*='slicer']"
+                        )}};
+                    }}
+                    return null;
+                }}
+            """)
+
+            if slicer_info and slicer_info.get('hasDropdown'):
+                # Click to open dropdown
+                vc_loc = self.page.locator(f"visual-container:has-text('{safe_title}')").first
+                expand_sels = [
+                    "i[class*='dropdown']", "i[class*='Dropdown']",
+                    "[class*='chevron']", "[class*='dropdownToggle']",
+                    "button[aria-haspopup='listbox']", "button[aria-haspopup='true']",
+                ]
+                opened = False
+                for sel in expand_sels:
+                    btn = vc_loc.locator(sel)
+                    if btn.count() > 0:
+                        try:
+                            btn.first.click(force=True, timeout=1000)
+                            self.page.wait_for_timeout(800)
+                            opened = True
+                            break
+                        except Exception:
+                            continue
+
+                if opened:
+                    # Now look for Select All or Clear inside the popup
+                    popup_done = self.page.evaluate("""
+                        () => {
+                            const popups = document.querySelectorAll(".popupContent, .slicer-dropdown-menu, [role='listbox']");
+                            for (const popup of popups) {
+                                const selAll = popup.querySelector(
+                                    "[aria-label='Select all'], [title='Select all'], [class*='selectAll']"
+                                );
+                                if (selAll) { selAll.click(); return 'popup_select_all'; }
+                                const clearBtn = popup.querySelector(
+                                    "button[aria-label='Clear'], [class*='clearIcon'], [class*='eraser']"
+                                );
+                                if (clearBtn) { clearBtn.click(); return 'popup_clear'; }
+                            }
+                            // If no clear/select-all found, press Escape to close without change
+                            return 'no_action';
+                        }
+                    """)
+                    if popup_done and popup_done != 'no_action':
+                        self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                        log.info(f"Slicer '{slicer_title}' reset via dropdown popup ({popup_done})")
+                        return
+                    else:
+                        # Close the popup since we didn't act on it
+                        self.page.keyboard.press("Escape")
+                        self.page.wait_for_timeout(300)
+                        log.info(f"Slicer '{slicer_title}' has no clear option in dropdown — skipping reset (has fixed default)")
+                        return
+        except Exception as e:
+            log.debug(f"Slicer '{slicer_title}' dropdown reset strategy failed: {e}")
 
         # Strategy 3: iframe-based clear (classic org reports)
         try:

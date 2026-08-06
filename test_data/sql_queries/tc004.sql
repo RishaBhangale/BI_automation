@@ -1,2 +1,1 @@
--- Auto-generated accurate query for tc004.sql
-SELECT SUM(Sales) FROM SALES WHERE YEAR(Order_Date)=2018
+SELECT COUNT(DISTINCT Order_ID) FROM SALES WHERE Ship_Mode='Standard Class'

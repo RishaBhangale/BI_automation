@@ -61,7 +61,9 @@ def _clean(val) -> str | None:
 
 
 def _id_func(tc):
-    return str(tc.get("Test ID", "unknown"))
+    t_id = str(tc.get("Test ID", "unknown"))
+    s_name = str(tc.get("Scenario Name", "Unnamed"))
+    return f"{t_id} - {s_name}"
 
 
 # ---------------------------------------------------------------------------

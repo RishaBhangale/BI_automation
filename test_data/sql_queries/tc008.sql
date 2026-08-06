@@ -1,2 +1,1 @@
--- Auto-generated accurate query for tc008.sql
-SELECT SUM(Quantity) FROM SALES WHERE Category='Furniture'
+SELECT COUNT(DISTINCT Order_ID) FROM SALES WHERE Ship_Mode='Second Class' AND Sub_Category='Chairs'

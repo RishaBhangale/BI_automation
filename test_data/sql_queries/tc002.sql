@@ -1,2 +1,1 @@
--- Auto-generated accurate query for tc002.sql
-SELECT COUNT(DISTINCT Customer_ID) FROM SALES WHERE Segment='Corporate'
+SELECT SUM(Sales) FROM SALES WHERE Sub_Category='Phones' AND Segment='Corporate' AND State='Illinois' AND Ship_Mode='Standard Class'

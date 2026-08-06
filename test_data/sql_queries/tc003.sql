@@ -1,2 +1,1 @@
--- Auto-generated accurate query for tc003.sql
-SELECT SUM(Sales) FROM SALES WHERE Category='Office Supplies' AND Ship_Mode='Standard Class'
+SELECT SUM(Profit) FROM SALES WHERE Sub_Category='Phones' AND Category='Technology' AND City='Los Angeles' AND Ship_Mode='Standard Class'

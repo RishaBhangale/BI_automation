@@ -1,2 +1,1 @@
--- Auto-generated accurate query for tc009.sql
-SELECT COUNT(DISTINCT Order_ID) FROM SALES WHERE CAST(Order_Date as Date)='2016-05-13'
+SELECT SUM(Profit) FROM SALES WHERE Sub_Category='Phones' AND City='Los Angeles' AND Ship_Mode='Standard Class'

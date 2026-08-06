@@ -1,2 +1,1 @@
--- Auto-generated accurate query for tc007.sql
-SELECT SUM(Quantity) FROM SALES WHERE Segment='Home Office' AND State='Texas'
+SELECT SUM(Profit) FROM SALES WHERE Segment='Home Office' AND Sub_Category='Phones' AND State='Texas' AND Ship_Mode='Standard Class'

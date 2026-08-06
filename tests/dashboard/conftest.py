@@ -286,9 +286,9 @@ def pytest_runtest_call(item):
     handler.setLevel(logging.DEBUG)
 
     # Capture these loggers — they emit the STEP markers and validation details
+    # Capture only high-level test scenario logs, skipping verbose page object logs
     target_loggers = [
         logging.getLogger("dashboard_methods"),
-        logging.getLogger("pbi_dashboard_page"),
         logging.getLogger("validation_utils"),
     ]
     for lg in target_loggers:
@@ -431,7 +431,7 @@ def pytest_sessionfinish(session, exitstatus):
             release          = "Validation Run",
             suite            = "Dashboard KPI & Table Validation",
             base_url         = dash_url,
-            browser          = "Chrome (Headless)",
+            browser          = "Chrome (Headed)" if session.config.getoption("headed") else "Chrome (Headless)",
             viewport         = f"{BROWSER_WIDTH} × {BROWSER_HEIGHT}",
             executed_by      = "qe.automation",
             test_data_source = config_file,
