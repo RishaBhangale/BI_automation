@@ -1,1 +1,1 @@
-SELECT COUNT(DISTINCT Order_ID) FROM SALES WHERE Ship_Mode='Standard Class'
+SELECT SUM(Sales) FROM SALES WHERE Ship_Mode='Standard Class'

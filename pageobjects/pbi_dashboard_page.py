@@ -2155,12 +2155,33 @@ class PBIDashboardPage(BasePage):
             ).first
 
         # Step 2c: Expand the slicer dropdown (if it is a dropdown-style slicer).
-        # Capture listbox heights BEFORE expanding — used later for delta-based popup detection.
+        # Close any lingering popups FIRST, then record heights_before baseline.
+        try:
+            self.page.keyboard.press("Escape")
+            self.page.evaluate("""
+                () => {
+                    const lbs = Array.from(document.querySelectorAll('[role="listbox"], .popupContent'));
+                    lbs.forEach(el => {
+                        if (el.getBoundingClientRect().height > 20) {
+                            document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+                        }
+                    });
+                }
+            """)
+            self.page.wait_for_timeout(200)
+        except Exception:
+            pass
+
         heights_before = []
         try:
             heights_before = self.page.evaluate("""
                 () => Array.from(document.querySelectorAll('[role="listbox"]'))
-                     .map(el => el.getBoundingClientRect().height)
+                     .map(el => {
+                         const style = window.getComputedStyle(el);
+                         const r = el.getBoundingClientRect();
+                         if (style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0' || r.width === 0) return 0;
+                         return r.height;
+                     })
             """)
         except Exception:
             pass
@@ -2168,6 +2189,9 @@ class PBIDashboardPage(BasePage):
         popup_selectors = [".popupContent", ".slicer-dropdown-menu", "[role='listbox']", "[class*='scrollRegion']"]
         try:
             expand_btn_selectors = [
+                "div[class*='slicer-dropdown-content']",
+                "div[class*='slicer-rest-of-header']",
+                "div[class*='slicerDropdown']",
                 "i[class*='dropdown']",
                 "i[class*='Dropdown']",
                 "[class*='chevron']",
@@ -2176,24 +2200,10 @@ class PBIDashboardPage(BasePage):
                 "[class*='slicerDropdown'] button",
                 "button[aria-haspopup='listbox']",
                 "button[aria-haspopup='true']",
-                "[class*='slicerHeader'] button"
+                "[class*='slicerHeader'] button",
+                "[class*='slicerHeader']"
             ]
             clicked_dropdown = False
-            
-            # Ensure no old popups are fully gone before expanding the new one.
-            # Wait up to 5 seconds — old popups linger after a click and pollute search_roots.
-            try:
-                self.page.wait_for_selector(
-                    "[role='listbox']:visible, .popupContent:visible, .slicer-dropdown-menu:visible",
-                    state="hidden", timeout=5000
-                )
-            except Exception:
-                # If still visible, press Escape once to force-close any lingering popup
-                try:
-                    self.page.keyboard.press("Escape")
-                    self.page.wait_for_timeout(500)
-                except Exception:
-                    pass
 
             if visual_data["loc"]:
                 for sel in expand_btn_selectors:
@@ -2246,48 +2256,30 @@ class PBIDashboardPage(BasePage):
         else:
             self.page.wait_for_timeout(200)  # small buffer after items appear
 
-        # Step 2d.5: Search box filtering — CRITICAL for virtualized/long dropdown lists.
-        # Power BI only renders the selected (default) item initially; other items only appear
-        # after typing in the search box. We MUST type the target value to make the item visible.
-        # We type into whichever search input is currently visible (inside the open popup).
-        search_typed = False
-        SEARCH_SELECTORS = [
-            ".popupContent:visible input.searchInput",
-            ".popupContent:visible input[class*='search']",
-            ".popupContent:visible input[placeholder*='search' i]",
-            ".popupContent:visible input[type='text']",
-            ".slicer-dropdown-menu:visible input",
-            "[role='listbox']:visible input",
-            "input.searchInput:visible",  # global fallback
-        ]
-        for s_sel in SEARCH_SELECTORS:
-            try:
-                s_el = self.page.locator(s_sel).first
-                if s_el.is_visible(timeout=400):
-                    s_el.click(timeout=1000)  # focus
-                    s_el.fill("")            # clear existing
-                    s_el.press_sequentially(value, delay=40)
-                    self.page.wait_for_timeout(900)  # wait for filter
-                    log.debug(f"Slicer '{slicer_title}' filtered via search box '{s_sel}' → typed '{value}'")
-                    search_typed = True
-                    break
-            except Exception:
-                continue
-
-        if not search_typed:
-            log.debug(f"Slicer '{slicer_title}' no visible search input found — will click item directly")
-
         # Step 2e: Click the item in the dropdown popup.
-        # Most dropdown lists are appended to the body as `.popupContent` or `[role='listbox']`.
         clicked = False
         self.page.wait_for_timeout(200)
 
-        # Find the ACTIVE (open) popup using two strategies:
-        # Strategy A (primary): DELTA — find the listbox whose height GREW most since before the expand.
-        # Strategy B (fallback): POSITION — find the listbox positioned closest to the slicer visual.
-        # ALL Power BI slicer listboxes are 'visible' to Playwright (CSS opacity/transform, not display:none),
-        # so nth(count-1) / tallest-height heuristics fail when other slicers have similar heights.
+        heights_after = []
+        try:
+            heights_after = self.page.evaluate("""
+                () => Array.from(document.querySelectorAll('[role="listbox"]'))
+                     .map(el => {
+                         const style = window.getComputedStyle(el);
+                         const r = el.getBoundingClientRect();
+                         if (style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0' || r.width === 0) return 0;
+                         return r.height;
+                     })
+            """)
+        except Exception:
+            pass
+
+        # Find the ACTIVE (open) popup using three strategies:
+        # Strategy A (primary): DELTA — listbox whose height GREW most since before expand.
+        # Strategy B (primary): HAS-ITEMS — listboxes that contain actual option/item elements.
+        # Strategy C (fallback): POSITION — listbox closest to slicer visual.
         search_roots = []
+        active_idx = -1  # Safe default — overwritten inside try block below if delta is found
         try:
             heights_after = self.page.evaluate("""
                 () => Array.from(document.querySelectorAll('[role="listbox"]'))
@@ -2297,10 +2289,11 @@ class PBIDashboardPage(BasePage):
             log.debug(f"Listbox heights after expand: {heights_str}")
 
             active_idx = -1
-            # Strategy A: delta (which listbox grew most)
-            if heights_before and len(heights_before) == len(heights_after):
+            # Strategy A: delta (which listbox grew most, including newly appended listboxes)
+            if heights_after:
                 max_delta, best_delta_idx = 0, -1
-                for i, (bh, ah) in enumerate(zip(heights_before, heights_after)):
+                for i, ah in enumerate(heights_after):
+                    bh = heights_before[i] if heights_before and i < len(heights_before) else 0
                     delta = ah - bh
                     if delta > max_delta:
                         max_delta = delta
@@ -2309,46 +2302,109 @@ class PBIDashboardPage(BasePage):
                     active_idx = best_delta_idx
                     log.debug(f"Active popup (delta strategy): nth={active_idx}, grew by {round(max_delta)}px")
 
-            # Strategy B: position proximity — popup appears nearest to/below the slicer visual
-            if active_idx < 0 and visual_data.get("loc"):
-                try:
-                    slicer_rect = visual_data["loc"].evaluate("""
-                        el => { const r = el.getBoundingClientRect();
-                                return {cx: r.left + r.width/2, bottom: r.bottom}; }
-                    """)
-                    active_idx = self.page.evaluate(f"""
-                        (sr) => {{
-                            const lbs = Array.from(document.querySelectorAll('[role="listbox"]'));
-                            let bestIdx = -1, bestScore = Infinity;
-                            lbs.forEach((lb, i) => {{
-                                const r = lb.getBoundingClientRect();
-                                if (r.height < 20) return;  // skip collapsed
-                                const cx = r.left + r.width / 2;
-                                // Score = horizontal distance + vertical gap from slicer bottom
-                                const score = Math.abs(cx - sr.cx) + Math.max(0, r.top - sr.bottom);
-                                if (score < bestScore) {{ bestScore = score; bestIdx = i; }}
-                            }});
-                            return bestIdx;
-                        }}
-                    """, slicer_rect)
-                    log.debug(f"Active popup (position strategy): nth={active_idx}")
-                except Exception as pe:
-                    log.debug(f"Position detection failed: {pe}")
-
-            # Strategy C: fallback — tallest listbox
-            if active_idx < 0:
-                best_h, best_idx = 0, -1
-                for i, h in enumerate(heights_after):
-                    if h > best_h:
-                        best_h = h; best_idx = i
-                if best_idx >= 0:
-                    active_idx = best_idx
-                    log.debug(f"Active popup (height fallback): nth={active_idx}, h={round(best_h)}px")
+            # Strategy B: Find listboxes that ACTUALLY contain option items in DOM
+            item_lb_indices = self.page.evaluate("""
+                () => {
+                    const lbs = Array.from(document.querySelectorAll('[role="listbox"]'));
+                    const results = [];
+                    lbs.forEach((lb, i) => {
+                        const items = lb.querySelectorAll('[class*="slicerItemContainer"], [role="option"], [role="listitem"]');
+                        if (items.length > 0 && lb.getBoundingClientRect().height > 20) {
+                            results.push({i: i, count: items.length});
+                        }
+                    });
+                    results.sort((a, b) => b.count - a.count);
+                    return results.map(r => r.i);
+                }
+            """)
+            log.debug(f"Listboxes containing items: {item_lb_indices}")
 
             if active_idx >= 0:
                 search_roots.append(self.page.locator("[role='listbox']").nth(active_idx))
+
+            for item_idx in (item_lb_indices or []):
+                loc = self.page.locator("[role='listbox']").nth(item_idx)
+                if loc not in search_roots:
+                    search_roots.append(loc)
+
+            # Strategy C: position proximity — fallback if active_idx not found yet
+            if active_idx < 0 and visual_data.get("loc"):
+                try:
+                    if visual_data["loc"].count() > 0:
+                        slicer_rect = visual_data["loc"].evaluate("""
+                            el => { const r = el.getBoundingClientRect();
+                                    return {cx: r.left + r.width/2, bottom: r.bottom}; }
+                        """, timeout=1000)
+                        pos_idx = self.page.evaluate(f"""
+                            (args) => {{
+                                const sr = args[0];
+                                const hb = args[1];
+                                const lbs = Array.from(document.querySelectorAll('[role="listbox"]'));
+                                let bestIdx = -1, bestScore = Infinity;
+                                lbs.forEach((lb, i) => {{
+                                    const r = lb.getBoundingClientRect();
+                                    if (r.height < 80) return;  // skip small in-page listboxes (e.g. 44px 3-item listbox)
+                                    if (hb && hb[i] > 100) return;  // skip static listboxes already large before expand
+                                    const cx = r.left + r.width / 2;
+                                    const score = Math.abs(cx - sr.cx) + Math.max(0, r.top - sr.bottom);
+                                    if (score < bestScore) {{ bestScore = score; bestIdx = i; }}
+                                }});
+                                return bestIdx;
+                            }}
+                        """, [slicer_rect, heights_before])
+                        if pos_idx >= 0:
+                            active_idx = pos_idx
+                            log.debug(f"Active popup (position strategy): nth={active_idx}")
+                            loc = self.page.locator("[role='listbox']").nth(pos_idx)
+                            if loc not in search_roots:
+                                search_roots.append(loc)
+                except Exception as pe:
+                    log.debug(f"Position detection failed: {pe}")
+
+            # Append all visible listboxes with height > 50 as comprehensive fallbacks
+            try:
+                all_vis_indices = self.page.evaluate("""
+                    () => Array.from(document.querySelectorAll('[role="listbox"]'))
+                         .map((el, i) => ({i, h: el.getBoundingClientRect().height, vis: window.getComputedStyle(el).visibility !== 'hidden'}))
+                         .filter(item => item.h > 50 && item.vis)
+                         .map(item => item.i)
+                """)
+                for v_idx in all_vis_indices:
+                    v_loc = self.page.locator("[role='listbox']").nth(v_idx)
+                    if v_loc not in search_roots:
+                        search_roots.append(v_loc)
+            except Exception:
+                pass
         except Exception as e:
             log.debug(f"Active popup detection failed: {e}")
+
+        # Search box filtering — ONLY if an input element exists strictly inside the active popup listbox
+        search_typed = False
+        if active_idx >= 0:
+            try:
+                has_search = self.page.evaluate(f"""
+                    (idx) => {{
+                        const lbs = document.querySelectorAll('[role="listbox"]');
+                        const lb = lbs[idx];
+                        if (!lb) return false;
+                        const inp = lb.querySelector('input');
+                        return inp !== null && inp.getBoundingClientRect().height > 0;
+                    }}
+                """, active_idx)
+                if has_search:
+                    s_el = self.page.locator("[role='listbox']").nth(active_idx).locator("input").first
+                    if s_el.is_visible(timeout=400):
+                        s_el.click(timeout=500)
+                        s_el.fill("")
+                        s_el.press_sequentially(value, delay=40)
+                        self.page.wait_for_timeout(800)
+                        log.debug(f"Slicer '{slicer_title}' typed into internal popup search input -> '{value}'")
+                        search_typed = True
+            except Exception as se:
+                log.debug(f"Popup internal search check failed: {se}")
+
+        if not search_typed:
+            log.debug(f"Slicer '{slicer_title}' no popup internal search input used.")
 
         # Fallback candidates for non-standard popups
         for p in [".popupContent:visible", ".slicer-dropdown-menu:visible"]:
@@ -2363,30 +2419,49 @@ class PBIDashboardPage(BasePage):
         # Final fallback: whole page
         search_roots.append(self.page)
 
-        # Scroll the active popup to TOP and wait for virtualized items to render their text.
-        # Power BI's virtualized lists render empty container elements first, then fill text async.
-        # If we start the click loop immediately, items appear empty and we scroll past the target.
+        # Scroll the active popup to TOP so alphabetically-early items (e.g. "California") are
+        # rendered.  We dispatch scroll(bubbles:true) to reach PBI's container-level scroll
+        # listener (which drives the virtualizer).  We do NOT dispatch WheelEvent here because
+        # PBI has a document-level 'wheel' listener that misroutes large negative deltaY events
+        # and repopulates the popup with a different slicer's stale content.
         try:
-            self.page.evaluate("""
-                () => {
+            active_lb_idx = active_idx if active_idx >= 0 else -1
+            self.page.evaluate(f"""
+                (activeIdx) => {{
                     const lbs = Array.from(document.querySelectorAll('[role="listbox"]'));
-                    // Find the tallest (open) popup and scroll it to top
-                    let tallest = null, maxH = 0;
-                    lbs.forEach(lb => {
-                        const h = lb.getBoundingClientRect().height;
-                        if (h > maxH) { maxH = h; tallest = lb; }
-                    });
-                    if (tallest) {
-                        const scrollers = Array.from(tallest.querySelectorAll('*'))
-                            .filter(c => c.scrollHeight > c.clientHeight);
-                        const s = scrollers.length > 0 ? scrollers[scrollers.length - 1] : tallest;
-                        s.scrollTop = 0;
-                    }
-                }
-            """)
-            self.page.wait_for_timeout(800)  # Wait for virtualized items to render their text
+                    let target = activeIdx >= 0 ? lbs[activeIdx] : null;
+                    if (!target) {{
+                        let maxH = 0;
+                        lbs.forEach(lb => {{
+                            const h = lb.getBoundingClientRect().height;
+                            if (h > maxH) {{ maxH = h; target = lb; }}
+                        }});
+                    }}
+                    if (!target) return;
+
+                    // Only scroll to top when the popup has inner scrollable content
+                    // (i.e. the list is virtualized and items above might not be in the DOM).
+                    // Short lists (e.g. Ship Mode with 4 items) fit entirely in the popup,
+                    // have no inner scroller, and must NOT be scrolled — dispatching a scroll
+                    // event on the listbox itself can corrupt the popup via bubbling.
+                    const scrollers = Array.from(target.querySelectorAll('*'))
+                        .filter(c => c.scrollHeight > c.clientHeight + 20);
+                    if (scrollers.length === 0) return;  // Short list — skip scroll-to-top
+
+                    const s = scrollers[scrollers.length - 1];
+                    s.scrollTop = 0;
+                    // Dispatch scroll on the inner scroller only (not the listbox itself).
+                    // bubbles:true lets PBI's container listener re-render items at position 0.
+                    // We do NOT dispatch WheelEvent here — PBI's document 'wheel' listener
+                    // misroutes large deltaY and overwrites the popup with stale slicer content.
+                    s.dispatchEvent(new Event('scroll', {{bubbles: true, cancelable: false}}));
+                }}
+            """, active_lb_idx)
+            self.page.wait_for_timeout(1200)  # Wait for virtualized items to render at top
         except Exception:
             pass
+
+        self.page.wait_for_timeout(400)  # Baseline render wait for popup items
 
         item_candidates = [
             f"[class*='slicerItemContainer']:has-text('{value}')",
@@ -2400,10 +2475,32 @@ class PBIDashboardPage(BasePage):
             if clicked:
                 break
                 
-            for scroll_attempt in range(15):
+            for scroll_attempt in range(30):
                 if clicked:
                     break
-                    
+                
+                # Keyboard quick-jump on attempt 1 for long virtualized lists (e.g. 'Los Angeles' -> key 'l')
+                if scroll_attempt == 1 and not search_typed and value:
+                    try:
+                        first_char = value[0].lower()
+                        active_lb_idx = active_idx if active_idx >= 0 else -1
+                        self.page.evaluate(f"""
+                            (activeIdx, char) => {{
+                                const lbs = Array.from(document.querySelectorAll('[role="listbox"]'));
+                                const target = activeIdx >= 0 ? lbs[activeIdx] : document;
+                                if (target && target.dispatchEvent) {{
+                                    const scrollers = Array.from(target.querySelectorAll('*'))
+                                        .filter(c => c.scrollHeight > c.clientHeight);
+                                    const s = scrollers.length > 0 ? scrollers[scrollers.length - 1] : target;
+                                    s.focus();
+                                    s.dispatchEvent(new KeyboardEvent('keydown', {{key: char, code: 'Key' + char.toUpperCase(), keyCode: char.charCodeAt(0), bubbles: true}}));
+                                }}
+                            }}
+                        """, active_lb_idx, first_char)
+                        self.page.wait_for_timeout(400)
+                    except Exception:
+                        pass
+
                 item_found_in_dom = False
                 
                 for candidate in item_candidates:
@@ -2429,13 +2526,56 @@ class PBIDashboardPage(BasePage):
                                     loc.click(timeout=3_000)
                                     clicked = True
                                     log.debug(f"Slicer item clicked via selector: {candidate} in root {s_root} (match {i}) after {scroll_attempt} scrolls")
-                                    # Explicitly close popup after click so it doesn't pollute the next slicer's search_roots
+                                    # Close popup after click — Escape key + verify popup collapsed.
                                     try:
+                                        if active_idx >= 0:
+                                            self.page.evaluate(f"""
+                                                (idx) => {{
+                                                    const lbs = document.querySelectorAll('[role="listbox"]');
+                                                    if (lbs[idx]) {{
+                                                        lbs[idx].focus();
+                                                        lbs[idx].dispatchEvent(new KeyboardEvent('keydown', {{key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true}}));
+                                                    }}
+                                                }}
+                                            """, active_idx)
                                         self.page.keyboard.press("Escape")
-                                        self.page.wait_for_selector(
-                                            "[role='listbox']:visible, .popupContent:visible",
-                                            state="hidden", timeout=3000
-                                        )
+                                        self.page.wait_for_timeout(300)
+                                        _hb_list = heights_before or []
+                                        _a_idx = active_idx  # from outer scope (-1 if unknown)
+                                        popup_closed = False
+                                        for _poll in range(15):
+                                            if _a_idx >= 0 and _hb_list and _a_idx < len(_hb_list):
+                                                cur_h = self.page.evaluate(f"""
+                                                    () => {{
+                                                        const lb = document.querySelectorAll('[role="listbox"]')[{_a_idx}];
+                                                        return lb ? Math.round(lb.getBoundingClientRect().height) : 0;
+                                                    }}
+                                                """)
+                                                if cur_h <= _hb_list[_a_idx] + 30:
+                                                    popup_closed = True
+                                                    break  # Popup collapsed ✓
+                                            else:
+                                                # Check if any popup listbox > 150px height remains
+                                                any_large = self.page.evaluate("""
+                                                    () => Array.from(document.querySelectorAll('[role="listbox"]'))
+                                                               .some(lb => lb.getBoundingClientRect().height > 150)
+                                                """)
+                                                if not any_large:
+                                                    popup_closed = True
+                                                    break
+                                            self.page.wait_for_timeout(200)
+                                        if not popup_closed:
+                                            log.debug(f"Slicer popup (listbox nth={_a_idx}) did not close via Escape — clicking visual container header to force-close")
+                                            if visual_data.get("loc"):
+                                                try:
+                                                    visual_data["loc"].click(position={"x": 10, "y": 10}, timeout=1000)
+                                                except Exception:
+                                                    self.page.mouse.click(200, 200)
+                                            else:
+                                                self.page.mouse.click(200, 200)
+                                            self.page.wait_for_timeout(400)
+                                        else:
+                                            log.debug(f"Slicer popup (listbox nth={_a_idx}) closed after Escape (polls={_poll+1})")
                                     except Exception:
                                         pass
                                     break
@@ -2455,26 +2595,53 @@ class PBIDashboardPage(BasePage):
                     else:
                         # Item NOT in DOM yet — scroll popup down to reveal virtualized items.
                         try:
-                            self.page.evaluate("""
-                                () => {
-                                    const containers = [
-                                        ...document.querySelectorAll('.popupContent, [role="listbox"], .slicer-dropdown-menu')
-                                    ].filter(el => el.offsetHeight > 0);
-                                    if (containers.length > 0) {
-                                        const popup = containers[containers.length - 1];
-                                        const innerScrollers = Array.from(popup.querySelectorAll('*'))
-                                            .filter(c => c.scrollHeight > c.clientHeight);
-                                        const scroller = innerScrollers.length > 0
-                                            ? innerScrollers[innerScrollers.length - 1]
-                                            : popup;
-                                        scroller.scrollTop += 300;
-                                    }
-                                }
-                            """)
+                            active_lb_idx = active_idx if active_idx >= 0 else -1
+                            first_char = value[0] if value else ""
+                            self.page.evaluate(f"""
+                                (args) => {{
+                                    const activeIdx = args[0];
+                                    const scrollAttempt = args[1];
+                                    const targetChar = args[2] || '';
+                                    const lbs = Array.from(document.querySelectorAll('[role="listbox"], .popupContent, .slicer-dropdown-menu, .cdk-overlay-pane'));
+                                    let scroller = null;
+                                    if (activeIdx >= 0 && lbs[activeIdx]) {{
+                                        const target = lbs[activeIdx];
+                                        const innerScrollers = Array.from(target.querySelectorAll('*')).filter(c => c.scrollHeight > c.clientHeight || (c.className && typeof c.className === 'string' && (c.className.includes('viewport') || c.className.includes('slicer') || c.className.includes('Content'))));
+                                        scroller = innerScrollers.length > 0 ? innerScrollers[0] : target;
+                                    }}
+                                    if (!scroller || scroller === document.body) {{
+                                        const openPopup = lbs.find(el => el.getBoundingClientRect().height > 50 && window.getComputedStyle(el).visibility !== 'hidden');
+                                        if (openPopup) {{
+                                            const inner = Array.from(openPopup.querySelectorAll('*')).filter(c => c.scrollHeight > c.clientHeight || (c.className && typeof c.className === 'string' && (c.className.includes('viewport') || c.className.includes('slicer'))));
+                                            scroller = inner.length > 0 ? inner[0] : openPopup;
+                                        }}
+                                    }}
+                                    if (scroller && scroller !== document.body) {{
+                                        if (scrollAttempt === 1 && targetChar) {{
+                                            const charCode = targetChar.toLowerCase().charCodeAt(0) - 97;
+                                            if (charCode >= 0 && charCode < 26) {{
+                                                const ratio = charCode / 26;
+                                                const targetPos = Math.floor(scroller.scrollHeight * ratio);
+                                                scroller.scrollTop = targetPos;
+                                                scroller.dispatchEvent(new WheelEvent('wheel', {{deltaY: targetPos, bubbles: true}}));
+                                                scroller.dispatchEvent(new Event('scroll', {{bubbles: true}}));
+                                                return;
+                                            }}
+                                        }}
+                                        const step = 600;
+                                        scroller.scrollTop += step;
+                                        scroller.dispatchEvent(new WheelEvent('wheel', {{deltaY: step, bubbles: true}}));
+                                        scroller.dispatchEvent(new Event('scroll', {{bubbles: true}}));
+                                    }}
+                                }}
+                            """, [active_lb_idx, scroll_attempt, first_char])
+                            try:
+                                self.page.keyboard.press("PageDown")
+                            except Exception:
+                                pass
                             self.page.wait_for_timeout(400)  # Wait for virtualized render
                         except Exception as e:
                             log.debug(f"Scroll evaluate failed: {e}")
-                            break  # Can't scroll — give up on this root
 
         if not clicked:
             # Diagnostic: dump contents of each search root to help debug
@@ -2499,6 +2666,7 @@ class PBIDashboardPage(BasePage):
                         pass
             # Final fallback: JS click (synthetic) on the item text + Auto-scrolling for virtualization
             safe_value = value.replace("'", "\\'")
+            safe_val_lower = value.lower().replace("'", "\\'")
             js_result = self.page.evaluate(f"""
                 async () => {{
                     const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -2506,9 +2674,14 @@ class PBIDashboardPage(BasePage):
                         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
                         let node;
                         while ((node = walker.nextNode())) {{
-                            if (node.textContent && node.textContent.includes('{safe_value}')) {{
-                                const parent = node.parentElement;
-                                if (parent && parent.offsetHeight > 0) return parent;
+                            const txt = (node.textContent || '').trim().toLowerCase();
+                            if (txt && txt.includes('{safe_val_lower}')) {{
+                                let parent = node.parentElement;
+                                while (parent && parent !== document.body) {{
+                                    const r = parent.getBoundingClientRect();
+                                    if (r.width > 0 && r.height > 0) return parent;
+                                    parent = parent.parentElement;
+                                }}
                             }}
                         }}
                         return null;
@@ -2520,18 +2693,31 @@ class PBIDashboardPage(BasePage):
                         return {{clicked: true, text: target.textContent}};
                     }}
                     
-                    // Try scrolling visible popup containers to find virtualized items
+                    // Try scrolling all active popup containers to find virtualized items.
                     const popups = Array.from(document.querySelectorAll('.popupContent, [role="listbox"], .slicer-dropdown-menu'))
-                        .filter(el => el.offsetHeight > 0);
-                    if (popups.length > 0) {{
-                        const popup = popups[popups.length - 1];
-                        // Find the actual scrollable child
-                        const innerScrollers = Array.from(popup.querySelectorAll('*')).filter(c => c.scrollHeight > c.clientHeight);
-                        const scroller = innerScrollers.length > 0 ? innerScrollers[innerScrollers.length - 1] : popup;
+                        .filter(el => el.getBoundingClientRect().height > 20);
+                    for (const popup of popups) {{
+                        const innerScrollers = Array.from(popup.querySelectorAll('*'))
+                            .filter(c => c.scrollHeight > c.clientHeight || (c.className && typeof c.className === 'string' && (c.className.includes('viewport') || c.className.includes('slicer') || c.className.includes('Content'))));
+                        const scroller = innerScrollers.length > 0 ? innerScrollers[0] : popup;
+                        // ── Pass 1: scroll to TOP ──
+                        scroller.scrollTop = 0;
+                        scroller.dispatchEvent(new Event('scroll', {{bubbles: true}}));
+                        await delay(400);
+                        target = findTextNode();
+                        if (target) {{
+                            target.click();
+                            return {{clicked: true, text: target.textContent, scrolled: false}};
+                        }}
+                        // ── Pass 2: scroll DOWN from top ──
                         let prevScrollTop = -1;
-                        while (scroller.scrollTop !== prevScrollTop) {{
+                        let attempts = 0;
+                        while (scroller.scrollTop !== prevScrollTop && attempts < 35) {{
+                            attempts++;
                             prevScrollTop = scroller.scrollTop;
-                            scroller.scrollTop += 200;
+                            scroller.scrollTop += 250;
+                            scroller.dispatchEvent(new WheelEvent('wheel', {{deltaY: 250, bubbles: true}}));
+                            scroller.dispatchEvent(new Event('scroll', {{bubbles: true}}));
                             await delay(250); // wait for virtualized render
                             target = findTextNode();
                             if (target) {{
@@ -2564,32 +2750,120 @@ class PBIDashboardPage(BasePage):
 
 
     def clear_all_slicers(self) -> None:
-        '''
-        Attempts to clear all slicers on the page by finding and clicking 
-        all visible 'Eraser' (clear) icons in slicer headers.
-        '''
-        log.info("Attempting to clear all active slicers on the page...")
+        """
+        Clear ALL active slicers on the page to their default 'All' / unselected state.
+
+        Power BI only shows eraser icons on *hover*, so checking is_visible() always
+        returns False and the previous approach silently did nothing.
+
+        New approach:
+          1. JS scans every visual-container with a [aria-roledescription] slicer
+             element and checks if a clear/eraser icon exists in its DOM (regardless
+             of hover visibility).  Returns the list of active slicer titles.
+          2. For each active slicer, call reset_slicer() which handles both list and
+             dropdown slicer styles.
+          3. Fallback: also force-click ANY clear/eraser icon found in the whole page
+             DOM using Playwright with force=True (bypasses hover requirement).
+        """
+        log.info("Clearing all active slicers on the page...")
+
+        # ── Step 0: Click Power BI's native 'Reset to default' button in top action bar ────
         try:
-            # Look for eraser icons
-            clear_icons = self.page.locator("i[class*='clear'], i[class*='eraser']")
-            total_icons = clear_icons.count()
-            count = 0
-            for i in range(total_icons):
-                icon = clear_icons.nth(i)
-                if icon.is_visible(timeout=500):
-                    icon.click(force=True)
-                    self.page.wait_for_timeout(500)
-                    count += 1
-            log.info(f"Cleared {count} active slicer(s).")
-            
-            # Also attempt global reset button if available
-            reset_btn = self.page.locator("button[aria-label='Reset to default'], button[title='Reset to default']").first
-            if reset_btn.is_visible(timeout=500):
-                reset_btn.click()
-                log.info("Clicked global 'Reset to default' button.")
-                self.page.wait_for_timeout(2000)
-        except Exception as e:
-            log.warning(f"Error while clearing slicers: {e}")
+            reset_sels = [
+                "button[aria-label*='Reset to default' i]",
+                "button[title*='Reset to default' i]",
+                "button[aria-label*='Reset' i]",
+                "[class*='resetToDefault']",
+                "[class*='reset-to-default']",
+            ]
+            for r_sel in reset_sels:
+                try:
+                    r_loc = self.page.locator(r_sel).first
+                    if r_loc.count() > 0 and r_loc.is_visible():
+                        r_loc.click(timeout=1000)
+                        self.page.wait_for_timeout(600)
+                        # Check for confirmation dialog button ('Reset')
+                        confirm_btn = self.page.locator("button:has-text('Reset'), button[aria-label='Reset']").first
+                        if confirm_btn.count() > 0 and confirm_btn.is_visible():
+                            confirm_btn.click(timeout=1000)
+                            self.page.wait_for_timeout(1000)
+                        log.info(f"Cleared all slicers via native 'Reset to default' button ('{r_sel}')")
+                        return
+                except Exception:
+                    continue
+        except Exception as e_r:
+            log.debug(f"Native 'Reset to default' button click skipped: {e_r}")
+
+        # ── Step 1: JS DOM scan ─────────────────────────────────────────────────
+        try:
+            active_titles: list = self.page.evaluate("""
+                () => {
+                    const titles = [];
+                    const allDivs = document.querySelectorAll('[aria-roledescription]');
+                    for (const div of allDivs) {
+                        const role = (div.getAttribute('aria-roledescription') || '').toLowerCase();
+                        if (!role.includes('slicer')) continue;
+                        const vc = div.closest('visual-container') || div.parentElement;
+                        const root = vc || div;
+                        const rawText = (root.innerText || '').trim();
+                        const title = rawText.split('\\n')[0].trim();
+                        if (!title) continue;
+                        // Check for a clear / eraser icon in DOM (present when a value is active)
+                        const hasClear = !!(
+                            root.querySelector("i[class*='clear']") ||
+                            root.querySelector("i[class*='eraser']") ||
+                            root.querySelector("button[aria-label*='Clear']") ||
+                            root.querySelector("[class*='clearIcon']") ||
+                            root.querySelector("[class*='resetButton']") ||
+                            root.querySelector("button[title*='Clear']")
+                        );
+                        if (hasClear && !titles.includes(title)) {
+                            titles.push(title);
+                        }
+                    }
+                    return titles;
+                }
+            """)
+        except Exception as js_err:
+            log.warning(f"JS DOM scan for active slicers failed: {js_err}")
+            active_titles = []
+
+        if active_titles:
+            log.info(f"JS detected {len(active_titles)} active slicer(s): {active_titles}")
+            for title in active_titles:
+                try:
+                    self.reset_slicer(title)
+                    log.info(f"  ✓ reset_slicer('{title}') completed")
+                except Exception as e_reset:
+                    log.warning(f"  ✗ reset_slicer('{title}') failed: {e_reset}")
+        else:
+            log.info("JS DOM scan found no active slicers (no eraser icons in DOM).")
+
+        # ── Step 2: Playwright force-click fallback ──────────────────────────────
+        # Power BI eraser icons exist in DOM even when hover-hidden. force=True bypasses
+        # the visibility/pointer-events requirement so we can click them directly.
+        try:
+            eraser_locs = self.page.locator(
+                "i[class*='clear'], i[class*='eraser'], "
+                "[class*='clearIcon'], [class*='resetButton'], "
+                "button[aria-label*='Clear'], button[title*='Clear']"
+            )
+            total = eraser_locs.count()
+            clicked = 0
+            for i in range(total):
+                try:
+                    eraser_locs.nth(i).click(force=True, timeout=500)
+                    self.page.wait_for_timeout(300)
+                    clicked += 1
+                except Exception:
+                    pass
+            if clicked:
+                log.info(f"Force-clicked {clicked} eraser icon(s) as fallback.")
+        except Exception as e2:
+            log.debug(f"Playwright force-click fallback failed: {e2}")
+
+        self.page.wait_for_timeout(800)
+        log.info("clear_all_slicers complete.")
 
     def reset_slicer(self, slicer_title: str) -> None:
         """
