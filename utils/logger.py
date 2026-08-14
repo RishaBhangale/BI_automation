@@ -9,6 +9,16 @@ import os
 _LOG_DIR = "logs"
 
 
+class SafeStreamHandler(logging.StreamHandler):
+    """StreamHandler that safely ignores writes to closed streams during process exit or pytest teardown."""
+    def emit(self, record):
+        try:
+            if self.stream and not getattr(self.stream, "closed", False):
+                super().emit(record)
+        except (ValueError, OSError):
+            pass
+
+
 def get_logger(name: str) -> logging.Logger:
     """
     Returns a logger that logs to both console and logs/framework.log.
@@ -29,7 +39,7 @@ def get_logger(name: str) -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    console_handler = logging.StreamHandler()
+    console_handler = SafeStreamHandler()
     console_handler.setFormatter(formatter)
 
     file_handler = logging.FileHandler(log_path, encoding="utf-8")

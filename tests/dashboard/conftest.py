@@ -334,7 +334,30 @@ def pytest_runtest_makereport(item, call):
         _current_dashboard_config["dashboard"].get("name", "Dashboard")
         if _current_dashboard_config else "Dashboard"
     )
-    readable_name = f"{item.name.replace('test_', '').replace('_', ' ').title()} — {dash_name}"
+
+    # Extract clean TC ID (e.g. TC-BIZ-001) and clean test title (e.g. State-Level Sales Validation)
+    raw_name = item.name
+    param_match = re.search(r'\[(?:chromium-|firefox-|webkit-)?(.*?)\]', raw_name)
+    if param_match:
+        param_str = param_match.group(1).strip()
+        if " - " in param_str:
+            parts = param_str.split(" - ", 1)
+            tc_id = parts[0].strip()
+            clean_test_title = parts[1].strip()
+        elif param_str.startswith("TC-"):
+            tc_id = param_str.strip()
+            clean_test_title = item.name.split('[')[0].replace('test_', '').replace('_', ' ').title()
+        else:
+            tc_id = f"TC-{len(DASHBOARD_RESULTS) + 1:03d}"
+            clean_test_title = param_str
+    else:
+        tc_id = f"TC-{len(DASHBOARD_RESULTS) + 1:03d}"
+        clean_test_title = item.name.replace('test_', '').replace('_', ' ').title()
+
+    # Simplify TC-BIZ-001 -> TC-001 or DTC-001 -> TC-001
+    tc_id = re.sub(r"^(?:TC-BIZ-|DTC-)", "TC-", tc_id, flags=re.IGNORECASE)
+
+    readable_name = f"{clean_test_title} — {dash_name}"
 
     # Determine group from test name
     if "discover" in item.name:
@@ -381,7 +404,6 @@ def pytest_runtest_makereport(item, call):
             except Exception as e:
                 log.warning(f"Could not capture screenshot: {e}")
 
-    tc_id = f"DTC-{len(DASHBOARD_RESULTS) + 1:03d}"
     DASHBOARD_RESULTS.append(TestResult(
         tc_id          = tc_id,
         name           = readable_name,
@@ -431,7 +453,7 @@ def pytest_sessionfinish(session, exitstatus):
             release          = "Validation Run",
             suite            = "Dashboard KPI & Table Validation",
             base_url         = dash_url,
-            browser          = "Chrome (Headed)" if session.config.getoption("headed") else "Chrome (Headless)",
+            browser          = "Chrome (Headed)" if session.config.getoption("headed") else "Google Chrome",
             viewport         = f"{BROWSER_WIDTH} × {BROWSER_HEIGHT}",
             executed_by      = "qe.automation",
             test_data_source = config_file,
@@ -469,18 +491,29 @@ def _parse_steps_from_logs(log_records: list) -> List[dict]:
     steps   = []
     current = None
 
+    technical_keywords = [
+        "iframe", "flat-DOM", "PTW", "selector failed", "trying fallback",
+        "trying outer page", "DOM diagnostic", "reset attempt complete",
+        "no clear action taken", "Switching to page", "Extracting KPI card value for",
+        "Visual titles", "slicer dropdown expanded", "popup items ready",
+        "Listbox heights", "Listboxes containing items", "Active popup",
+        "no popup internal search", "Slicer item clicked via selector",
+        "closed after Escape", "did not close via Escape", "Force-clicked",
+        "JS DOM scan", "already at All", "no clear option in dropdown"
+    ]
+
     for record in log_records:
         msg   = record.getMessage()
         level = record.levelname
         ts    = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
 
-        start_match = re.match(r"STEP(\d)_START\|(.+)", msg)
-        end_match   = re.match(r"STEP(\d)_END",         msg)
+        start_match = re.match(r"STEP(\d+(?:\.\d+)?|\d+)_START\|(.+)", msg)
+        end_match   = re.match(r"STEP(\d+(?:\.\d+)?|\d+)_END",         msg)
 
         if start_match:
             current = {
-                "step_no": int(start_match.group(1)),
-                "title":   start_match.group(2),
+                "step_no": len(steps) + 1,
+                "title":   start_match.group(2).strip(),
                 "lines":   [],
                 "failed":  False,
             }
@@ -493,12 +526,20 @@ def _parse_steps_from_logs(log_records: list) -> List[dict]:
 
         if current is not None:
             is_fail = (
-                level == "ERROR"
+                level in ("ERROR", "CRITICAL")
                 or msg.startswith("FAIL")
                 or "AssertionError" in msg
             )
             if is_fail:
                 current["failed"] = True
+
+            # Filter out DEBUG logs and internal framework technical trace logs
+            if level == "DEBUG":
+                continue
+
+            if any(kw in msg for kw in technical_keywords) and not is_fail:
+                continue
+
             current["lines"].append((level, ts, msg))
 
     return steps

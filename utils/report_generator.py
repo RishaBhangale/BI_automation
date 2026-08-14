@@ -220,16 +220,24 @@ def generate_report(
         dot_icon = "✕" if is_bad else "✓"
         step_cls = "bad" if is_bad else "ok"
         first_ts = step["lines"][0][1] if step["lines"] else ""
-        lines_html = "<br>".join(render_line(lvl, ts, txt) for lvl, ts, txt in step["lines"])
-
-        if is_bad and shot_html:
-            body = f"""
+        if step.get("lines"):
+            lines_html = "<br>".join(render_line(lvl, ts, txt) for lvl, ts, txt in step["lines"])
+            if is_bad and shot_html:
+                body = f"""
         <div class="fail-grid">
           <div class="fail-left"><div class="step-lines">{lines_html}</div></div>
           {shot_html}
         </div>"""
+            else:
+                body = f'<div class="step-lines">{lines_html}</div>'
         else:
-            body = f'<div class="step-lines">{lines_html}</div>'
+            if is_bad and shot_html:
+                body = f"""
+        <div class="fail-grid">
+          {shot_html}
+        </div>"""
+            else:
+                body = ""
 
         assert_html = ""
         if step.get("assertion_detail"):
