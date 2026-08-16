@@ -153,9 +153,6 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("url",            help="Power BI dashboard URL")
     p.add_argument("--name",         default="",   help="Human-readable dashboard name (used in YAML)")
     p.add_argument("--output", "-o", default="",   help="Output YAML path (default: auto-named in dashboard_configs/)")
-    p.add_argument("--db-uri",       default="",   help="SQLAlchemy DB URI for SQL suggestion (Phase B)")
-    p.add_argument("--db-env",       action="store_true",
-                   help="Load DB credentials from .env / settings.py instead of --db-uri")
     p.add_argument("--headless",     action="store_true", default=True,
                    help="Run browser in headless mode (default: True)")
     p.add_argument("--no-headless",  action="store_false", dest="headless",
@@ -163,7 +160,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--timeout",      type=int, default=30,
                    help="Max seconds to wait for dashboard to load (default: 30)")
     p.add_argument("--skip-headers", action="store_true",
-                   help="Skip 'Show as a table' header extraction (faster, lower SQL quality)")
+                   help="Skip chart header extraction (faster)")
     return p.parse_args(argv)
 
 
@@ -301,91 +298,8 @@ def run_phase_a(
     return pages_data
 
 
-# ── Phase B: SQL Suggestion ────────────────────────────────────────────────────
-
-def run_phase_b(
-    pages_data: list[dict],
-    dashboard_page: PBIDashboardPage,
-    db_uri: str,
-    skip_headers: bool,
-) -> dict:
-    """
-    Run Phase B: connect to DB, introspect schema, suggest SQL per visual.
-
-    Returns:
-        Dict mapping (page_index, visual_list_index) → {sql, confidence,
-        join_keys, compare_cols}.
-    """
-    from utils.schema_introspector import introspect_schema
-    from utils.llm_sql_generator import suggest_sql_via_llm
-    from utils.db_utils import get_db_engine
-    import json
-
-    print("\nPhase B: Connecting to database…")
-    try:
-        engine = get_db_engine(db_uri)
-        schema = introspect_schema(engine)
-        print(f"    Schema: {len(schema['tables'])} table(s) introspected")
-    except Exception as e:
-        print(f"    DB connection failed: {e}")
-        print("    Skipping SQL suggestion — queries will be empty (TODO).")
-        return {}
-
-    # Detect DB driver from URI for date function dialect
-    db_driver = db_uri.split("://")[0] if "://" in db_uri else ""
-
-    suggestions: dict[tuple, dict] = {}
-
-    schema_ddl = json.dumps(schema, indent=2)
-
-    for page in pages_data:
-        page_idx = page["page_index"]
-        slicers  = page["slicers"]
-        visuals  = page["visuals"]
-
-        for v_idx, v in enumerate(visuals):
-            cat = v.get("category")
-            desc = v.get("descriptive_title") or v.get("title") or f"{v.get('type')}[{v.get('type_index', 0)}]"
-            
-            if cat == "kpi":
-                sql, conf, join_keys, compare_cols = suggest_sql_via_llm(
-                    visual_type="KPI Card",
-                    visual_title=desc,
-                    chart_headers=[],
-                    schema_ddl=schema_ddl,
-                    slicers=slicers,
-                    db_driver=db_driver
-                )
-                suggestions[(page_idx, v_idx)] = {
-                    "sql": sql, "confidence": conf,
-                    "join_keys": [], "compare_cols": [],
-                }
-
-            elif cat == "chart" and not skip_headers:
-                # Extract column headers via "Show as a table"
-                vtype  = v.get("type", "")
-                tidx   = v.get("type_index", 0)
-                vtitle = "" if v.get("strategy") == "type_index" else v.get("title", "")
-                headers = []
-                try:
-                    headers = dashboard_page.extract_chart_headers(vtype, tidx, vtitle)
-                except Exception as e:
-                    log.debug(f"extract_chart_headers failed: {e}")
-
-                sql, conf, join_keys, compare_cols = suggest_sql_via_llm(
-                    visual_type=vtype,
-                    visual_title=desc,
-                    chart_headers=headers,
-                    schema_ddl=schema_ddl,
-                    slicers=slicers,
-                    db_driver=db_driver
-                )
-                suggestions[(page_idx, v_idx)] = {
-                    "sql": sql, "confidence": conf,
-                    "join_keys": join_keys, "compare_cols": compare_cols,
-                }
-
-    return suggestions
+# (Phase B SQL Suggestion removed — SQL is now auto-generated at runtime
+#  via utils/sql_template_engine.py from KPI title + slicer state in Excel.)
 
 
 # ── YAML Generation ────────────────────────────────────────────────────────────
@@ -437,15 +351,9 @@ def generate_yaml(
     url: str,
     name: str,
     pages_data: list[dict],
-    suggestions: dict,
-    db_uri: str,
     generated_at: str,
 ) -> str:
-    """
-    Build the complete YAML string from the discovered data and SQL suggestions.
-    """
-    from utils.sql_suggester import CONFIDENCE_EMOJI, CONFIDENCE_COMMENT
-
+    """Build the complete YAML string from the discovered data."""
     kpi_total   = sum(1 for p in pages_data for v in p["visuals"] if v.get("category") == "kpi")
     chart_total = sum(1 for p in pages_data for v in p["visuals"] if v.get("category") == "chart")
     slicer_total = sum(len(p["slicers"]) for p in pages_data)
@@ -454,28 +362,15 @@ def generate_yaml(
     all_page_names = [p["page_name"] for p in pages_data]
     is_single_page = len(pages_data) == 1
 
-    # DB section
-    if db_uri:
-        driver_raw = db_uri.split("://")[0]
-        rest       = db_uri.split("://", 1)[1] if "://" in db_uri else ""
-        user_host  = rest.split("@")[1] if "@" in rest else rest
-        db_section = f"""\
+    # DB section — always emit a TODO template for the user to fill in
+    db_section = """\
 source_db:
-  driver:   "{driver_raw}"
-  host:     "{user_host.split('/')[0].split(':')[0]}"
-  port:     ""
-  database: "{user_host.split('/')[-1] if '/' in user_host else ''}"
-  username: ""
-  password: "${{DB_PASSWORD}}"  # set DB_PASSWORD in .env"""
-    else:
-        db_section = """\
-source_db:
-  driver:   ""    # TODO: e.g. "postgresql" or "mssql+pyodbc"
+  driver:   ""    # TODO: e.g. "mssql+pymssql" or "postgresql"
   host:     ""    # TODO
   port:     ""    # TODO
   database: ""    # TODO
   username: ""    # TODO
-  password: ""    # TODO: or "${DB_PASSWORD}" """
+  password: ""    # TODO: or use "${DB_PASSWORD}" referencing .env"""
 
     # Page list
     if is_single_page:
@@ -487,12 +382,6 @@ source_db:
     lines: list[str] = []
 
     # ── Header ──
-    phase_b_note = (
-        f"#   SQL Suggestion: ENABLED ({len(db_uri.split('@')[-1]) if db_uri else 0} tables scanned)\n"
-        if db_uri else
-        "#   SQL Suggestion: DISABLED (run with --db-uri to enable)\n"
-    )
-
     lines.append(f"""\
 # {'─'*78}
 # Auto-generated by discover_dashboard.py
@@ -502,18 +391,16 @@ source_db:
 # Pages:      {len(pages_data)}
 # Visuals:    {kpi_total + chart_total} ({kpi_total} KPI cards, {chart_total} charts)
 # Slicers:    {slicer_total}
-{phase_b_note}#
+#
 # ⚡ REVIEW CHECKLIST:
-#   1. Verify each visual entry matches what you see on screen
-#   2. Review SQL queries (focus on MEDIUM and UNMATCHED)
-#   3. Fill in source_db credentials (or source_excel path)
-#   4. Run: pytest tests/dashboard/ --dashboard-config=<this_file>
+#   1. Define business logic in business_scenarios.xlsx
+#   2. Fill in source_db credentials (or source_excel path)
+#   3. Run: pytest tests/dashboard/ --dashboard-config=<this_file>
 # {'─'*78}
 
 dashboard:
   name: "{name or 'My Dashboard'}"
   url: "{url}"
-  {pages_yaml}
 
 {db_section}
 
@@ -522,212 +409,19 @@ source_excel:
   sheet_name: ""
 """)
 
-    # ── KPI Validations ──
-    lines.append(f"# {'─'*78}")
-    lines.append(f"# Auto-discovered KPI Cards ({kpi_total} found)")
-    lines.append(f"# {'─'*78}")
-    lines.append("kpi_validations:")
-
-    for page in pages_data:
-        page_name = page["page_name"]
-        page_idx  = page["page_index"]
-        kpis = [(i, v) for i, v in enumerate(page["visuals"]) if v.get("category") == "kpi"]
-
-        if not kpis:
-            continue
-
-        if not is_single_page:
-            lines.append(f"\n  # ── Page: '{page_name}' ──")
-
-        for v_idx, v in kpis:
-            raw_title = v.get("title", "")
-            title = _safe_title(raw_title)
-
-            # Skip entries whose title is a bare number / value — not a real visual title.
-            # These arise when multi-KPI card decomposition misclassifies a value line
-            # as a label (e.g. "38", "112" from an Average Age card).
-            if v.get("is_noisy_title") or not title:
-                lines.append(
-                    f"\n  # \u26a0\ufe0f  SKIPPED \u2014 '{_safe_title(raw_title)}' looks like a value, not a visual title."
-                    f"\n  #     Verify on the dashboard and add manually if needed."
-                )
-                continue
-
-            page_field = "" if is_single_page else page_name
-
-            sg = suggestions.get((page_idx, v_idx), {})
-            sql        = sg.get("sql", "")
-            confidence = sg.get("confidence", "NONE") if db_uri else ""
-            sql_block  = _sql_block(sql, 4) if sql else '""  # TODO: add SQL query'
-
-            conf_comment = ""
-            if db_uri:
-                emoji = CONFIDENCE_EMOJI.get(confidence, confidence)
-                cmnt  = CONFIDENCE_COMMENT.get(confidence, "")
-                conf_comment = f"  # {emoji} — {cmnt}\n"
-
-            lines.append(
-                f"\n{conf_comment}"
-                f"  - visual_title: \"{title}\"\n"
-                f"    page: \"{page_field}\"\n"
-                f"    sql_query: {sql_block}\n"
-                f"    tolerance: 0.01"
-            )
-
-    lines.append("")
-
-    # ── Table Validations — Chart Extraction Coverage Matrix ──────────────────
-    # Classify each discovered chart by how data can be extracted.
-    aria_charts   = [v for p in pages_data for v in p["visuals"]
-                     if v.get("category") == "chart"
-                     and _chart_extraction_method(v.get("type", "")) == "aria"]
-    sat_charts    = [v for p in pages_data for v in p["visuals"]
-                     if v.get("category") == "chart"
-                     and _chart_extraction_method(v.get("type", "")) == "show_as_table"]
-    unk_charts    = [v for p in pages_data for v in p["visuals"]
-                     if v.get("category") == "chart"
-                     and _chart_extraction_method(v.get("type", "")) == "unknown"]
-
-    lines.append(f"\n# {'─'*78}")
-    lines.append(f"# Auto-discovered Charts ({chart_total} found)")
-    lines.append("# ")
-    lines.append("# EXTRACTION METHOD LEGEND:")
-    lines.append("#   aria   — Data read from Power BI accessibility aria-labels.")
-    lines.append("#             Headless-safe. Works in all modes. No UI clicks.")
-    lines.append("#   sat    — Requires 'Show as a table' UI flow (hover + More Options).")
-    lines.append("#             Uses the inner [aria-roledescription] div (real px dims).")
-    lines.append("#             Falls back to SQL direct comparison if UI flow fails.")
-    lines.append("#   ❓ unk    — Type not classified. aria attempted first, then sat.")
-    lines.append("# ")
-    lines.append(f"# COVERAGE SUMMARY for this dashboard:")
-    lines.append(f"#   {len(aria_charts):>2} aria-extractable  — " +
-                 ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in aria_charts) or "(none)")
-    lines.append(f"#   {len(sat_charts):>2} show-as-table    — " +
-                 ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in sat_charts) or "(none)")
-    lines.append(f"#   ❓ {len(unk_charts):>2} unknown          — " +
-                 ", ".join(_safe_title(v.get("title") or v.get("type", "?")) for v in unk_charts) or "(none)")
-    lines.append("# ")
-    lines.append("# Strategy A = located by title | Strategy B = located by type+index")
-    lines.append(f"# {'─'*78}")
-    lines.append("table_validations:")
-
-    for page in pages_data:
-        page_name = page["page_name"]
-        page_idx  = page["page_index"]
-        charts = [(i, v) for i, v in enumerate(page["visuals"]) if v.get("category") == "chart"]
-
-        if not charts:
-            continue
-
-        if not is_single_page:
-            lines.append(f"\n  # ── Page: '{page_name}' ──")
-
-        for v_idx, v in charts:
-            vtype    = v.get("type", "")
-            tidx     = v.get("type_index", 0)
-            strategy = v.get("strategy", "title")
-            title    = v.get("title", "")
-            desc     = v.get("descriptive_title", "")
-            page_field = "" if is_single_page else page_name
-
-            sg = suggestions.get((page_idx, v_idx), {})
-            sql          = sg.get("sql", "")
-            confidence   = sg.get("confidence", "NONE") if db_uri else ""
-            join_keys    = sg.get("join_keys", [])
-            compare_cols = sg.get("compare_cols", [])
-
-            sql_block = _sql_block(sql, 4) if sql else '""  # TODO: add SQL query'
-
-            conf_comment = ""
-            if db_uri:
-                emoji = CONFIDENCE_EMOJI.get(confidence, confidence)
-                cmnt  = CONFIDENCE_COMMENT.get(confidence, "")
-                conf_comment = f"  # {emoji} — {cmnt}\n"
-
-            # Determine extraction method for this chart type
-            extraction = _chart_extraction_method(vtype)
-            if extraction == "aria":
-                method_icon = "aria"
-                method_note = "Data points read via aria-label — headless-safe, no UI clicks needed."
-            elif extraction == "show_as_table":
-                method_icon = "sat "
-                method_note = "Show as a table flow needed — hover inner div to reveal More Options."
-            else:
-                method_icon = "❓ unk "
-                method_note = "Type not classified — aria attempted first, then Show as a table."
-
-            safe_title = _safe_title(title)
-            safe_desc  = _safe_title(desc)
-
-            # Strategy A — title-based (has a clean, unique visual header title)
-            # Strategy B — type+index (untitled visual; locate by type + position)
-            if strategy == "title" and safe_title:
-                desc_note = (
-                    f"  # {method_icon} Chart: \"{safe_title}\" — Strategy A (title-based)\n"
-                    f"  # {method_note}\n"
-                )
-                loc_block = f'  - visual_title: "{safe_title}"\n    visual_type:  ""\n    visual_index: null\n'
-            else:
-                # Fallback to Strategy B when title is empty/noisy
-                chart_label = safe_desc or f"{vtype}[{tidx}]"
-                desc_note = (
-                    f"  # {method_icon} Chart: \"{chart_label}\" — Strategy B (type+index)\n"
-                    f"  # {method_note}\n"
-                    f"  # Title is empty or body-text. Locating by type+index.\n"
-                )
-                loc_block = f'  - visual_title: ""\n    visual_type:  "{vtype}"\n    visual_index: {tidx}\n'
-
-            # Join keys
-            if join_keys:
-                jk_yaml = "\n      ".join(f'- "{k}"' for k in join_keys)
-                join_block = f"    join_keys:\n      {jk_yaml}"
-            else:
-                join_block = "    join_keys:\n      - \"\"  # TODO: column(s) to align on"
-
-            # Compare cols
-            if compare_cols:
-                cc_yaml = "\n      ".join(f'- "{c}"' for c in compare_cols)
-                cmp_block = f"    compare_cols:\n      {cc_yaml}"
-            else:
-                cmp_block = "    compare_cols:\n      - \"\"  # TODO: numeric column(s) to compare"
-
-            lines.append(
-                f"\n{conf_comment}{desc_note}"
-                f"{loc_block}"
-                f"    page: \"{page_field}\"\n"
-                f"    sql_query: {sql_block}\n"
-                f"{join_block}\n"
-                f"{cmp_block}\n"
-                f"    tolerance: 0.01"
-            )
-
-    lines.append("")
-
-    # ── Expected Filters ──
+    # ── Discovery Reference — printed to terminal, NOT written to YAML ─────────
+    # (kpi_validations / table_validations / expected_filters are no longer written
+    #  to the YAML. Test cases are driven by business_scenarios.xlsx instead.)
     all_slicers = [(p["page_name"], s) for p in pages_data for s in p["slicers"]]
-    lines.append(f"\n# {'─'*78}")
-    lines.append(f"# Auto-discovered Slicer State ({len(all_slicers)} slicer(s))")
-    lines.append("# These assert that the dashboard's default filter state matches")
-    lines.append("# the context of your SQL WHERE clauses.")
-    lines.append(f"# {'─'*78}")
-    lines.append("expected_filters:")
-
-    if all_slicers:
-        for spage, slicer in all_slicers:
-            stitle = slicer.get("title", "")
-            svals  = slicer.get("values", [])
-            sval   = svals[0] if len(svals) == 1 else str(svals)
-            spage_field = "" if is_single_page else spage
-            lines.append(
-                f"  - slicer_title: \"{stitle}\"\n"
-                f"    page: \"{spage_field}\"\n"
-                f"    expected_value: \"{sval}\""
-            )
-    else:
-        lines.append("  []  # No slicers detected")
+    kpi_titles  = [
+        _safe_title(v.get("title", ""))
+        for p in pages_data for v in p["visuals"]
+        if v.get("category") == "kpi" and not v.get("is_noisy_title")
+        and _safe_title(v.get("title", ""))
+    ]
 
     lines.append("")
-    return "\n".join(lines)
+    return "\n".join(lines), kpi_titles, all_slicers
 
 
 # ── Terminal Summary ───────────────────────────────────────────────────────────
@@ -735,24 +429,14 @@ source_excel:
 def print_summary(
     name: str,
     pages_data: list[dict],
-    suggestions: dict,
     output_path: str,
-    db_uri: str,
+    kpi_titles: list[str],
+    all_slicers: list[tuple],
 ) -> None:
-    """Print a formatted terminal summary after generation is complete."""
+    """Print a formatted terminal summary with discovered dashboard metadata."""
     kpi_total    = sum(1 for p in pages_data for v in p["visuals"] if v.get("category") == "kpi")
     chart_total  = sum(1 for p in pages_data for v in p["visuals"] if v.get("category") == "chart")
     slicer_total = sum(len(p["slicers"]) for p in pages_data)
-
-    if db_uri and suggestions:
-        confidences  = [s.get("confidence", "NONE") for s in suggestions.values()]
-        high_count   = confidences.count("HIGH")
-        medium_count = confidences.count("MEDIUM")
-        low_count    = confidences.count("LOW")
-        none_count   = confidences.count("NONE")
-        sql_line     = f"  SQL Suggestions:  {high_count} HIGH | {medium_count} MEDIUM | {low_count} LOW | {none_count} UNMATCHED"
-    else:
-        sql_line = "  SQL Suggestions:  Disabled (run with --db-uri to enable)"
 
     width = 72
     sep   = "─" * width
@@ -765,9 +449,28 @@ def print_summary(
     print(f"║  KPI Cards:  {kpi_total:<{width - 14}}║")
     print(f"║  Charts:     {chart_total:<{width - 14}}║")
     print(f"║  Slicers:    {slicer_total:<{width - 14}}║")
-    print(f"║  {sql_line:<{width - 2}}║")
     print(f"╠{sep}╣")
-    print(f"║  Config saved to:{'  ' + output_path:<{width - 18}}║")
+    print(f"║  Config saved → {output_path:<{width - 17}}║")
+    print(f"╠{sep}╣")
+
+    # ── Discovered KPI titles (copy these into Excel 'KPI to Read' column) ──
+    print(f"║  KPI Titles found on dashboard:{' ' * (width - 31)}║")
+    for t in kpi_titles:
+        label = f"    • {t}"
+        print(f"║  {label:<{width - 2}}║")
+
+    print(f"╠{sep}╣")
+
+    # ── Discovered slicer names (copy these into Excel 'Slicer N Name' column) ──
+    seen_slicers: set[str] = set()
+    print(f"║  Slicer Names found on dashboard:{' ' * (width - 33)}║")
+    for _, s in all_slicers:
+        stitle = s.get("title", "")
+        if stitle and stitle not in seen_slicers:
+            seen_slicers.add(stitle)
+            label = f"    • {stitle}"
+            print(f"║  {label:<{width - 2}}║")
+
     print(f"╠{sep}╣")
     print(f"║  Next steps:{' ' * (width - 13)}║")
     print(f"║    1. Open the YAML file and review all TODO items{' ' * (width - 51)}║")
@@ -791,13 +494,6 @@ def main(argv: list[str] | None = None) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Resolve DB URI
-    db_uri = args.db_uri
-    if args.db_env and not db_uri:
-        from config.db_config import build_db_uri
-        db_uri = build_db_uri()
-        if not db_uri:
-            print("--db-env specified but no DB credentials found in settings. Skipping SQL.")
-
     generated_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     print(f"\n  Starting discovery for: {args.url}")
@@ -828,33 +524,24 @@ def main(argv: list[str] | None = None) -> int:
         # --- Phase A ---
         pages_data = run_phase_a(dashboard_page, args)
 
-        # --- Phase B (optional) ---
-        suggestions: dict = {}
-        if db_uri:
-            suggestions = run_phase_b(pages_data, dashboard_page, db_uri, args.skip_headers)
-
-        browser.close()
-
     # --- Generate YAML ---
-    print("\n  Generating YAML config…")
-    yaml_content = generate_yaml(
+    print("\n  Generating YAML config\u2026")
+    yaml_content, kpi_titles, all_slicers = generate_yaml(
         url=args.url,
         name=args.name,
         pages_data=pages_data,
-        suggestions=suggestions,
-        db_uri=db_uri,
         generated_at=generated_at,
     )
 
     output_path.write_text(yaml_content, encoding="utf-8")
-    print(f"    Saved → {output_path}")
+    print(f"    Saved \u2192 {output_path}")
 
     print_summary(
         name=args.name or args.url[:60],
         pages_data=pages_data,
-        suggestions=suggestions,
         output_path=str(output_path),
-        db_uri=db_uri,
+        kpi_titles=kpi_titles,
+        all_slicers=all_slicers,
     )
 
     return 0

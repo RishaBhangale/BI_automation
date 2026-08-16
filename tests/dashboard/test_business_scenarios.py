@@ -23,8 +23,18 @@ import pytest
 
 from utils.db_utils import fetch_scalar
 from utils.validation_utils import compare_single_value
+from utils.sql_template_engine import build_query
 
 log = logging.getLogger("dashboard_methods")
+
+
+class SlicerInteractionError(Exception):
+    """Raised when a slicer cannot be applied during test setup.
+
+    Distinguishes UI/functional failures from data-mismatch failures
+    so the HTML report gives a clear, actionable failure reason.
+    """
+    pass
 
 # ---------------------------------------------------------------------------
 # Load test cases from Excel at collection time
@@ -125,7 +135,10 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
                 dashboard_page.reset_slicer(s_name)
             except Exception:
                 pass
-            dashboard_page.set_slicer(s_name, s_value)
+            try:
+                dashboard_page.set_slicer(s_name, s_value)
+            except Exception as se:
+                raise SlicerInteractionError(f"Could not apply slicer '{s_name}' with value '{s_value}': {se}") from se
             applied_slicers.append(s_name)
             log.info(f"STEP2.{idx}_END")
 
@@ -138,16 +151,6 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
         # ── Step 5 ─────────────────────────────────────────────────────────────
         log.info("STEP5_START|Fetch expected value from source database")
 
-        if not sql_file:
-            pytest.fail(f"{test_id}: 'SQL File Name' is empty in business_scenarios.xlsx")
-
-        sql_path = os.path.join(SQL_DIR, sql_file)
-        if not os.path.exists(sql_path):
-            pytest.fail(f"{test_id}: SQL file not found — {sql_path}")
-
-        with open(sql_path, "r") as fh:
-            sql_query = fh.read()
-
         if db_engine is None:
             log.info("No DB engine available — skipping DB comparison (STEP5)")
             log.info("STEP5_END")
@@ -155,6 +158,25 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
                 "No source database configured or reachable. "
                 "Ensure DB credentials are set and VPN is active."
             )
+
+        # ── SQL resolution: file override OR auto-generate ─────────────────────
+        if sql_file:
+            # Legacy path — explicit .sql file takes priority (backward compat)
+            sql_path = os.path.join(SQL_DIR, sql_file)
+            if not os.path.exists(sql_path):
+                pytest.fail(f"{test_id}: SQL file not found — {sql_path}")
+            with open(sql_path, "r") as fh:
+                sql_query = fh.read().strip()
+            log.info(f"Using SQL file: {sql_file}")
+        else:
+            # Auto-generate from KPI title + slicer state (no .sql file needed)
+            if not kpi_to_read:
+                pytest.fail(f"{test_id}: 'KPI to Read' is empty — cannot auto-generate SQL")
+            try:
+                sql_query = build_query(kpi_to_read, slicers)
+            except ValueError as ve:
+                pytest.fail(f"{test_id}: SQL auto-generation failed — {ve}")
+            log.info(f"Auto-generated SQL: {sql_query}")
 
         source_value = fetch_scalar(db_engine, sql_query)
         log.info(f"Database result: {source_value}")
@@ -179,6 +201,13 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
         _fail_message = f"{test_id} FAILED: {detail}"
         log.info("STEP6_END")
 
+    except SlicerInteractionError as e:
+        _test_passed = False
+        _fail_message = (
+            f"{test_id} FAILED — Functional check: slicer could not be applied. "
+            f"This is a UI interaction issue, not a data mismatch. Detail: {e}"
+        )
+        log.error(_fail_message)
     except Exception as e:
         _test_passed = False
         _fail_message = f"{test_id} FAILED during execution: {str(e)}"

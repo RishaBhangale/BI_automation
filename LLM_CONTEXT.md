@@ -35,8 +35,7 @@ It handles two types of Power BI embeds:
 | `utils/pbi_api_client.py` | **NEW** — Power BI REST API client. Azure AD OAuth2 (Service Principal). `PBIApiClient.execute_dax()` runs any DAX query and returns a DataFrame. Used for Tier 2 extraction. |
 | `utils/config_loader.py` | Loads and validates YAML configs. Resolves `${ENV_VAR}` syntax. |
 | `utils/validation_utils.py` | Comparison engine. `parse_pbi_number()` converts PBI display strings ("$4.2M", "87.5% ▲") to floats. Row-by-row dataset comparison with tolerance. |
-| `utils/schema_introspector.py` | DB schema introspection via SQLAlchemy. Used by the discovery script to suggest SQL. |
-| `utils/sql_suggester.py` / `utils/llm_sql_generator.py` | Rule-based and Azure OpenAI-based SQL query suggestion. |
+| `utils/sql_template_engine.py` | Dynamic SQL query generation engine. Builds SQL queries from Excel slicer states and target KPI titles. |
 | `utils/report_generator.py` | Generates rich HTML test reports at pytest session end. |
 | `utils/excel_data_utils.py` | Loads Excel/CSV as Pandas DataFrame, handles column aggregation. |
 | `utils/encryption_utils.py` | Fernet-based password encryption/decryption for storing credentials safely. |
