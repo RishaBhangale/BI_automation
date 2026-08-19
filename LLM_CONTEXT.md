@@ -39,6 +39,12 @@ It handles two types of Power BI embeds:
 | `utils/report_generator.py` | Generates rich HTML test reports at pytest session end. |
 | `utils/excel_data_utils.py` | Loads Excel/CSV as Pandas DataFrame, handles column aggregation. |
 | `utils/encryption_utils.py` | Fernet-based password encryption/decryption for storing credentials safely. |
+| `tests/dashboard/test_stress_suite.py` | Comprehensive stress testing suite covering KPI types, slicer matrix, reset isolation, and error handling. |
+| `api/main.py` | FastAPI application for the web-based test runner control panel. |
+| `api/run_manager.py` | Subprocess test runner with real-time WebSocket log streaming. |
+| `api/history_store.py` | JSON-backed run history storage in `reports/run_history.json`. |
+| `api/pdf_exporter.py` | PDF and HTML report generation and export. |
+| `frontend/` | React (TanStack Start + Tailwind + shadcn/ui) control panel frontend. |
 
 ### Config Files
 

@@ -66,6 +66,39 @@ class PBIDashboardPage(BasePage):
         self._org_frame: Optional[FrameLocator] = None
         self._current_page: Optional[str] = None        # tracks last navigated-to page
 
+    def _wait_for_dashboard_settle(self, max_ms: int = 6_000) -> None:
+        """
+        Poll until the Power BI canvas stops showing any loading indicator,
+        or until max_ms milliseconds elapse.
+
+        Replaces flat wait_for_timeout(PBI_PAGE_SWITCH_WAIT) calls after slicer
+        interactions. Dashboard is considered settled when NONE of the known
+        loading selectors are visible.
+
+        Falls back gracefully — if no loading indicator ever appears (fast render),
+        returns immediately after the first poll succeeds.
+        """
+        import time
+        selectors = [
+            "[class*='loadingSpinner']",
+            "[class*='loading-container']",
+            "[aria-label*='Loading']",
+            "[class*='spinner']",
+        ]
+        deadline = time.time() + max_ms / 1_000
+        while time.time() < deadline:
+            try:
+                any_visible = any(
+                    self.page.locator(s).is_visible(timeout=200)
+                    for s in selectors
+                )
+                if not any_visible:
+                    return  # Dashboard has settled
+            except Exception:
+                pass  # Timeout on locator check — treat as not visible
+            self.page.wait_for_timeout(300)
+        # max_ms elapsed — continue regardless
+
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Context: returns the correct page/frame context for the current embed mode
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2097,7 +2130,7 @@ class PBIDashboardPage(BasePage):
 
             item = container.locator(f"{item_sel}:has-text('{value}')")
             item.click()
-            self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+            self._wait_for_dashboard_settle()
             log.info(f"Slicer '{slicer_title}' set to '{value}'")
             return
 
@@ -2743,7 +2776,7 @@ class PBIDashboardPage(BasePage):
                 f"Check that the slicer title and item value match the dashboard exactly."
             )
 
-        self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+        self._wait_for_dashboard_settle()
         log.info(f"Slicer '{slicer_title}' set to '{value}' (flat-DOM strategy)")
 
 

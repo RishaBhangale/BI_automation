@@ -1,0 +1,951 @@
+[
+  {
+    "runId": "RUN-FF940B",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-005",
+      "TC-BIZ-006",
+      "TC-BIZ-007"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "TC-BIZ-001",
+        "Scenario Name": "State-Level Sales Validation",
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "California",
+        "Slicer 2 Name": "Ship Mode",
+        "Slicer 2 Value": "Standard Class",
+        "Slicer 3 Name": "Sub-Category",
+        "Slicer 3 Value": "Phones",
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-004",
+        "Scenario Name": "Sales by Ship Mode Validation",
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Standard Class",
+        "Slicer 2 Name": null,
+        "Slicer 2 Value": null,
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-005",
+        "Scenario Name": "Texas Phones Sales Validation",
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "Texas",
+        "Slicer 2 Name": "Sub-Category",
+        "Slicer 2 Value": "Phones",
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-006",
+        "Scenario Name": "Home Office Phones Profit - Texas",
+        "Slicer 1 Name": "Customer Segment",
+        "Slicer 1 Value": "Home Office",
+        "Slicer 2 Name": "State",
+        "Slicer 2 Value": "Texas",
+        "Slicer 3 Name": "Ship Mode",
+        "Slicer 3 Value": "Standard Class",
+        "Slicer 4 Name": "Sub-Category",
+        "Slicer 4 Value": "Phones",
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Profit",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-007",
+        "Scenario Name": "Chairs Orders - Second Class Shipping",
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Second Class",
+        "Slicer 2 Name": "Sub-Category",
+        "Slicer 2 Value": "Chairs",
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "# of Orders",
+        "SQL File Name": null
+      }
+    ],
+    "status": "finished",
+    "startedAt": "2026-08-19T13:48:38.003162+00:00",
+    "finishedAt": "2026-08-19T13:58:36.831857+00:00",
+    "duration": "9m 58s",
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "results": [
+      {
+        "tc_id": "TC-001",
+        "name": "State-Level Sales Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "3m 01s",
+        "duration_secs": 181.64,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = California",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Apply Slicer: Ship Mode = Standard Class",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Apply Slicer: Sub-Category = Phones",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "19:21:22",
+                "Dashboard KPI value: '$1.82K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "19:21:22",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES WHERE State='California' AND Ship_Mode='Standard Class' AND Sub_Category='Phones'"
+              ],
+              [
+                "INFO",
+                "19:21:23",
+                "Database result: 1818.5759887695312"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "19:21:23",
+                "[Total Sales (State-Level Sales Validation)] Dashboard=$1.82K (parsed=1,820.0000), Source=1,818.5760, Diff=0.0782%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "19:21:23",
+                "[PASS] [Total Sales (State-Level Sales Validation)] Dashboard=$1.82K (parsed=1,820.0000), Source=1,818.5760, Diff=0.0782%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 9,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "19:21:29",
+                "Reset slicer: State"
+              ],
+              [
+                "INFO",
+                "19:21:35",
+                "Reset slicer: Ship Mode"
+              ],
+              [
+                "INFO",
+                "19:21:40",
+                "Reset slicer: Sub-Category"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": ""
+      },
+      {
+        "tc_id": "TC-004",
+        "name": "Sales by Ship Mode Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "51s",
+        "duration_secs": 51.12,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: Ship Mode = Standard Class",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "19:22:25",
+                "Dashboard KPI value: '$11.96K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "19:22:25",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES WHERE Ship_Mode='Standard Class'"
+              ],
+              [
+                "INFO",
+                "19:22:27",
+                "Database result: 11963.51257967949"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "19:22:27",
+                "[Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K (parsed=11,960.0000), Source=11,963.5126, Diff=0.0294%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "19:22:27",
+                "[PASS] [Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K (parsed=11,960.0000), Source=11,963.5126, Diff=0.0294%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "19:22:32",
+                "Reset slicer: Ship Mode"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": ""
+      },
+      {
+        "tc_id": "TC-005",
+        "name": "Texas Phones Sales Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "1m 27s",
+        "duration_secs": 87.94,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = Texas",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Apply Slicer: Sub-Category = Phones",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "19:23:47",
+                "Dashboard KPI value: '$1.47K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "19:23:47",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES WHERE State='Texas' AND Sub_Category='Phones'"
+              ],
+              [
+                "INFO",
+                "19:23:48",
+                "Database result: 1468.7119445800781"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "19:23:48",
+                "[Total Sales (Texas Phones Sales Validation)] Dashboard=$1.47K (parsed=1,470.0000), Source=1,468.7119, Diff=0.0876%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "19:23:48",
+                "[PASS] [Total Sales (Texas Phones Sales Validation)] Dashboard=$1.47K (parsed=1,470.0000), Source=1,468.7119, Diff=0.0876%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "19:23:54",
+                "Reset slicer: State"
+              ],
+              [
+                "INFO",
+                "19:24:00",
+                "Reset slicer: Sub-Category"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": ""
+      },
+      {
+        "tc_id": "TC-006",
+        "name": "Home Office Phones Profit - Texas — Demo Dashboard",
+        "status": "passed",
+        "duration": "3m 09s",
+        "duration_secs": 189.36,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: Customer Segment = Home Office",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Apply Slicer: State = Texas",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Apply Slicer: Ship Mode = Standard Class",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Apply Slicer: Sub-Category = Phones",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Read KPI card: Total Profit",
+            "lines": [
+              [
+                "INFO",
+                "19:26:41",
+                "Dashboard KPI value: '$41.76'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "19:26:41",
+                "Auto-generated SQL: SELECT SUM(Profit) FROM SALES WHERE Segment='Home Office' AND State='Texas' AND Ship_Mode='Standard Class' AND Sub_Category='Phones'"
+              ],
+              [
+                "INFO",
+                "19:26:42",
+                "Database result: 41.75640106201172"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 9,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "19:26:42",
+                "[Total Profit (Home Office Phones Profit - Texas)] Dashboard=$41.76 (parsed=41.7600), Source=41.7564, Diff=0.0086%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "19:26:42",
+                "[PASS] [Total Profit (Home Office Phones Profit - Texas)] Dashboard=$41.76 (parsed=41.7600), Source=41.7564, Diff=0.0086%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 10,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "19:26:52",
+                "Reset slicer: Customer Segment"
+              ],
+              [
+                "INFO",
+                "19:26:58",
+                "Reset slicer: State"
+              ],
+              [
+                "INFO",
+                "19:27:04",
+                "Reset slicer: Ship Mode"
+              ],
+              [
+                "INFO",
+                "19:27:09",
+                "Reset slicer: Sub-Category"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": ""
+      },
+      {
+        "tc_id": "TC-007",
+        "name": "Chairs Orders - Second Class Shipping — Demo Dashboard",
+        "status": "passed",
+        "duration": "1m 27s",
+        "duration_secs": 87.02,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: Ship Mode = Second Class",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Apply Slicer: Sub-Category = Chairs",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Read KPI card: # of Orders",
+            "lines": [
+              [
+                "INFO",
+                "19:28:24",
+                "Dashboard KPI value: '2'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "19:28:24",
+                "Auto-generated SQL: SELECT COUNT(DISTINCT Order_ID) FROM SALES WHERE Ship_Mode='Second Class' AND Sub_Category='Chairs'"
+              ],
+              [
+                "INFO",
+                "19:28:25",
+                "Database result: 2.0"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "19:28:25",
+                "[# of Orders (Chairs Orders - Second Class Shipping)] Dashboard=2 (parsed=2.0000), Source=2.0000, Diff=0.0000%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "19:28:25",
+                "[PASS] [# of Orders (Chairs Orders - Second Class Shipping)] Dashboard=2 (parsed=2.0000), Source=2.0000, Diff=0.0000%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "19:28:31",
+                "Reset slicer: Ship Mode"
+              ],
+              [
+                "INFO",
+                "19:28:36",
+                "Reset slicer: Sub-Category"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": ""
+      }
+    ]
+  },
+  {
+    "runId": "RUN-5ED505",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-005",
+      "TC-BIZ-006",
+      "TC-BIZ-007"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "TC-BIZ-001",
+        "Scenario Name": "State-Level Sales Validation",
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "California",
+        "Slicer 2 Name": "Ship Mode",
+        "Slicer 2 Value": "Standard Class",
+        "Slicer 3 Name": "Sub-Category",
+        "Slicer 3 Value": "Phones",
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-004",
+        "Scenario Name": "Sales by Ship Mode Validation",
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Standard Class",
+        "Slicer 2 Name": null,
+        "Slicer 2 Value": null,
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-005",
+        "Scenario Name": "Texas Phones Sales Validation",
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "Texas",
+        "Slicer 2 Name": "Sub-Category",
+        "Slicer 2 Value": "Phones",
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-006",
+        "Scenario Name": "Home Office Phones Profit - Texas",
+        "Slicer 1 Name": "Customer Segment",
+        "Slicer 1 Value": "Home Office",
+        "Slicer 2 Name": "State",
+        "Slicer 2 Value": "Texas",
+        "Slicer 3 Name": "Ship Mode",
+        "Slicer 3 Value": "Standard Class",
+        "Slicer 4 Name": "Sub-Category",
+        "Slicer 4 Value": "Phones",
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Profit",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-007",
+        "Scenario Name": "Chairs Orders - Second Class Shipping",
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Second Class",
+        "Slicer 2 Name": "Sub-Category",
+        "Slicer 2 Value": "Chairs",
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "# of Orders",
+        "SQL File Name": null
+      }
+    ],
+    "status": "finished",
+    "startedAt": "2026-08-19T11:07:01.266222+00:00",
+    "finishedAt": "2026-08-19T11:17:15.765369+00:00",
+    "duration": "10m 14s",
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "results": [
+      {
+        "tc_id": "TC-BIZ-001",
+        "name": "Scenario TC-BIZ-001",
+        "status": "passed",
+        "duration": "10m 14s",
+        "meta": {
+          "Test ID": "TC-BIZ-001",
+          "Scenario Name": "State-Level Sales Validation",
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "California",
+          "Slicer 2 Name": "Ship Mode",
+          "Slicer 2 Value": "Standard Class",
+          "Slicer 3 Name": "Sub-Category",
+          "Slicer 3 Value": "Phones",
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-004",
+        "name": "Scenario TC-BIZ-004",
+        "status": "passed",
+        "duration": "10m 14s",
+        "meta": {
+          "Test ID": "TC-BIZ-004",
+          "Scenario Name": "Sales by Ship Mode Validation",
+          "Slicer 1 Name": "Ship Mode",
+          "Slicer 1 Value": "Standard Class",
+          "Slicer 2 Name": null,
+          "Slicer 2 Value": null,
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-005",
+        "name": "Scenario TC-BIZ-005",
+        "status": "passed",
+        "duration": "10m 14s",
+        "meta": {
+          "Test ID": "TC-BIZ-005",
+          "Scenario Name": "Texas Phones Sales Validation",
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "Texas",
+          "Slicer 2 Name": "Sub-Category",
+          "Slicer 2 Value": "Phones",
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-006",
+        "name": "Scenario TC-BIZ-006",
+        "status": "passed",
+        "duration": "10m 14s",
+        "meta": {
+          "Test ID": "TC-BIZ-006",
+          "Scenario Name": "Home Office Phones Profit - Texas",
+          "Slicer 1 Name": "Customer Segment",
+          "Slicer 1 Value": "Home Office",
+          "Slicer 2 Name": "State",
+          "Slicer 2 Value": "Texas",
+          "Slicer 3 Name": "Ship Mode",
+          "Slicer 3 Value": "Standard Class",
+          "Slicer 4 Name": "Sub-Category",
+          "Slicer 4 Value": "Phones",
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Total Profit",
+          "SQL File Name": null
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-007",
+        "name": "Scenario TC-BIZ-007",
+        "status": "passed",
+        "duration": "10m 14s",
+        "meta": {
+          "Test ID": "TC-BIZ-007",
+          "Scenario Name": "Chairs Orders - Second Class Shipping",
+          "Slicer 1 Name": "Ship Mode",
+          "Slicer 1 Value": "Second Class",
+          "Slicer 2 Name": "Sub-Category",
+          "Slicer 2 Value": "Chairs",
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "# of Orders",
+          "SQL File Name": null
+        }
+      }
+    ]
+  },
+  {
+    "runId": "RUN-B60099",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-005",
+      "TC-BIZ-006",
+      "TC-BIZ-007"
+    ],
+    "status": "finished",
+    "startedAt": "2026-08-18T13:12:30.360404+00:00",
+    "finishedAt": "2026-08-18T13:22:23.564523+00:00",
+    "duration": "9m 53s",
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "results": [
+      {
+        "tc_id": "TC-BIZ-001",
+        "name": "Scenario TC-BIZ-001",
+        "status": "passed",
+        "duration": "9m 53s"
+      },
+      {
+        "tc_id": "TC-BIZ-004",
+        "name": "Scenario TC-BIZ-004",
+        "status": "passed",
+        "duration": "9m 53s"
+      },
+      {
+        "tc_id": "TC-BIZ-005",
+        "name": "Scenario TC-BIZ-005",
+        "status": "passed",
+        "duration": "9m 53s"
+      },
+      {
+        "tc_id": "TC-BIZ-006",
+        "name": "Scenario TC-BIZ-006",
+        "status": "passed",
+        "duration": "9m 53s"
+      },
+      {
+        "tc_id": "TC-BIZ-007",
+        "name": "Scenario TC-BIZ-007",
+        "status": "passed",
+        "duration": "9m 53s"
+      }
+    ]
+  },
+  {
+    "runId": "RUN-0E6636",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-005",
+      "TC-BIZ-006",
+      "TC-BIZ-007"
+    ],
+    "status": "finished",
+    "startedAt": "2026-08-18T12:26:19.664928+00:00",
+    "finishedAt": "2026-08-18T12:26:19.715682+00:00",
+    "duration": "0m 00s",
+    "total": 5,
+    "passed": 0,
+    "failed": 0,
+    "results": []
+  },
+  {
+    "runId": "RUN-E93486",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-005",
+      "TC-BIZ-006",
+      "TC-BIZ-007"
+    ],
+    "status": "finished",
+    "startedAt": "2026-08-18T12:26:14.750830+00:00",
+    "finishedAt": "2026-08-18T12:26:14.812068+00:00",
+    "duration": "0m 00s",
+    "total": 5,
+    "passed": 0,
+    "failed": 0,
+    "results": []
+  }
+]

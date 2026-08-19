@@ -354,9 +354,7 @@ def pytest_runtest_makereport(item, call):
         tc_id = f"TC-{len(DASHBOARD_RESULTS) + 1:03d}"
         clean_test_title = item.name.replace('test_', '').replace('_', ' ').title()
 
-    # Simplify TC-BIZ-001 -> TC-001 or DTC-001 -> TC-001
-    tc_id = re.sub(r"^(?:TC-BIZ-|DTC-)", "TC-", tc_id, flags=re.IGNORECASE)
-
+    # Keep exact original Test ID from test scenario for metadata alignment
     readable_name = f"{clean_test_title} — {dash_name}"
 
     # Determine group from test name
@@ -462,6 +460,35 @@ def pytest_sessionfinish(session, exitstatus):
         shutil.copy2(str(output_path), str(latest_path))
         log.info(f"Dashboard validation report saved → {output_path}")
         log.info(f"Latest report symlink       → {latest_path}")
+
+        # Export structured JSON results for UI consumption (accurate per-test duration & full steps)
+        import json
+        json_results = []
+        for r in DASHBOARD_RESULTS:
+            dur_mins, dur_secs = divmod(int(r.duration), 60)
+            dur_display = f"{dur_mins}m {dur_secs:02d}s" if dur_mins > 0 else f"{int(r.duration)}s"
+            json_results.append({
+                "tc_id": r.tc_id,
+                "name": r.name,
+                "status": r.outcome,
+                "duration": dur_display,
+                "duration_secs": round(r.duration, 2),
+                "error_text": r.error_text,
+                "steps": r.steps,
+                "group": r.group,
+                "screenshot_b64": r.screenshot_b64,
+            })
+
+        json_latest_path = Path(REPORT_DIR) / "dashboard_validation_latest.json"
+        json_latest_path.write_text(json.dumps(json_results, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        # Also mirror in reports/ root directory
+        root_reports = Path(__file__).resolve().parent.parent.parent / "reports"
+        if root_reports.exists():
+            (root_reports / "dashboard_validation_latest.json").write_text(
+                json.dumps(json_results, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            shutil.copy2(str(output_path), str(root_reports / "dashboard_validation_latest.html"))
     except Exception as e:
         log.error(f"Failed to generate dashboard HTML report: {e}")
 

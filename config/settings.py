@@ -107,14 +107,6 @@ def get_db_password() -> str:
         return decrypt_value(DB_PASSWORD_ENC)
     return DB_PASSWORD_PLAIN
 
-
-# ── Azure OpenAI / Foundry Credentials ────────────────────────────────────────
-FOUNDRY_API_KEY     = os.getenv("FOUNDRY_API_KEY", "")
-FOUNDRY_ENDPOINT    = os.getenv("FOUNDRY_ENDPOINT", "")
-FOUNDRY_MODEL       = os.getenv("FOUNDRY_MODEL", "gpt-5.2-chat")
-FOUNDRY_API_VERSION = os.getenv("FOUNDRY_API_VERSION", "2024-12-01-preview")
-
-
 # ── Power BI REST API — Tier 2 extraction (optional) ──────────────────────────
 # Required ONLY when your dashboard contains visuals that cannot be scraped from
 # the browser DOM (Maps, AI visuals, Python/R scripts, Custom AppSource visuals).

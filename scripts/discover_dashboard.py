@@ -153,10 +153,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("url",            help="Power BI dashboard URL")
     p.add_argument("--name",         default="",   help="Human-readable dashboard name (used in YAML)")
     p.add_argument("--output", "-o", default="",   help="Output YAML path (default: auto-named in dashboard_configs/)")
-    p.add_argument("--headless",     action="store_true", default=True,
-                   help="Run browser in headless mode (default: True)")
+    p.add_argument("--headless",     action="store_true", default=False,
+                   help="Run browser in headless mode (default: False)")
     p.add_argument("--no-headless",  action="store_false", dest="headless",
-                   help="Run browser with a visible window")
+                   help="Run browser with a visible window (default)")
     p.add_argument("--timeout",      type=int, default=30,
                    help="Max seconds to wait for dashboard to load (default: 30)")
     p.add_argument("--skip-headers", action="store_true",

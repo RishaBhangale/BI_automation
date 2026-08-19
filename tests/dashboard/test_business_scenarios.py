@@ -39,7 +39,10 @@ class SlicerInteractionError(Exception):
 # ---------------------------------------------------------------------------
 # Load test cases from Excel at collection time
 # ---------------------------------------------------------------------------
-EXCEL_PATH = os.path.join(os.path.dirname(__file__), "../../test_data/business_scenarios.xlsx")
+_default_excel = os.path.join(os.path.dirname(__file__), "../../test_data/business_scenarios.xlsx")
+EXCEL_PATH = os.environ.get("BI_TEST_EXCEL_PATH", _default_excel)
+if not os.path.exists(EXCEL_PATH):
+    EXCEL_PATH = _default_excel
 SQL_DIR    = os.path.join(os.path.dirname(__file__), "../../test_data/sql_queries")
 
 try:
