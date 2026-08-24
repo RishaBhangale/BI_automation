@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CheckCircle2, Timer, TrendingDown, TrendingUp, XCircle } from "lucide-react";
+import { CheckCircle2, Timer, XCircle } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -98,6 +98,15 @@ function Dashboard() {
     };
   });
 
+  // ── Today's runs ────────────────────────────────────────────────────────────
+  const todayStr = new Date().toLocaleDateString();
+  const todayRuns = runs.filter(
+    (r) => new Date(r.startedAt).toLocaleDateString() === todayStr
+  );
+  const todayPassed = todayRuns.reduce((s, r) => s + r.passed, 0);
+  const todayTotal  = todayRuns.reduce((s, r) => s + r.total,  0);
+  const todayFailed = todayRuns.reduce((s, r) => s + r.failed, 0);
+
   // ── KPI tiles ──────────────────────────────────────────────────────────────
   const kpis = [
     {
@@ -115,16 +124,19 @@ function Dashboard() {
       tone: lastRunPassRate !== null && lastRunPassRate >= 80 ? ("success" as const) : ("danger" as const),
     },
     {
-      label: "7-Day Trend",
-      value:
-        trendDelta !== null
-          ? `${trendDelta >= 0 ? "+" : ""}${trendDelta}%`
-          : "—",
-      hint: trendDelta !== null
-        ? `vs prior 7 runs · avg ${last7Avg !== null ? Math.round(last7Avg) : "—"}%`
-        : "Not enough runs",
-      icon: trendDelta !== null && trendDelta >= 0 ? TrendingUp : TrendingDown,
-      tone: trendDelta !== null && trendDelta >= 0 ? ("success" as const) : ("danger" as const),
+      label: "Scenarios Passed Today",
+      value: todayTotal > 0 ? `${todayPassed} / ${todayTotal}` : "—",
+      hint: todayTotal > 0
+        ? `${todayFailed} failed · ${todayRuns.length} run${todayRuns.length !== 1 ? "s" : ""} today`
+        : "No runs today yet",
+      icon: todayFailed === 0 && todayTotal > 0 ? CheckCircle2 : XCircle,
+      tone: (
+        todayTotal === 0
+          ? undefined
+          : todayFailed === 0
+          ? "success"
+          : "danger"
+      ) as "success" | "danger" | undefined,
     },
     {
       label: "Avg Duration",
@@ -162,7 +174,7 @@ function Dashboard() {
         ) : (
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} barGap={6}>
+              <BarChart data={chartData} barGap={6} barSize={52}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="run" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} />
                 <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} allowDecimals={false} />
@@ -183,13 +195,18 @@ function Dashboard() {
                         <p style={{ fontFamily: "monospace", fontWeight: 600, marginBottom: 4 }}>{d.fullRunId}</p>
                         <p style={{ color: "var(--color-success)" }}>Passed: {d.passed}</p>
                         <p style={{ color: "var(--color-destructive)" }}>Failed: {d.failed}</p>
+                        <p style={{ color: "var(--color-muted-foreground)", marginTop: 2 }}>
+                          Total: {d.passed + d.failed}
+                        </p>
                       </div>
                     );
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="passed" name="Passed" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="failed" name="Failed" fill="var(--color-destructive)" radius={[4, 4, 0, 0]} />
+                {/* Passed — bottom of stack */}
+                <Bar dataKey="passed" name="Passed" fill="var(--color-success)" stackId="a" radius={[0, 0, 0, 0]} />
+                {/* Failed — top of stack, gets rounded top corners */}
+                <Bar dataKey="failed" name="Failed" fill="var(--color-destructive)" stackId="a" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
