@@ -39,3 +39,8 @@ Thumbs.db
 # Keep HTML test reports
 !reports/
 !reports/*
+
+
+frontend_inspo+code/
+reports/dashboard_validation_latest.html
+reports/dashboard_validation_latest.json

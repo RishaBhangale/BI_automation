@@ -78,11 +78,25 @@ function Dashboard() {
   const avgDuration = last7.length ? formatSecs(totalSecs / last7.length) : "—";
 
   // Chart data (last 7, oldest first)
-  const chartData = [...last7].reverse().map((r) => ({
-    run: r.runId.split("-")[0] ?? r.runId,
-    passed: r.passed,
-    failed: r.failed,
-  }));
+  // X-axis: short label — for new IDs like DEMO-260824-001 show "DEMO-001",
+  //         for old hex IDs like RUN-FF940B show "FF940B"
+  const chartData = [...last7].reverse().map((r) => {
+    const parts = r.runId.split("-");
+    let shortLabel: string;
+    if (parts.length >= 3) {
+      // New format: PREFIX-YYMMDD-SEQ → "PREFIX-SEQ"
+      shortLabel = `${parts[0]}-${parts[parts.length - 1]}`;
+    } else {
+      // Old hex format: last segment only
+      shortLabel = parts[parts.length - 1] ?? r.runId;
+    }
+    return {
+      run: shortLabel,
+      fullRunId: r.runId,
+      passed: r.passed,
+      failed: r.failed,
+    };
+  });
 
   // ── KPI tiles ──────────────────────────────────────────────────────────────
   const kpis = [
@@ -153,12 +167,24 @@ function Dashboard() {
                 <XAxis dataKey="run" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} />
                 <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{
-                    background: "var(--color-card)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 8,
-                    color: "var(--color-foreground)",
-                    fontSize: 12,
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0]?.payload as { fullRunId: string; passed: number; failed: number };
+                    return (
+                      <div style={{
+                        background: "var(--color-card)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 8,
+                        padding: "8px 12px",
+                        fontSize: 12,
+                        color: "var(--color-foreground)",
+                        minWidth: 160,
+                      }}>
+                        <p style={{ fontFamily: "monospace", fontWeight: 600, marginBottom: 4 }}>{d.fullRunId}</p>
+                        <p style={{ color: "var(--color-success)" }}>Passed: {d.passed}</p>
+                        <p style={{ color: "var(--color-destructive)" }}>Failed: {d.failed}</p>
+                      </div>
+                    );
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />

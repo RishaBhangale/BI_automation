@@ -68,30 +68,18 @@ function ExportButton({ runId }: { runId: string }) {
   };
 
   return (
-    <div ref={ref} className="relative flex items-center">
-      {/* Primary — PDF */}
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={busy}
-        onClick={() => doExport("pdf")}
-        className="rounded-r-none border-r border-border/50 pr-2"
-      >
-        <Download className="size-4" />
-        {busy ? "Exporting…" : "Export PDF"}
-      </Button>
-      {/* Chevron dropdown trigger */}
+    <div ref={ref} className="relative">
       <Button
         variant="ghost"
         size="sm"
         disabled={busy}
         onClick={() => setOpen((o) => !o)}
-        className="rounded-l-none px-1.5"
-        aria-label="More export options"
+        aria-label="Export options"
       >
-        <ChevronDown className="size-3.5" />
+        <Download className="size-4" />
+        {busy ? "Exporting…" : "Export"}
+        <ChevronDown className="size-3.5 ml-1" />
       </Button>
-      {/* Dropdown */}
       {open && (
         <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-border bg-card shadow-lg">
           <button
