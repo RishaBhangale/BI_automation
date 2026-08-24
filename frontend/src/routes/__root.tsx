@@ -9,6 +9,7 @@ import {
 import { AppSidebar } from "../components/app/app-sidebar";
 import { AppHeader } from "../components/app/app-header";
 import { Toaster } from "../components/ui/sonner";
+import { RunProvider } from "../context/run-context";
 
 function NotFoundComponent() {
   return (
@@ -78,16 +79,18 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <AppHeader />
-          <main className="flex-1 overflow-x-hidden">
-            <Outlet />
-          </main>
+      <RunProvider>
+        <div className="flex min-h-screen w-full bg-background">
+          <AppSidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <AppHeader />
+            <main className="flex-1 overflow-x-hidden">
+              <Outlet />
+            </main>
+          </div>
         </div>
-      </div>
-      <Toaster />
+        <Toaster />
+      </RunProvider>
     </QueryClientProvider>
   );
 }

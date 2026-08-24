@@ -21,7 +21,7 @@ const API = "http://localhost:8000";
 export const Route = createFileRoute("/test-cases")({
   head: () => ({
     meta: [
-      { title: "Test Cases — Automated BI Testing - Validation" },
+      { title: "Test Data — Automated BI Testing - Validation" },
       {
         name: "description",
         content: "Edit business scenarios, slicer selections, KPIs and SQL baselines inline.",
@@ -190,7 +190,7 @@ function TestCasesPage() {
       {/* Header row */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Test Cases</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Test Data</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {rows.length} rows · {dirty.size > 0 && <span className="text-amber-500">{dirty.size} unsaved changes</span>}
           </p>

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Download, Eye } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Download, Eye, FileText, Globe, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -33,20 +33,91 @@ export const Route = createFileRoute("/history")({
   component: History,
 });
 
+// ── Export split-button ──────────────────────────────────────────────────────
+
+function ExportButton({ runId }: { runId: string }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const doExport = async (format: "pdf" | "html") => {
+    setOpen(false);
+    setBusy(true);
+    toast.info(`Rendering ${format.toUpperCase()} for ${runId}…`);
+    try {
+      const url = await exportRun(runId, format);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${runId}.${format}`;
+      a.click();
+      toast.success(`Export complete · ${runId}.${format}`);
+    } catch (e: unknown) {
+      toast.error("Export failed: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative flex items-center">
+      {/* Primary — PDF */}
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={busy}
+        onClick={() => doExport("pdf")}
+        className="rounded-r-none border-r border-border/50 pr-2"
+      >
+        <Download className="size-4" />
+        {busy ? "Exporting…" : "Export PDF"}
+      </Button>
+      {/* Chevron dropdown trigger */}
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={busy}
+        onClick={() => setOpen((o) => !o)}
+        className="rounded-l-none px-1.5"
+        aria-label="More export options"
+      >
+        <ChevronDown className="size-3.5" />
+      </Button>
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-border bg-card shadow-lg">
+          <button
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/60 rounded-t-lg"
+            onClick={() => doExport("pdf")}
+          >
+            <FileText className="size-4 text-muted-foreground" /> Export as PDF
+          </button>
+          <button
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/60 rounded-b-lg"
+            onClick={() => doExport("html")}
+          >
+            <Globe className="size-4 text-muted-foreground" /> Export as HTML
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── History page ─────────────────────────────────────────────────────────────
+
 function History() {
   const { data, isLoading: loading } = useQuery({ queryKey: ["runs"], queryFn: fetchRuns });
   const runs = data ?? [];
   const [active, setActive] = useState<Run | null>(null);
-
-  const handleExport = (runId: string) => {
-    exportRun(runId, 'pdf').then(url => {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = runId + '.pdf';
-      a.click();
-      toast.success(`Export complete · ${runId}.pdf`);
-    }).catch(e => toast.error('Export failed: ' + e.message));
-  };
 
   return (
     <div className="space-y-6 p-6 lg:p-8">
@@ -91,13 +162,7 @@ function History() {
                       <Button variant="ghost" size="sm" onClick={() => setActive(run)}>
                         <Eye className="size-4" /> View Report
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleExport(run.runId)}
-                      >
-                        <Download className="size-4" /> Export PDF
-                      </Button>
+                      <ExportButton runId={run.runId} />
                     </div>
                   </TableCell>
                 </TableRow>

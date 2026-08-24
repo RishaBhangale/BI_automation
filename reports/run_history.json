@@ -1,5 +1,423 @@
 [
   {
+    "runId": "RUN-E56DFC",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-005",
+      "TC-BIZ-006",
+      "TC-BIZ-007"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "TC-BIZ-001",
+        "Scenario Name": "State-Level Sales Validation",
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "California",
+        "Slicer 2 Name": "Ship Mode",
+        "Slicer 2 Value": "Standard Class",
+        "Slicer 3 Name": "Sub-Category",
+        "Slicer 3 Value": "Phones",
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-004",
+        "Scenario Name": "Sales by Ship Mode Validation",
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Standard Class",
+        "Slicer 2 Name": null,
+        "Slicer 2 Value": null,
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-005",
+        "Scenario Name": "Texas Phones Sales Validation",
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "Texas",
+        "Slicer 2 Name": "Sub-Category",
+        "Slicer 2 Value": "Phones",
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-006",
+        "Scenario Name": "Home Office Phones Profit - Texas",
+        "Slicer 1 Name": "Customer Segment",
+        "Slicer 1 Value": "Home Office",
+        "Slicer 2 Name": "State",
+        "Slicer 2 Value": "Texas",
+        "Slicer 3 Name": "Ship Mode",
+        "Slicer 3 Value": "Standard Class",
+        "Slicer 4 Name": "Sub-Category",
+        "Slicer 4 Value": "Phones",
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Total Profit",
+        "SQL File Name": null
+      },
+      {
+        "Test ID": "TC-BIZ-007",
+        "Scenario Name": "Chairs Orders - Second Class Shipping",
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Second Class",
+        "Slicer 2 Name": "Sub-Category",
+        "Slicer 2 Value": "Chairs",
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "# of Orders",
+        "SQL File Name": null
+      }
+    ],
+    "status": "finished",
+    "startedAt": "2026-08-24T08:07:27.391745+00:00",
+    "finishedAt": "2026-08-24T08:08:34.502370+00:00",
+    "duration": "1m 07s",
+    "total": 5,
+    "passed": 0,
+    "failed": 5,
+    "results": [
+      {
+        "tc_id": "TC-BIZ-001",
+        "name": "State-Level Sales Validation — Demo Dashboard",
+        "status": "failed",
+        "duration": "1m 05s",
+        "duration_secs": 65.04,
+        "error_text": "tests/dashboard/test_business_scenarios.py:232: in test_business_scenario\n    assert _test_passed, _fail_message\nE   AssertionError: TC-BIZ-001 FAILED — Functional check: slicer could not be applied. This is a UI interaction issue, not a data mismatch. Detail: Could not apply slicer 'State' with value 'California': Page.evaluate: Target page, context or browser has been closed\nE   assert False",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = California",
+            "lines": [
+              [
+                "ERROR",
+                "13:38:34",
+                "TC-BIZ-001 FAILED — Functional check: slicer could not be applied. This is a UI interaction issue, not a data mismatch. Detail: Could not apply slicer 'State' with value 'California': Page.evaluate: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          },
+          {
+            "step_no": 4,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "FAIL",
+                "13:38:34",
+                "TC-BIZ-001 FAILED — Functional check: slicer could not be applied. This is a UI interaction issue, not a data mismatch. Detail: Could not apply slicer 'State' with value 'California': Page.evaluate: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-001",
+          "Scenario Name": "State-Level Sales Validation",
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "California",
+          "Slicer 2 Name": "Ship Mode",
+          "Slicer 2 Value": "Standard Class",
+          "Slicer 3 Name": "Sub-Category",
+          "Slicer 3 Value": "Phones",
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-004",
+        "name": "Sales by Ship Mode Validation — Demo Dashboard",
+        "status": "failed",
+        "duration": "0s",
+        "duration_secs": 0.01,
+        "error_text": "tests/dashboard/test_business_scenarios.py:232: in test_business_scenario\n    assert _test_passed, _fail_message\nE   AssertionError: TC-BIZ-004 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed\nE   assert False",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "ERROR",
+                "13:38:34",
+                "TC-BIZ-004 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          },
+          {
+            "step_no": 3,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "FAIL",
+                "13:38:34",
+                "TC-BIZ-004 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-004",
+          "Scenario Name": "Sales by Ship Mode Validation",
+          "Slicer 1 Name": "Ship Mode",
+          "Slicer 1 Value": "Standard Class",
+          "Slicer 2 Name": null,
+          "Slicer 2 Value": null,
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-005",
+        "name": "Texas Phones Sales Validation — Demo Dashboard",
+        "status": "failed",
+        "duration": "0s",
+        "duration_secs": 0.01,
+        "error_text": "tests/dashboard/test_business_scenarios.py:232: in test_business_scenario\n    assert _test_passed, _fail_message\nE   AssertionError: TC-BIZ-005 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed\nE   assert False",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "ERROR",
+                "13:38:34",
+                "TC-BIZ-005 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          },
+          {
+            "step_no": 3,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "FAIL",
+                "13:38:34",
+                "TC-BIZ-005 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-005",
+          "Scenario Name": "Texas Phones Sales Validation",
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "Texas",
+          "Slicer 2 Name": "Sub-Category",
+          "Slicer 2 Value": "Phones",
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-006",
+        "name": "Home Office Phones Profit - Texas — Demo Dashboard",
+        "status": "failed",
+        "duration": "0s",
+        "duration_secs": 0.01,
+        "error_text": "tests/dashboard/test_business_scenarios.py:232: in test_business_scenario\n    assert _test_passed, _fail_message\nE   AssertionError: TC-BIZ-006 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed\nE   assert False",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "ERROR",
+                "13:38:34",
+                "TC-BIZ-006 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          },
+          {
+            "step_no": 3,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "FAIL",
+                "13:38:34",
+                "TC-BIZ-006 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-006",
+          "Scenario Name": "Home Office Phones Profit - Texas",
+          "Slicer 1 Name": "Customer Segment",
+          "Slicer 1 Value": "Home Office",
+          "Slicer 2 Name": "State",
+          "Slicer 2 Value": "Texas",
+          "Slicer 3 Name": "Ship Mode",
+          "Slicer 3 Value": "Standard Class",
+          "Slicer 4 Name": "Sub-Category",
+          "Slicer 4 Value": "Phones",
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Total Profit",
+          "SQL File Name": null
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-007",
+        "name": "Chairs Orders - Second Class Shipping — Demo Dashboard",
+        "status": "failed",
+        "duration": "0s",
+        "duration_secs": 0.01,
+        "error_text": "tests/dashboard/test_business_scenarios.py:232: in test_business_scenario\n    assert _test_passed, _fail_message\nE   AssertionError: TC-BIZ-007 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed\nE   assert False",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "ERROR",
+                "13:38:34",
+                "TC-BIZ-007 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          },
+          {
+            "step_no": 3,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "FAIL",
+                "13:38:34",
+                "TC-BIZ-007 FAILED during execution: Page.wait_for_timeout: Target page, context or browser has been closed"
+              ]
+            ],
+            "failed": true
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-007",
+          "Scenario Name": "Chairs Orders - Second Class Shipping",
+          "Slicer 1 Name": "Ship Mode",
+          "Slicer 1 Value": "Second Class",
+          "Slicer 2 Name": "Sub-Category",
+          "Slicer 2 Value": "Chairs",
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "# of Orders",
+          "SQL File Name": null
+        }
+      }
+    ]
+  },
+  {
     "runId": "RUN-FF940B",
     "config": "demo_detection.yaml",
     "selectedTests": [

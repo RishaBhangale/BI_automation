@@ -9,13 +9,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, CheckCircle2, Timer, XCircle } from "lucide-react";
+import { CheckCircle2, Timer, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MetricCard, StatusBadge } from "@/components/app/metric-card";
 import { ReportModal } from "@/components/app/report-modal";
-import { fetchRuns, fetchConfigs, type Run } from "@/lib/api-client";
+import { fetchRuns, type Run } from "@/lib/api-client";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -34,36 +34,92 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function parseDurationSecs(dur: string | null | undefined): number {
+  if (!dur) return 0;
+  const m = dur.match(/(\d+)m\s+(\d+)s/);
+  return m ? parseInt(m[1] as string) * 60 + parseInt(m[2] as string) : 0;
+}
+
+function formatSecs(secs: number): string {
+  return `${Math.floor(secs / 60)}m ${Math.floor(secs % 60).toString().padStart(2, "0")}s`;
+}
+
+function passRate(run: Run): number {
+  if (!run.total) return 0;
+  return Math.round((run.passed / run.total) * 100);
+}
+
+// ── Dashboard Component ────────────────────────────────────────────────────────
+
 function Dashboard() {
-  const { data: runsData, isLoading: runsLoading } = useQuery({ queryKey: ["runs"], queryFn: fetchRuns });
-  const { data: configsData, isLoading: configsLoading } = useQuery({ queryKey: ["configs"], queryFn: fetchConfigs });
-  const loading = runsLoading || configsLoading;
+  const { data: runsData, isLoading } = useQuery({ queryKey: ["runs"], queryFn: fetchRuns });
   const [active, setActive] = useState<Run | null>(null);
 
-  const runs = runsData ?? [];
-  const totalPassed = runs.reduce((acc, r) => acc + (r.passed || 0), 0);
-  const totalFailed = runs.reduce((acc, r) => acc + (r.failed || 0), 0);
+  const runs = (runsData ?? []).filter((r) => r.status === "finished");
+
+  // ── Metrics ────────────────────────────────────────────────────────────────
+  const lastRun = runs[0] ?? null;
+  const lastRunPassRate = lastRun ? passRate(lastRun) : null;
+
+  // 7-day trend: compare avg pass rate of last 7 vs prior 7
   const last7 = runs.slice(0, 7);
+  const prior7 = runs.slice(7, 14);
+  const avgRate = (arr: Run[]) =>
+    arr.length ? arr.reduce((s, r) => s + passRate(r), 0) / arr.length : null;
+  const last7Avg = avgRate(last7);
+  const prior7Avg = avgRate(prior7);
+  const trendDelta =
+    last7Avg !== null && prior7Avg !== null ? Math.round(last7Avg - prior7Avg) : null;
 
-  const totalSecs = last7.reduce((acc, r) => {
-    const m = (r.duration || "").match(/(\d+)m\s+(\d+)s/);
-    return acc + (m ? parseInt(m[1] as string) * 60 + parseInt(m[2] as string) : 0);
-  }, 0);
-  const avgSecs = last7.length ? totalSecs / last7.length : 0;
-  const avgDuration = `${Math.floor(avgSecs / 60)}m ${Math.floor(avgSecs % 60).toString().padStart(2, "0")}s`;
+  // Avg duration over last 7
+  const totalSecs = last7.reduce((acc, r) => acc + parseDurationSecs(r.duration), 0);
+  const avgDuration = last7.length ? formatSecs(totalSecs / last7.length) : "—";
 
-  const stats = {
-    totalRuns: runs.length,
-    passed: totalPassed,
-    failed: totalFailed,
-    avgDuration,
-  };
-
-  const chartData = [...runs].reverse().slice(-7).map((r) => ({
-    run: r.runId.split("-")[1] ?? r.runId,
+  // Chart data (last 7, oldest first)
+  const chartData = [...last7].reverse().map((r) => ({
+    run: r.runId.split("-")[0] ?? r.runId,
     passed: r.passed,
     failed: r.failed,
   }));
+
+  // ── KPI tiles ──────────────────────────────────────────────────────────────
+  const kpis = [
+    {
+      label: "Last Run Status",
+      value: lastRun ? (lastRun.failed === 0 ? "PASS" : "FAIL") : "—",
+      hint: lastRun ? new Date(lastRun.startedAt).toLocaleString() : "No runs yet",
+      icon: lastRun?.failed === 0 ? CheckCircle2 : XCircle,
+      tone: (lastRun?.failed === 0 ? "success" : "danger") as "success" | "danger" | undefined,
+    },
+    {
+      label: "Last Run Pass Rate",
+      value: lastRunPassRate !== null ? `${lastRunPassRate}%` : "—",
+      hint: lastRun ? `${lastRun.passed} passed / ${lastRun.total} total` : "—",
+      icon: CheckCircle2,
+      tone: lastRunPassRate !== null && lastRunPassRate >= 80 ? ("success" as const) : ("danger" as const),
+    },
+    {
+      label: "7-Day Trend",
+      value:
+        trendDelta !== null
+          ? `${trendDelta >= 0 ? "+" : ""}${trendDelta}%`
+          : "—",
+      hint: trendDelta !== null
+        ? `vs prior 7 runs · avg ${last7Avg !== null ? Math.round(last7Avg) : "—"}%`
+        : "Not enough runs",
+      icon: trendDelta !== null && trendDelta >= 0 ? TrendingUp : TrendingDown,
+      tone: trendDelta !== null && trendDelta >= 0 ? ("success" as const) : ("danger" as const),
+    },
+    {
+      label: "Avg Duration",
+      value: avgDuration,
+      hint: "per full suite (last 7 runs)",
+      icon: Timer,
+      tone: undefined,
+    },
+  ];
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -75,36 +131,19 @@ function Dashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {loading
+        {isLoading
           ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[124px] rounded-xl" />)
-          : [
-              { label: "Total Runs", value: stats.totalRuns, hint: "since Jan 2026", icon: Activity },
-              {
-                label: "Passed",
-                value: stats.passed,
-                hint: "assertions in last 7 runs",
-                icon: CheckCircle2,
-                tone: "success" as const,
-              },
-              {
-                label: "Failed",
-                value: stats.failed,
-                hint: "assertions in last 7 runs",
-                icon: XCircle,
-                tone: "danger" as const,
-              },
-              { label: "Avg Duration", value: stats.avgDuration, hint: "per full suite", icon: Timer },
-            ].map((m) => <MetricCard key={m.label} {...m} />)}
+          : kpis.map((m) => <MetricCard key={m.label} {...m} />)}
       </div>
 
       <Card className="border-border/70 p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold">Pass / fail by run</h2>
-            <p className="text-xs text-muted-foreground">Last 7 executions</p>
+            <p className="text-xs text-muted-foreground">Last 7 completed executions</p>
           </div>
         </div>
-        {loading ? (
+        {isLoading ? (
           <Skeleton className="h-72 w-full rounded-lg" />
         ) : (
           <div className="h-72 w-full">
@@ -134,7 +173,7 @@ function Dashboard() {
       <div>
         <h2 className="mb-4 text-sm font-semibold">Latest runs</h2>
         <div className="grid gap-4 lg:grid-cols-3">
-          {loading
+          {isLoading
             ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)
             : runs.slice(0, 3).map((run) => (
                 <button
@@ -145,7 +184,7 @@ function Dashboard() {
                   <Card className="border-border/70 gap-0 p-5 transition-colors hover:border-primary/50 hover:bg-muted/30 cursor-pointer">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-medium">{run.runId}</p>
+                        <p className="font-medium font-mono text-sm">{run.runId}</p>
                         <p className="text-xs text-muted-foreground">{new Date(run.startedAt).toLocaleString()}</p>
                       </div>
                       <StatusBadge failed={run.failed} />

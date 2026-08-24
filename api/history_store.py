@@ -7,6 +7,7 @@ Appended on completion, read for history/dashboard views.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,8 +30,35 @@ def _save(runs: list[dict]) -> None:
     _HISTORY_FILE.write_text(json.dumps(runs, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def new_run_id() -> str:
-    return f"RUN-{uuid.uuid4().hex[:6].upper()}"
+def _config_prefix(config: str) -> str:
+    """Extract a short uppercase prefix from a config filename.
+
+    e.g. 'demo_detection.yaml' -> 'DEMO'
+         'sales_dashboard.yaml' -> 'SALES'
+    """
+    stem = Path(config).stem  # strip .yaml
+    # Take first word (split on _ or -)
+    first_word = re.split(r"[_\-]", stem)[0]
+    return re.sub(r"[^A-Z0-9]", "", first_word.upper())[:8] or "RUN"
+
+
+def new_run_id(config: str = "") -> str:
+    """Generate a human-readable Run ID: PREFIX-YYMMDD-SEQ.
+
+    e.g. DEMO-240824-001
+    """
+    prefix = _config_prefix(config) if config else "RUN"
+    today = datetime.now(tz=timezone.utc).strftime("%y%m%d")
+
+    # Count existing runs today with the same prefix to determine sequence number
+    existing = _load()
+    today_seq = sum(
+        1 for r in existing
+        if r.get("runId", "").startswith(f"{prefix}-{today}-")
+    )
+    seq = str(today_seq + 1).zfill(3)
+    return f"{prefix}-{today}-{seq}"
+
 
 
 def create_run(run_id: str, config: str, selected_tests: list[str], test_metadata: list[dict] | None = None) -> dict:

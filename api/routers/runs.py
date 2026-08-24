@@ -49,7 +49,7 @@ def get_run(run_id: str):
 @router.post("/run")
 async def start_run(body: RunRequest):
     """Start a test run and return the run_id."""
-    run_id = new_run_id()
+    run_id = new_run_id(body.config)
     create_run(run_id, body.config, body.selected_ids, body.test_metadata)
     _active_streams[run_id] = []
 
