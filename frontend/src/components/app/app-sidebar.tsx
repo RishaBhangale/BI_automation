@@ -23,7 +23,7 @@ export function AppSidebar() {
   return (
     <aside className="hidden w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
       {/* Nav items */}
-      <nav className="flex flex-1 flex-col gap-0.5 p-3 pt-4">
+      <nav className="flex flex-1 flex-col gap-1 p-3 pt-4">
         {items.map((item) => {
           const active = item.url === "/" ? pathname === "/" : pathname.startsWith(item.url);
           return (
@@ -31,13 +31,13 @@ export function AppSidebar() {
               key={item.url}
               to={item.url}
               className={
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors " +
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors " +
                 (active
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold shadow-sm"
+                  : "text-sidebar-foreground/80 font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")
               }
             >
-              <item.icon className="size-4" />
+              <item.icon className="size-4 shrink-0" />
               {item.title}
             </Link>
           );
@@ -45,16 +45,16 @@ export function AppSidebar() {
 
         {/* Live run / discovery status pill */}
         {(runPillText || discPillText) && (
-          <div className="mt-3 rounded-md border border-white/20 bg-white/10 px-3 py-2">
+          <div className="mt-3 rounded-lg border border-sidebar-primary/20 bg-sidebar-primary/10 px-3 py-2">
             {runPillText && (
-              <p className="flex items-center gap-1.5 text-[11px] font-medium text-sidebar-foreground truncate">
-                <Circle className="size-2 fill-green-300 text-green-300 animate-pulse shrink-0" />
+              <p className="flex items-center gap-1.5 text-[11px] font-medium text-sidebar-primary truncate">
+                <Circle className="size-2 fill-emerald-500 text-emerald-500 animate-pulse shrink-0" />
                 {runPillText}
               </p>
             )}
             {discPillText && (
-              <p className="flex items-center gap-1.5 text-[11px] font-medium text-sidebar-foreground/80 truncate">
-                <Circle className="size-2 fill-blue-300 text-blue-300 animate-pulse shrink-0" />
+              <p className="flex items-center gap-1.5 text-[11px] font-medium text-sidebar-primary/80 truncate">
+                <Circle className="size-2 fill-blue-500 text-blue-500 animate-pulse shrink-0" />
                 {discPillText}
               </p>
             )}
@@ -63,7 +63,7 @@ export function AppSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-4 text-[11px] text-sidebar-foreground/40">
+      <div className="border-t border-sidebar-border p-4 text-[11px] text-sidebar-foreground/45">
         v2.5.0 · {configCount} config{configCount !== 1 ? "s" : ""} loaded
       </div>
     </aside>

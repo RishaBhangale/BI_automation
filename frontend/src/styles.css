@@ -99,14 +99,14 @@
   --input:               oklch(0.878 0.044 290);
   --ring:                oklch(0.46 0.25 290);     /* #7C3AED                   */
 
-  /* Sidebar — solid C5i purple #5B21B6 */
-  --sidebar:                    oklch(0.355 0.215 290);
-  --sidebar-foreground:         oklch(0.99 0.005 290);
-  --sidebar-primary:            oklch(0.46 0.26 290);  /* active item #7C3AED  */
+    /* Sidebar — white surface, purple active pill (matches C5i app design) */
+  --sidebar:                    oklch(1 0 0);            /* white                 */
+  --sidebar-foreground:         oklch(0.40 0.035 270);   /* slate body text       */
+  --sidebar-primary:            oklch(0.355 0.215 290);  /* active item #5B21B6  */
   --sidebar-primary-foreground: oklch(0.99 0.003 290);
-  --sidebar-accent:             oklch(0.28 0.14 290);  /* hover slightly darker */
-  --sidebar-accent-foreground:  oklch(0.99 0.005 290);
-  --sidebar-border:             oklch(0.99 0 0 / 12%);
+  --sidebar-accent:             oklch(0.955 0.02 292);   /* hover lavender tint   */
+  --sidebar-accent-foreground:  oklch(0.355 0.215 290);
+  --sidebar-border:             oklch(0.91 0.018 292);
   --sidebar-ring:               oklch(0.46 0.26 290);
 
   /* Status */
@@ -191,6 +191,22 @@
     font-feature-settings: "cv02", "ss01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    /* Prevent mobile/browser auto text inflation */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* ── Windows DPI compensation ─────────────────────────────────────────────
+   * Windows OS defaults to 125% display scaling, causing browsers to render
+   * everything ~25% larger than intended. We set zoom: 0.85 so the page
+   * visually matches Mac/Linux at standard DPI.
+   * Only applied when main.tsx sets data-platform="windows" on <html>.
+   * ─────────────────────────────────────────────────────────────────────── */
+  html[data-platform="windows"] {
+    zoom: 0.85;
   }
 }
 

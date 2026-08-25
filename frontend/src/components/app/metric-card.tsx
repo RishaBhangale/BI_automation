@@ -17,13 +17,13 @@ export function MetricCard({
   const toneClass =
     tone === "success" ? "text-success" : tone === "danger" ? "text-destructive" : "text-foreground";
   return (
-    <Card className="metric-card gap-0 border-border/70 p-5">
+    <Card className="metric-card gap-0 border-border/70 p-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-        {Icon ? <Icon className="size-4 text-muted-foreground" /> : null}
+        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+        {Icon ? <Icon className="size-3.5 text-muted-foreground" /> : null}
       </div>
-      <p className={"mt-3 text-3xl font-semibold tabular-nums " + toneClass}>{value}</p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      <p className={"mt-2 text-2xl font-semibold tabular-nums " + toneClass}>{value}</p>
+      {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
     </Card>
   );
 }

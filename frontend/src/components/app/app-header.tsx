@@ -10,9 +10,9 @@ export function AppHeader() {
 
   return (
     <header
-      className="relative z-20 flex h-16 w-full shrink-0 items-center overflow-hidden"
+      className="relative z-20 flex h-20 w-full shrink-0 items-center overflow-hidden"
       style={{
-        background: "var(--sidebar)",
+        background: "var(--sidebar-primary)",
         borderBottom: "1px solid rgba(255,255,255,0.12)",
         boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
       }}
@@ -21,8 +21,8 @@ export function AppHeader() {
       <div
         className="pointer-events-none absolute"
         style={{
-          right: "-60px", top: "-80px",
-          width: 320, height: 320,
+          right: "-60px", top: "-90px",
+          width: 340, height: 340,
           borderRadius: "50%",
           background: "rgba(255,255,255,0.04)",
         }}
@@ -30,8 +30,8 @@ export function AppHeader() {
       <div
         className="pointer-events-none absolute"
         style={{
-          right: 140, bottom: "-60px",
-          width: 180, height: 180,
+          right: 140, bottom: "-70px",
+          width: 200, height: 200,
           borderRadius: "50%",
           background: "rgba(255,255,255,0.03)",
         }}
@@ -45,7 +45,7 @@ export function AppHeader() {
         <img
           src="https://www.c5i.ai/wp-content/themes/course5iTheme/new-assets/images/c5i-primary-logo.svg"
           alt="C5i"
-          className="h-11 w-auto"
+          className="h-14 w-auto"
           style={{ filter: "brightness(0) invert(1)" }}
         />
       </div>
@@ -58,9 +58,12 @@ export function AppHeader() {
 
       {/* Right section — title + dark mode toggle */}
       <div className="relative flex min-w-0 flex-1 items-center justify-between px-6">
-        <p className="truncate text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>
-          Automated BI Testing — Dashboard Regression &amp; KPI Validation
-        </p>
+        {/* App title — no subtext */}
+        <div className="relative min-w-0 flex-1">
+          <p className="truncate text-xl font-bold text-white">
+            Automated BI Testing
+          </p>
+        </div>
 
         <button
           type="button"

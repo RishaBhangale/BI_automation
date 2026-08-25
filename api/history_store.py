@@ -42,22 +42,14 @@ def _config_prefix(config: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", first_word.upper())[:8] or "RUN"
 
 
-def new_run_id(config: str = "") -> str:
-    """Generate a human-readable Run ID: PREFIX-YYMMDD-SEQ.
+def new_run_id(config: str = "") -> str:  # noqa: ARG001
+    """Generate a simple globally-sequential Run ID: 001, 002, 003 …
 
-    e.g. DEMO-240824-001
+    Counts all runs ever stored in run_history.json to determine the next number.
     """
-    prefix = _config_prefix(config) if config else "RUN"
-    today = datetime.now(tz=timezone.utc).strftime("%y%m%d")
-
-    # Count existing runs today with the same prefix to determine sequence number
     existing = _load()
-    today_seq = sum(
-        1 for r in existing
-        if r.get("runId", "").startswith(f"{prefix}-{today}-")
-    )
-    seq = str(today_seq + 1).zfill(3)
-    return f"{prefix}-{today}-{seq}"
+    seq = len(existing) + 1
+    return str(seq).zfill(3)
 
 
 
