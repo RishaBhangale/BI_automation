@@ -80,13 +80,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <RunProvider>
-        <div className="flex min-h-screen w-full flex-col bg-background">
+        <div className="flex h-full w-full flex-col bg-background overflow-hidden">
           {/* Full-width C5i purple top bar */}
           <AppHeader />
           {/* Body: sidebar + page content */}
-          <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
             <AppSidebar />
-            <main className="min-w-0 flex-1 overflow-x-hidden">
+            <main className="min-w-0 flex-1 overflow-y-auto">
               <Outlet />
             </main>
           </div>

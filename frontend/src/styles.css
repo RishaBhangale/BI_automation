@@ -184,6 +184,14 @@
     border-color: var(--color-border);
   }
 
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -207,6 +215,7 @@
    * ─────────────────────────────────────────────────────────────────────── */
   html[data-platform="windows"] {
     zoom: 0.85;
+    height: 100%;
   }
 }
 

@@ -21,9 +21,9 @@ export function AppSidebar() {
   const discPillText = activeDiscovery?.running ? `Discovery running…` : null;
 
   return (
-    <aside className="hidden w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+    <aside className="hidden h-full w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
       {/* Nav items */}
-      <nav className="flex flex-1 flex-col gap-1 p-3 pt-4">
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3 pt-4">
         {items.map((item) => {
           const active = item.url === "/" ? pathname === "/" : pathname.startsWith(item.url);
           return (
@@ -62,8 +62,8 @@ export function AppSidebar() {
         )}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-sidebar-border p-4 text-[11px] text-sidebar-foreground/45">
+      {/* Footer — pinned to bottom */}
+      <div className="shrink-0 border-t border-sidebar-border p-4 text-[11px] text-sidebar-foreground/45">
         v2.5.0 · {configCount} config{configCount !== 1 ? "s" : ""} loaded
       </div>
     </aside>
