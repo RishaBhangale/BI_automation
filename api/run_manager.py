@@ -41,10 +41,16 @@ def _classify(line: str) -> str:
 
 
 def _get_python_exec() -> str:
-    """Return appropriate python executable (prefer project venv)."""
-    venv_py = PROJECT_ROOT / "venv" / "bin" / "python"
-    if venv_py.exists():
-        return str(venv_py)
+    """Return appropriate python executable (prefer project venv on Windows and Unix)."""
+    candidates = [
+        PROJECT_ROOT / "venv" / "Scripts" / "python.exe",
+        PROJECT_ROOT / "venv" / "bin" / "python",
+        PROJECT_ROOT / ".venv" / "Scripts" / "python.exe",
+        PROJECT_ROOT / ".venv" / "bin" / "python",
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c)
     return sys.executable
 
 
@@ -129,35 +135,86 @@ async def stream_pytest(
         if excel_path.exists():
             env["BI_TEST_EXCEL_PATH"] = str(excel_path)
 
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
-        cwd=str(PROJECT_ROOT),
-        env=env,
-    )
-
     now = lambda: time.strftime("%H:%M:%S")
 
-    assert proc.stdout is not None
-    while True:
-        raw = await proc.stdout.readline()
-        if not raw:
-            break
-        raw_str = raw.decode("utf-8", errors="replace").rstrip()
-        line = _strip_ansi(raw_str)
-        if not line.strip():
-            continue
-        yield {
-            "level": _classify(line),
-            "text": line,
-            "time": now(),
-        }
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=str(PROJECT_ROOT),
+            env=env,
+        )
 
-    await proc.wait()
-    status_label = "SUCCESS" if proc.returncode == 0 else f"COMPLETED WITH EXIT CODE {proc.returncode}"
+        assert proc.stdout is not None
+        while True:
+            raw = await proc.stdout.readline()
+            if not raw:
+                break
+            raw_str = raw.decode("utf-8", errors="replace").rstrip()
+            line = _strip_ansi(raw_str)
+            if not line.strip():
+                continue
+            yield {
+                "level": _classify(line),
+                "text": line,
+                "time": now(),
+            }
+
+        await proc.wait()
+        return_code = proc.returncode
+    except (NotImplementedError, OSError):
+        # Fallback for Windows SelectorEventLoop: use synchronous subprocess.Popen with threaded queue
+        import queue
+        import subprocess
+        import threading
+
+        q: queue.Queue[str | None] = queue.Queue()
+        sub_proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            cwd=str(PROJECT_ROOT),
+            env=env,
+            text=True,
+            errors="replace",
+            bufsize=1,
+        )
+
+        def _reader():
+            try:
+                if sub_proc.stdout:
+                    for s_line in sub_proc.stdout:
+                        q.put(s_line)
+            finally:
+                q.put(None)
+
+        t = threading.Thread(target=_reader, daemon=True)
+        t.start()
+
+        while True:
+            try:
+                raw_line = q.get_nowait()
+                if raw_line is None:
+                    break
+                line = _strip_ansi(raw_line.rstrip())
+                if line.strip():
+                    yield {
+                        "level": _classify(line),
+                        "text": line,
+                        "time": now(),
+                    }
+            except queue.Empty:
+                if sub_proc.poll() is not None and q.empty():
+                    break
+                await asyncio.sleep(0.08)
+
+        sub_proc.wait()
+        return_code = sub_proc.returncode
+
+    status_label = "SUCCESS" if return_code == 0 else f"COMPLETED WITH EXIT CODE {return_code}"
     yield {
-        "level": "INFO" if proc.returncode == 0 else "ERROR",
+        "level": "INFO" if return_code == 0 else "ERROR",
         "text": f"--- Validation run finished: {status_label} ---",
         "time": now(),
     }

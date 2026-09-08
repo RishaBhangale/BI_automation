@@ -161,11 +161,20 @@ async def _run_pytest(
                     results.append(result_entry)
 
     except Exception as exc:
+        import traceback
+        err_name = type(exc).__name__
+        err_detail = f"{err_name}: {exc}" if str(exc) else err_name
         _active_streams.setdefault(run_id, []).append({
             "level": "ERROR",
-            "text": f"Exception in test runner: {exc}",
+            "text": f"Exception in test runner: {err_detail}",
             "time": time.strftime("%H:%M:%S"),
         })
+        for tb_line in traceback.format_exc().splitlines()[-4:]:
+            _active_streams.setdefault(run_id, []).append({
+                "level": "ERROR",
+                "text": tb_line,
+                "time": time.strftime("%H:%M:%S"),
+            })
     finally:
         elapsed = max(int(time.time() - suite_start), 1)
         mins, secs = divmod(elapsed, 60)

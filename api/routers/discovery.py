@@ -31,9 +31,15 @@ def _strip_ansi(text: str) -> str:
 
 def _get_python_exec() -> str:
     """Return python executable, preferring project virtualenv if available."""
-    venv_py = _ROOT / "venv" / "bin" / "python"
-    if venv_py.exists():
-        return str(venv_py)
+    candidates = [
+        _ROOT / "venv" / "Scripts" / "python.exe",
+        _ROOT / "venv" / "bin" / "python",
+        _ROOT / ".venv" / "Scripts" / "python.exe",
+        _ROOT / ".venv" / "bin" / "python",
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c)
     return sys.executable
 
 
@@ -136,36 +142,89 @@ async def _run_discover(disc_id: str, url: str, name: str) -> None:
 
     try:
         env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONPATH": str(_ROOT)}
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-            cwd=str(_ROOT),
-            env=env,
-        )
+        return_code = None
 
-        assert proc.stdout is not None
-        while True:
-            raw = await proc.stdout.readline()
-            if not raw:
-                break
-            line = _strip_ansi(raw.decode("utf-8", errors="replace").rstrip())
-            if not line.strip():
-                continue
-            level = "ERROR" if "error" in line.lower() or "traceback" in line.lower() else "INFO"
-            if "saved →" in line or "Config saved" in line or "Discovery complete" in line:
-                level = "PASS"
-            _push(line, level)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                cwd=str(_ROOT),
+                env=env,
+            )
 
-        await proc.wait()
+            assert proc.stdout is not None
+            while True:
+                raw = await proc.stdout.readline()
+                if not raw:
+                    break
+                line = _strip_ansi(raw.decode("utf-8", errors="replace").rstrip())
+                if not line.strip():
+                    continue
+                level = "ERROR" if "error" in line.lower() or "traceback" in line.lower() else "INFO"
+                if "saved →" in line or "Config saved" in line or "Discovery complete" in line:
+                    level = "PASS"
+                _push(line, level)
 
-        if proc.returncode == 0:
+            await proc.wait()
+            return_code = proc.returncode
+
+        except (NotImplementedError, OSError):
+            import queue
+            import subprocess
+            import threading
+
+            q: queue.Queue[str | None] = queue.Queue()
+            sub_proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                cwd=str(_ROOT),
+                env=env,
+                text=True,
+                errors="replace",
+                bufsize=1,
+            )
+
+            def _reader():
+                try:
+                    if sub_proc.stdout:
+                        for s_line in sub_proc.stdout:
+                            q.put(s_line)
+                finally:
+                    q.put(None)
+
+            t = threading.Thread(target=_reader, daemon=True)
+            t.start()
+
+            while True:
+                try:
+                    raw_line = q.get_nowait()
+                    if raw_line is None:
+                        break
+                    line = _strip_ansi(raw_line.rstrip())
+                    if not line.strip():
+                        continue
+                    level = "ERROR" if "error" in line.lower() or "traceback" in line.lower() else "INFO"
+                    if "saved →" in line or "Config saved" in line or "Discovery complete" in line:
+                        level = "PASS"
+                    _push(line, level)
+                except queue.Empty:
+                    if sub_proc.poll() is not None and q.empty():
+                        break
+                    await asyncio.sleep(0.08)
+
+            sub_proc.wait()
+            return_code = sub_proc.returncode
+
+        if return_code == 0:
             _push("Discovery complete. YAML config saved.", "PASS")
             _discovery_status[disc_id] = "finished"
         else:
-            _push(f"Discovery exited with code {proc.returncode}", "ERROR")
+            _push(f"Discovery exited with code {return_code}", "ERROR")
             _discovery_status[disc_id] = "error"
 
     except Exception as exc:
-        _push(f"Exception: {exc}", "ERROR")
+        err_msg = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+        _push(f"Exception in discovery: {err_msg}", "ERROR")
         _discovery_status[disc_id] = "error"

@@ -8,6 +8,17 @@ From the project root (test_playwright combined/).
 """
 from __future__ import annotations
 
+import asyncio
+import sys
+
+# On Windows, asyncio default SelectorEventLoop does not support subprocesses.
+# WindowsProactorEventLoopPolicy is required for create_subprocess_exec.
+if sys.platform == "win32":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except Exception:
+        pass
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

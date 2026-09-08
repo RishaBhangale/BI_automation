@@ -25,3 +25,4 @@ fastapi
 uvicorn[standard]
 pydantic
 reportlab
+python-multipart
