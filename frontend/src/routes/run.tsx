@@ -26,12 +26,12 @@ const API = "http://localhost:8000";
 export const Route = createFileRoute("/run")({
   head: () => ({
     meta: [
-      { title: "Test Execution — Automated BI Testing - Validation" },
+      { title: "Automated BI Validation - Validation" },
       {
         name: "description",
         content: "Pick a dashboard config, select scenarios and stream live validation logs.",
       },
-      { property: "og:title", content: "Test Execution — Automated BI Testing - Validation" },
+      { property: "og:title", content: "Execute Validation — Automated BI Validation" },
       { property: "og:description", content: "Select scenarios and stream live validation logs." },
     ],
   }),
@@ -267,7 +267,7 @@ function RunTests() {
 
   // ── Run ──────────────────────────────────────────────────────────────────
   const handleStartRun = async () => {
-    if (selected.length === 0) { toast.error("Select at least one test case"); return; }
+    if (selected.length === 0) { toast.error("Select at least one validation scenario"); return; }
     setLogMode("run");
 
     const metaMap = Object.fromEntries(
@@ -300,7 +300,7 @@ function RunTests() {
     <div className="grid gap-6 p-6 lg:grid-cols-[2fr_3fr] lg:p-8">
       <Card className="h-fit border-border/70 p-5">
         <div>
-          <h1 className="text-lg font-semibold">Test Execution</h1>
+          <h1 className="text-lg font-semibold">Execute Validation</h1>
           <p className="text-sm text-muted-foreground">Choose a config and the scenarios to validate.</p>
         </div>
 
@@ -386,7 +386,7 @@ function RunTests() {
         {/* Test Cases Excel selector */}
         <div className="space-y-2 mt-4">
           <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Test Data Excel
+            Validation Data Excel
           </label>
           <Select value={selectedExcel} onValueChange={(v) => setSelectedExcel(v)}>
             <SelectTrigger className="w-full">
@@ -406,7 +406,7 @@ function RunTests() {
         <div className="space-y-3 mt-4">
           <div className="flex items-center justify-between">
             <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Test Cases ({selected.length}/{testCases.length})
+              Validation Scenarios ({selected.length}/{testCases.length})
             </label>
             <div className="flex items-center gap-2.5">
               {selected.length > 0 && (
@@ -452,7 +452,7 @@ function RunTests() {
         </div>
 
         <Button className="w-full mt-4" size="lg" onClick={handleStartRun} disabled={running}>
-          <Play className="size-4" /> Run Selected Tests
+          <Play className="size-4" /> Execute Selected Validations
         </Button>
       </Card>
 
@@ -463,7 +463,7 @@ function RunTests() {
             <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
               <span>Progress</span>
               <span className="tabular-nums">
-                {done}/{total} tests completed
+                {done}/{total} validations completed
               </span>
             </div>
             <Progress value={total ? (done / total) * 100 : 0} />
@@ -487,7 +487,7 @@ function RunTests() {
             }
             onClick={() => setLogMode("run")}
           >
-            Test Run
+            Validation Run
             {activeRun?.running && <span className="ml-1.5 inline-block size-1.5 rounded-full bg-green-400 animate-pulse" />}
           </button>
           <button
