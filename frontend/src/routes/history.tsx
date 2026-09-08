@@ -17,12 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ReportModal } from "@/components/app/report-modal";
 import { fetchRuns, exportRun, type Run } from "@/lib/api-client";
 import { useQuery } from "@tanstack/react-query";
@@ -42,10 +36,23 @@ export const Route = createFileRoute("/history")({
 
 // ── Export dropdown ───────────────────────────────────────────────────────────
 
-function ExportButton({ runId }: { runId: string }) {
+function ExportButton({ runId, isNearBottom = false }: { runId: string; isNearBottom?: boolean }) {
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const doExport = async (format: "pdf" | "html") => {
+    setOpen(false);
     setBusy(true);
     toast.info(`Rendering ${format.toUpperCase()} for ${runId}…`);
     try {
@@ -63,34 +70,42 @@ function ExportButton({ runId }: { runId: string }) {
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={busy}
-          className="h-7 gap-1 px-2 text-xs font-medium text-foreground hover:bg-muted/60 whitespace-nowrap"
+    <div ref={ref} className={`relative inline-block text-right ${open ? "z-30" : "z-10"}`}>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={busy}
+        onClick={() => setOpen((o) => !o)}
+        className="h-7 gap-1 px-2 text-xs font-medium text-foreground hover:bg-muted/60 whitespace-nowrap"
+      >
+        <Download className="size-3.5" />
+        {busy ? "Downloading…" : "Download"}
+        <ChevronDown className="size-3 text-muted-foreground ml-0.5" />
+      </Button>
+
+      {open && (
+        <div
+          className={`absolute right-0 z-50 w-28 rounded-lg border border-border bg-card shadow-lg py-1 ${
+            isNearBottom ? "bottom-full mb-1.5" : "top-full mt-1"
+          }`}
         >
-          <Download className="size-3.5" />
-          {busy ? "Downloading…" : "Download"}
-          <ChevronDown className="size-3 text-muted-foreground ml-0.5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-28 py-1 z-50">
-        <DropdownMenuItem
-          className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs font-medium"
-          onClick={() => doExport("pdf")}
-        >
-          <FileText className="size-3.5 text-muted-foreground" /> PDF
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs font-medium"
-          onClick={() => doExport("html")}
-        >
-          <Globe className="size-3.5 text-muted-foreground" /> HTML
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors whitespace-nowrap cursor-pointer text-left"
+            onClick={() => doExport("pdf")}
+          >
+            <FileText className="size-3.5 text-muted-foreground shrink-0" /> PDF
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors whitespace-nowrap cursor-pointer text-left"
+            onClick={() => doExport("html")}
+          >
+            <Globe className="size-3.5 text-muted-foreground shrink-0" /> HTML
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -301,7 +316,7 @@ function ValidationHistory() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedRuns.map((run) => {
+                  paginatedRuns.map((run, index) => {
                     const rate = passRate(run);
                     const rateColour =
                       rate >= 80 ? "text-success font-semibold" :
@@ -309,6 +324,7 @@ function ValidationHistory() {
                       "text-destructive font-semibold";
                     const skippedCount =
                       run.skipped ?? (run.results?.filter((r) => r.status === "skipped").length ?? 0);
+                    const isNearBottom = index >= Math.max(0, paginatedRuns.length - 2);
                     return (
                       <TableRow key={run.runId} className="hover:bg-muted/30 transition-colors border-b border-border/40">
                         {/* 1. Run ID */}
@@ -375,7 +391,7 @@ function ValidationHistory() {
 
                         {/* 12. Download */}
                         <TableCell className="whitespace-nowrap px-2 py-2.5 text-right pr-3">
-                          <ExportButton runId={run.runId} />
+                          <ExportButton runId={run.runId} isNearBottom={isNearBottom} />
                         </TableCell>
                       </TableRow>
                     );
