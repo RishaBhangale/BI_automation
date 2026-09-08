@@ -66,6 +66,7 @@ def create_run(run_id: str, config: str, selected_tests: list[str], test_metadat
         "total": len(selected_tests),
         "passed": 0,
         "failed": 0,
+        "skipped": 0,
         "results": [],
     }
     runs = _load()
@@ -97,11 +98,13 @@ def update_run(run_id: str, patch: dict) -> None:
 def finish_run(run_id: str, results: list[dict], duration_str: str) -> None:
     passed = sum(1 for r in results if r.get("status") == "passed")
     failed = sum(1 for r in results if r.get("status") == "failed")
+    skipped = sum(1 for r in results if r.get("status") in ("skipped", "skip"))
     update_run(run_id, {
         "status": "finished",
         "finishedAt": datetime.now(tz=timezone.utc).isoformat(),
         "duration": duration_str,
         "passed": passed,
         "failed": failed,
+        "skipped": skipped,
         "results": results,
     })

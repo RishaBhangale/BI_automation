@@ -5,10 +5,10 @@ import { fetchConfigs } from "@/lib/api-client";
 import { useRunContext } from "@/context/run-context";
 
 const items = [
-  { title: "Dashboard",    url: "/",           icon: Home },
-  { title: "Run Tests",    url: "/run",         icon: Play },
-  { title: "Test History", url: "/history",     icon: Clock },
-  { title: "Test Data",    url: "/test-cases",  icon: Table2 },
+  { title: "Dashboard",      url: "/",           icon: Home },
+  { title: "Test Execution", url: "/run",        icon: Play },
+  { title: "Test History",   url: "/history",    icon: Clock },
+  { title: "Test Data",      url: "/test-cases", icon: Table2 },
 ] as const;
 
 export function AppSidebar() {

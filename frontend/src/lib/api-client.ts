@@ -32,6 +32,7 @@ export type Run = {
   total: number;
   passed: number;
   failed: number;
+  skipped?: number;
   results: TestResult[];
 };
 

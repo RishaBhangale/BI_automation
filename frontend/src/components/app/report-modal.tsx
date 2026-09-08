@@ -283,13 +283,17 @@ export function ReportModal({ run, onClose }: { run: Run | null; onClose: () => 
                 </span>
               </DialogTitle>
             </DialogHeader>
-            <div className="grid gap-3 sm:grid-cols-4 mt-2">
+            <div className="grid gap-3 sm:grid-cols-5 mt-2">
               <MetricCard label="Total" value={run.total} />
               <MetricCard label="Passed" value={run.passed} tone="success" />
               <MetricCard label="Failed" value={run.failed} tone="danger" />
+              <MetricCard
+                label="Skipped"
+                value={run.skipped ?? (run.results.filter((r) => (r.status || "").toLowerCase() === "skipped").length)}
+              />
               <MetricCard label="Duration" value={run.duration || "-"} />
             </div>
-            {(["failed", "passed"] as const).map((status) => {
+            {(["failed", "passed", "skipped"] as const).map((status) => {
               const group = run.results.filter((r) => (r.status || "").toLowerCase() === status);
               if (group.length === 0) return null;
               return (
@@ -297,8 +301,10 @@ export function ReportModal({ run, onClose }: { run: Run | null; onClose: () => 
                   <h3 className="text-sm font-semibold flex items-center gap-2">
                     {status === "failed" ? (
                       <span className="text-rose-600 dark:text-rose-400">Failed Tests ({group.length})</span>
-                    ) : (
+                    ) : status === "passed" ? (
                       <span className="text-emerald-600 dark:text-emerald-400">Passed Tests ({group.length})</span>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400">Skipped Tests ({group.length})</span>
                     )}
                   </h3>
                   {group.map((r) => (

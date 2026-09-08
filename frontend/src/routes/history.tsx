@@ -71,22 +71,22 @@ function ExportButton({ runId }: { runId: string }) {
     <div ref={ref} className="relative">
       <Button variant="ghost" size="sm" disabled={busy} onClick={() => setOpen((o) => !o)}>
         <Download className="size-4" />
-        {busy ? "Exporting…" : "Export"}
+        {busy ? "Downloading…" : "Download"}
         <ChevronDown className="ml-1 size-3.5" />
       </Button>
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-border bg-card shadow-lg">
+        <div className="absolute right-0 top-full z-20 mt-1 w-28 rounded-lg border border-border bg-card shadow-lg py-1">
           <button
-            className="flex w-full items-center gap-2 rounded-t-lg px-3 py-2 text-sm hover:bg-muted/60"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm font-medium hover:bg-muted/60 transition-colors"
             onClick={() => doExport("pdf")}
           >
-            <FileText className="size-4 text-muted-foreground" /> Export as PDF
+            <FileText className="size-4 text-muted-foreground" /> PDF
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-b-lg px-3 py-2 text-sm hover:bg-muted/60"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm font-medium hover:bg-muted/60 transition-colors"
             onClick={() => doExport("html")}
           >
-            <Globe className="size-4 text-muted-foreground" /> Export as HTML
+            <Globe className="size-4 text-muted-foreground" /> HTML
           </button>
         </div>
       )}
@@ -96,7 +96,7 @@ function ExportButton({ runId }: { runId: string }) {
 
 // ── Sort helpers ──────────────────────────────────────────────────────────────
 
-type SortKey = "runId" | "startedAt" | "total" | "passed" | "failed" | "passRate" | "duration";
+type SortKey = "runId" | "startedAt" | "total" | "passed" | "failed" | "skipped" | "passRate" | "duration";
 type SortDir = "asc" | "desc";
 
 function passRate(run: Run) {
@@ -148,6 +148,10 @@ function History() {
       if (sortKey === "total")     { av = a.total;      bv = b.total; }
       if (sortKey === "passed")    { av = a.passed;     bv = b.passed; }
       if (sortKey === "failed")    { av = a.failed;     bv = b.failed; }
+      if (sortKey === "skipped")   {
+        av = a.skipped ?? (a.results?.filter((r) => r.status === "skipped").length ?? 0);
+        bv = b.skipped ?? (b.results?.filter((r) => r.status === "skipped").length ?? 0);
+      }
       if (sortKey === "passRate")  { av = passRate(a);  bv = passRate(b); }
       if (sortKey === "duration")  { av = durationSecs(a.duration); bv = durationSecs(b.duration); }
       if (av < bv) return sortDir === "asc" ? -1 : 1;
@@ -195,9 +199,10 @@ function History() {
                 <SortHead col="total"     label="Total"    className="text-right" />
                 <SortHead col="passed"    label="Passed"   className="text-right" />
                 <SortHead col="failed"    label="Failed"   className="text-right" />
+                <SortHead col="skipped"   label="Skipped"  className="text-right" />
                 <SortHead col="passRate"  label="Pass %"   className="text-right" />
                 <SortHead col="duration"  label="Duration" />
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">Download</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -207,6 +212,8 @@ function History() {
                   rate >= 80 ? "text-success" :
                   rate >= 50 ? "text-amber-500" :
                   "text-destructive";
+                const skippedCount =
+                  run.skipped ?? (run.results?.filter((r) => r.status === "skipped").length ?? 0);
                 return (
                   <TableRow key={run.runId}>
                     <TableCell className="font-mono text-xs text-primary">{run.runId}</TableCell>
@@ -215,6 +222,7 @@ function History() {
                     <TableCell className="text-right tabular-nums">{run.total}</TableCell>
                     <TableCell className="text-right tabular-nums text-success">{run.passed}</TableCell>
                     <TableCell className="text-right tabular-nums text-destructive">{run.failed}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{skippedCount}</TableCell>
                     <TableCell className={`text-right tabular-nums font-medium ${rateColour}`}>
                       {run.total > 0 ? `${rate}%` : "—"}
                     </TableCell>

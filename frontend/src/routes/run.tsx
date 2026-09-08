@@ -26,12 +26,12 @@ const API = "http://localhost:8000";
 export const Route = createFileRoute("/run")({
   head: () => ({
     meta: [
-      { title: "Run Tests — Automated BI Testing - Validation" },
+      { title: "Test Execution — Automated BI Testing - Validation" },
       {
         name: "description",
         content: "Pick a dashboard config, select scenarios and stream live validation logs.",
       },
-      { property: "og:title", content: "Run Tests — Automated BI Testing - Validation" },
+      { property: "og:title", content: "Test Execution — Automated BI Testing - Validation" },
       { property: "og:description", content: "Select scenarios and stream live validation logs." },
     ],
   }),
@@ -207,6 +207,7 @@ function RunTests() {
 
   const [config, setConfig] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const lastExcelRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (configFiles.length > 0 && !config) {
@@ -214,16 +215,13 @@ function RunTests() {
     }
   }, [configFiles, config]);
 
+  // Auto-select all test cases only when a new Excel file or dataset loads
   useEffect(() => {
-    if (testCases.length > 0 && selected.length === 0 && !loading) {
+    if (!loading && testCases.length > 0 && lastExcelRef.current !== selectedExcel) {
+      lastExcelRef.current = selectedExcel;
       setSelected(testCases.map((t) => t.testId));
     }
-  }, [testCases, selected.length, loading]);
-
-  // Reset selections when Excel changes
-  useEffect(() => {
-    setSelected([]);
-  }, [selectedExcel]);
+  }, [testCases, selectedExcel, loading]);
 
   const allSelected = selected.length === testCases.length && testCases.length > 0;
 
@@ -302,7 +300,7 @@ function RunTests() {
     <div className="grid gap-6 p-6 lg:grid-cols-[2fr_3fr] lg:p-8">
       <Card className="h-fit border-border/70 p-5">
         <div>
-          <h1 className="text-lg font-semibold">Run Tests</h1>
+          <h1 className="text-lg font-semibold">Test Execution</h1>
           <p className="text-sm text-muted-foreground">Choose a config and the scenarios to validate.</p>
         </div>
 
@@ -410,12 +408,26 @@ function RunTests() {
             <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Test Cases ({selected.length}/{testCases.length})
             </label>
-            <button
-              className="text-xs text-primary hover:underline"
-              onClick={() => setSelected(allSelected ? [] : testCases.map((t) => t.testId))}
-            >
-              {allSelected ? "Clear all" : "Select all"}
-            </button>
+            <div className="flex items-center gap-2.5">
+              {selected.length > 0 && (
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+                  onClick={() => setSelected([])}
+                >
+                  Clear all
+                </button>
+              )}
+              {selected.length < testCases.length && (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary hover:underline transition-colors"
+                  onClick={() => setSelected(testCases.map((t) => t.testId))}
+                >
+                  Select all
+                </button>
+              )}
+            </div>
           </div>
           <div className="max-h-[320px] space-y-1 overflow-y-auto rounded-lg border border-border/70 p-2">
             {loading

@@ -134,7 +134,12 @@ async def _run_pytest(
                 tc_id = result_m.group(1).strip()
                 name = result_m.group(2).strip()
                 status_raw = result_m.group(3).strip().lower()
-                status = "passed" if status_raw == "passed" else "failed"
+                if status_raw == "passed":
+                    status = "passed"
+                elif status_raw in ("skipped", "skip"):
+                    status = "skipped"
+                else:
+                    status = "failed"
 
                 if tc_id not in recorded_ids:
                     recorded_ids.add(tc_id)
