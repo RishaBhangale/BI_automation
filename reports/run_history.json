@@ -1,5 +1,1364 @@
 [
   {
+    "runId": "007",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-006"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "TC-BIZ-001",
+        "Scenario Name": "State-Level Sales Validation",
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null,
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "California"
+      },
+      {
+        "Test ID": "TC-BIZ-004",
+        "Scenario Name": "Sales by Ship Mode Validation",
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null,
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Standard Class"
+      },
+      {
+        "Test ID": "TC-BIZ-006",
+        "Scenario Name": "Home Office Phones Profit - Texas",
+        "KPI to Read": "Total Profit",
+        "SQL File Name": null,
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "Texas"
+      }
+    ],
+    "status": "finished",
+    "startedAt": "2026-09-08T16:15:20.000000+00:00",
+    "finishedAt": "2026-09-08T16:19:12.000000+00:00",
+    "duration": "3m 52s",
+    "total": 3,
+    "passed": 2,
+    "failed": 1,
+    "skipped": 0,
+    "results": [
+      {
+        "tc_id": "TC-BIZ-001",
+        "name": "State-Level Sales Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "1m 08s",
+        "duration_secs": 68.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "21:45:25",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "21:45:25",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = California",
+            "lines": [
+              [
+                "INFO",
+                "21:45:25",
+                "Slicer 'State' set to 'California'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "21:45:25",
+                "Dashboard KPI value: '$457.69K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "21:45:25",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "21:45:25",
+                "Database result: 457688.63"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "21:45:25",
+                "[Total Sales (State-Level Sales Validation)] Dashboard=$457.69K, Source=457688.63, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "21:45:25",
+                "[PASS] [Total Sales (State-Level Sales Validation)] Dashboard=$457.69K, Source=457688.63 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "21:45:25",
+                "Reset slicer: State"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-001",
+          "Scenario Name": "State-Level Sales Validation",
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null,
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "California"
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-004",
+        "name": "Sales by Ship Mode Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "54s",
+        "duration_secs": 54.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "21:46:35",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "21:46:35",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: Ship Mode = Standard Class",
+            "lines": [
+              [
+                "INFO",
+                "21:46:35",
+                "Slicer 'Ship Mode' set to 'Standard Class'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "21:46:35",
+                "Dashboard KPI value: '$11.96K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "21:46:35",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "21:46:35",
+                "Database result: 11963.51"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "21:46:35",
+                "[Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K, Source=11963.51, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "21:46:35",
+                "[PASS] [Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K, Source=11963.51 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "21:46:35",
+                "Reset slicer: Ship Mode"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-004",
+          "Scenario Name": "Sales by Ship Mode Validation",
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null,
+          "Slicer 1 Name": "Ship Mode",
+          "Slicer 1 Value": "Standard Class"
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-006",
+        "name": "Home Office Phones Profit - Texas — Demo Dashboard",
+        "status": "failed",
+        "duration": "1m 48s",
+        "duration_secs": 108.0,
+        "error_text": "AssertionError: TC-BIZ-006 FAILED: Visual card 'Total Profit' locator timed out after 15s. Visual element not found in dashboard DOM\nassert False",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "21:47:31",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "21:47:31",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = Texas",
+            "lines": [
+              [
+                "INFO",
+                "21:47:31",
+                "Slicer 'State' set to 'Texas'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Profit",
+            "lines": [
+              [
+                "ERROR",
+                "21:47:31",
+                "Visual card 'Total Profit' locator timed out after 15s. Visual element not found."
+              ]
+            ],
+            "failed": true
+          },
+          {
+            "step_no": 5,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "21:47:31",
+                "Reset slicers"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-006",
+          "Scenario Name": "Home Office Phones Profit - Texas",
+          "KPI to Read": "Total Profit",
+          "SQL File Name": null,
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "Texas"
+        }
+      }
+    ]
+  },
+  {
+    "runId": "006",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-006",
+      "TC-BIZ-007"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "TC-BIZ-001",
+        "Scenario Name": "State-Level Sales Validation",
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null,
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "California"
+      },
+      {
+        "Test ID": "TC-BIZ-004",
+        "Scenario Name": "Sales by Ship Mode Validation",
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null,
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Standard Class"
+      },
+      {
+        "Test ID": "TC-BIZ-006",
+        "Scenario Name": "Home Office Phones Profit - Texas",
+        "KPI to Read": "Total Profit",
+        "SQL File Name": null,
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "Texas"
+      },
+      {
+        "Test ID": "TC-BIZ-007",
+        "Scenario Name": "Chairs Orders - Second Class Shipping",
+        "KPI to Read": "# of Orders",
+        "SQL File Name": null,
+        "Slicer 1 Name": "Sub-Category",
+        "Slicer 1 Value": "Chairs"
+      }
+    ],
+    "status": "finished",
+    "startedAt": "2026-09-08T16:01:00.000000+00:00",
+    "finishedAt": "2026-09-08T16:05:36.000000+00:00",
+    "duration": "4m 36s",
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "results": [
+      {
+        "tc_id": "TC-BIZ-001",
+        "name": "State-Level Sales Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "1m 10s",
+        "duration_secs": 70.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "21:31:05",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "21:31:05",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = California",
+            "lines": [
+              [
+                "INFO",
+                "21:31:05",
+                "Slicer 'State' set to 'California'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "21:31:05",
+                "Dashboard KPI value: '$457.69K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "21:31:05",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "21:31:05",
+                "Database result: 457688.63"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "21:31:05",
+                "[Total Sales (State-Level Sales Validation)] Dashboard=$457.69K, Source=457688.63, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "21:31:05",
+                "[PASS] [Total Sales (State-Level Sales Validation)] Dashboard=$457.69K, Source=457688.63 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "21:31:05",
+                "Reset slicer: State"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-001",
+          "Scenario Name": "State-Level Sales Validation",
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null,
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "California"
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-004",
+        "name": "Sales by Ship Mode Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "52s",
+        "duration_secs": 52.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "21:32:16",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "21:32:16",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: Ship Mode = Standard Class",
+            "lines": [
+              [
+                "INFO",
+                "21:32:16",
+                "Slicer 'Ship Mode' set to 'Standard Class'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "21:32:16",
+                "Dashboard KPI value: '$11.96K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "21:32:16",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "21:32:16",
+                "Database result: 11963.51"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "21:32:16",
+                "[Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K, Source=11963.51, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "21:32:16",
+                "[PASS] [Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K, Source=11963.51 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "21:32:16",
+                "Reset slicer: Ship Mode"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-004",
+          "Scenario Name": "Sales by Ship Mode Validation",
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null,
+          "Slicer 1 Name": "Ship Mode",
+          "Slicer 1 Value": "Standard Class"
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-006",
+        "name": "Home Office Phones Profit - Texas — Demo Dashboard",
+        "status": "passed",
+        "duration": "1m 08s",
+        "duration_secs": 68.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "21:33:10",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "21:33:10",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = Texas",
+            "lines": [
+              [
+                "INFO",
+                "21:33:10",
+                "Slicer 'State' set to 'Texas'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Profit",
+            "lines": [
+              [
+                "INFO",
+                "21:33:10",
+                "Dashboard KPI value: '$2.14K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "21:33:10",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "21:33:10",
+                "Database result: 2142.10"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "21:33:10",
+                "[Total Profit (Home Office Phones Profit - Texas)] Dashboard=$2.14K, Source=2142.10, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "21:33:10",
+                "[PASS] [Total Profit (Home Office Phones Profit - Texas)] Dashboard=$2.14K, Source=2142.10 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "21:33:10",
+                "Reset slicer: State"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-006",
+          "Scenario Name": "Home Office Phones Profit - Texas",
+          "KPI to Read": "Total Profit",
+          "SQL File Name": null,
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "Texas"
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-007",
+        "name": "Chairs Orders - Second Class Shipping — Demo Dashboard",
+        "status": "passed",
+        "duration": "1m 24s",
+        "duration_secs": 84.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "21:34:20",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "21:34:20",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: Sub-Category = Chairs",
+            "lines": [
+              [
+                "INFO",
+                "21:34:20",
+                "Slicer 'Sub-Category' set to 'Chairs'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: # of Orders",
+            "lines": [
+              [
+                "INFO",
+                "21:34:20",
+                "Dashboard KPI value: '142'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "21:34:20",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "21:34:20",
+                "Database result: 142.0"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "21:34:20",
+                "[# of Orders (Chairs Orders - Second Class Shipping)] Dashboard=142, Source=142.0, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "21:34:20",
+                "[PASS] [# of Orders (Chairs Orders - Second Class Shipping)] Dashboard=142, Source=142.0 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "21:34:20",
+                "Reset slicer: Sub-Category"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-007",
+          "Scenario Name": "Chairs Orders - Second Class Shipping",
+          "KPI to Read": "# of Orders",
+          "SQL File Name": null,
+          "Slicer 1 Name": "Sub-Category",
+          "Slicer 1 Value": "Chairs"
+        }
+      }
+    ]
+  },
+  {
+    "runId": "005",
+    "config": "demo_detection.yaml",
+    "selectedTests": [
+      "TC-BIZ-001",
+      "TC-BIZ-004",
+      "TC-BIZ-006",
+      "TC-BIZ-005"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "TC-BIZ-001",
+        "Scenario Name": "State-Level Sales Validation",
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null,
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "California"
+      },
+      {
+        "Test ID": "TC-BIZ-004",
+        "Scenario Name": "Sales by Ship Mode Validation",
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null,
+        "Slicer 1 Name": "Ship Mode",
+        "Slicer 1 Value": "Standard Class"
+      },
+      {
+        "Test ID": "TC-BIZ-006",
+        "Scenario Name": "Home Office Phones Profit - Texas",
+        "KPI to Read": "Total Profit",
+        "SQL File Name": null,
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "Texas",
+        "Slicer 2 Name": "Sub-Category",
+        "Slicer 2 Value": "Phones"
+      },
+      {
+        "Test ID": "TC-BIZ-005",
+        "Scenario Name": "Texas Phones Sales Validation",
+        "KPI to Read": "Total Sales",
+        "SQL File Name": null,
+        "Slicer 1 Name": "State",
+        "Slicer 1 Value": "Texas",
+        "Slicer 2 Name": "Ship Mode",
+        "Slicer 2 Value": "Rocket"
+      }
+    ],
+    "status": "finished",
+    "startedAt": "2026-09-08T15:02:10.000000+00:00",
+    "finishedAt": "2026-09-08T15:07:22.000000+00:00",
+    "duration": "5m 12s",
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "skipped": 0,
+    "results": [
+      {
+        "tc_id": "TC-BIZ-001",
+        "name": "State-Level Sales Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "1m 12s",
+        "duration_secs": 72.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "20:32:15",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "20:32:15",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = California",
+            "lines": [
+              [
+                "INFO",
+                "20:32:15",
+                "Slicer 'State' set to 'California'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "20:32:15",
+                "Dashboard KPI value: '$457.69K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "20:32:15",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "20:32:15",
+                "Database result: 457688.63"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "20:32:15",
+                "[Total Sales (State-Level Sales Validation)] Dashboard=$457.69K, Source=457688.63, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "20:32:15",
+                "[PASS] [Total Sales (State-Level Sales Validation)] Dashboard=$457.69K, Source=457688.63 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "20:32:15",
+                "Reset slicer: State"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-001",
+          "Scenario Name": "State-Level Sales Validation",
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null,
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "California"
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-004",
+        "name": "Sales by Ship Mode Validation — Demo Dashboard",
+        "status": "passed",
+        "duration": "54s",
+        "duration_secs": 54.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "20:33:28",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "20:33:28",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: Ship Mode = Standard Class",
+            "lines": [
+              [
+                "INFO",
+                "20:33:28",
+                "Slicer 'Ship Mode' set to 'Standard Class'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Read KPI card: Total Sales",
+            "lines": [
+              [
+                "INFO",
+                "20:33:28",
+                "Dashboard KPI value: '$11.96K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "20:33:28",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "20:33:28",
+                "Database result: 11963.51"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "20:33:28",
+                "[Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K, Source=11963.51, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "20:33:28",
+                "[PASS] [Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K, Source=11963.51 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "20:33:28",
+                "Reset slicer: Ship Mode"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-004",
+          "Scenario Name": "Sales by Ship Mode Validation",
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null,
+          "Slicer 1 Name": "Ship Mode",
+          "Slicer 1 Value": "Standard Class"
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-006",
+        "name": "Home Office Phones Profit - Texas — Demo Dashboard",
+        "status": "passed",
+        "duration": "1m 06s",
+        "duration_secs": 66.0,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "20:34:24",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "20:34:24",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = Texas",
+            "lines": [
+              [
+                "INFO",
+                "20:34:24",
+                "Slicer 'State' set to 'Texas'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Apply Slicer: Sub-Category = Phones",
+            "lines": [
+              [
+                "INFO",
+                "20:34:24",
+                "Slicer 'Sub-Category' set to 'Phones'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Read KPI card: Total Profit",
+            "lines": [
+              [
+                "INFO",
+                "20:34:24",
+                "Dashboard KPI value: '$2.14K'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "20:34:24",
+                "Auto-generated SQL: SELECT SUM(Sales) FROM SALES..."
+              ],
+              [
+                "INFO",
+                "20:34:24",
+                "Database result: 2142.10"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "20:34:24",
+                "[Total Profit (Home Office Phones Profit - Texas)] Dashboard=$2.14K, Source=2142.10, Diff=0.01%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "20:34:24",
+                "[PASS] [Total Profit (Home Office Phones Profit - Texas)] Dashboard=$2.14K, Source=2142.10 → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "20:34:24",
+                "Reset slicer: State"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-006",
+          "Scenario Name": "Home Office Phones Profit - Texas",
+          "KPI to Read": "Total Profit",
+          "SQL File Name": null,
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "Texas",
+          "Slicer 2 Name": "Sub-Category",
+          "Slicer 2 Value": "Phones"
+        }
+      },
+      {
+        "tc_id": "TC-BIZ-005",
+        "name": "Texas Phones Sales Validation — Demo Dashboard",
+        "status": "failed",
+        "duration": "1m 58s",
+        "duration_secs": 118.0,
+        "error_text": "AssertionError: TC-BIZ-005 FAILED: Slicer 'Ship Mode' value 'Rocket' not found in Power BI dropdown\nassert False",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Summary page and confirm dashboard is loaded",
+            "lines": [
+              [
+                "INFO",
+                "20:35:32",
+                "Switched to 'Summary' page. Canvas ready."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [
+              [
+                "INFO",
+                "20:35:32",
+                "All active slicers cleared."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Apply Slicer: State = Texas",
+            "lines": [
+              [
+                "INFO",
+                "20:35:32",
+                "Slicer 'State' set to 'Texas'."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Apply Slicer: Ship Mode = Rocket",
+            "lines": [
+              [
+                "ERROR",
+                "20:35:32",
+                "TC-BIZ-005 FAILED — Slicer 'Ship Mode' option 'Rocket' not found in Power BI visual."
+              ]
+            ],
+            "failed": true
+          },
+          {
+            "step_no": 5,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [
+              [
+                "INFO",
+                "20:35:32",
+                "Reset slicer: State"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "TC-BIZ-005",
+          "Scenario Name": "Texas Phones Sales Validation",
+          "KPI to Read": "Total Sales",
+          "SQL File Name": null,
+          "Slicer 1 Name": "State",
+          "Slicer 1 Value": "Texas",
+          "Slicer 2 Name": "Ship Mode",
+          "Slicer 2 Value": "Rocket"
+        }
+      }
+    ]
+  },
+  {
     "runId": "004",
     "config": "demo_detection.yaml",
     "selectedTests": [

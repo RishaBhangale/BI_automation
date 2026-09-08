@@ -217,6 +217,17 @@ async def _run_pytest(
                 })
 
         finish_run(run_id, results, dur_str)
+
+        # Also preserve a run-specific copy of the generated HTML report
+        try:
+            latest_html = PROJECT_ROOT / "reports" / "HTML_reports" / "dashboard_validation_latest.html"
+            if latest_html.exists() and latest_html.stat().st_mtime >= suite_start - 10:
+                import shutil
+                dest = PROJECT_ROOT / "reports" / "HTML_reports" / f"dashboard_validation_{run_id}.html"
+                shutil.copy2(str(latest_html), str(dest))
+        except Exception:
+            pass
+
         _active_tasks.pop(run_id, None)
 
 

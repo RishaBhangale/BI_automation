@@ -29,36 +29,15 @@ def export_run(run_id: str, format: str = "pdf"):
             headers={"Content-Disposition": f'attachment; filename="{run_id}.pdf"'},
         )
     else:
-        # Check if an existing rich HTML report file exists
-        html_candidates = [
-            PROJECT_ROOT / "reports" / "HTML_reports" / "dashboard_validation_latest.html",
-            PROJECT_ROOT / "reports" / "html_reports" / "dashboard_validation_latest.html",
-            PROJECT_ROOT / "reports" / "dashboard_validation_latest.html",
-        ]
-        html_content = ""
-        for p in html_candidates:
-            if p.exists():
-                try:
-                    html_content = p.read_text(encoding="utf-8")
-                    if html_content:
-                        break
-                except Exception:
-                    pass
-
-        # If not found, check the newest html file in HTML_reports/
-        if not html_content:
-            for d in [PROJECT_ROOT / "reports" / "HTML_reports", PROJECT_ROOT / "reports" / "html_reports"]:
-                if d.exists():
-                    files = sorted(d.glob("*.html"), key=lambda p: p.stat().st_mtime, reverse=True)
-                    if files:
-                        try:
-                            html_content = files[0].read_text(encoding="utf-8")
-                            break
-                        except Exception:
-                            pass
-
-        if not html_content:
-            html_content = run_to_html(run)
+        # Generate the corresponding HTML report directly from this run's data in run_history.json
+        # so that every run gets its own accurate report reflecting the exact test results.
+        html_content = run_to_html(run)
+        try:
+            cache_path = PROJECT_ROOT / "reports" / "HTML_reports" / f"dashboard_validation_{run_id}.html"
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(html_content, encoding="utf-8")
+        except Exception:
+            pass
 
         return Response(
             content=html_content.encode("utf-8"),

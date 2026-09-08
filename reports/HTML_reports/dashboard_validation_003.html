@@ -120,7 +120,7 @@
 
   <div class="doc-head">
     <h1>BI Dashboard Automation – Test Execution Report</h1>
-    <div class="doc-meta">Generated on <b>07-Aug-2026 at 14:32:22</b></div>
+    <div class="doc-meta">Generated on <b>09-Sep-2026 at 00:48:55</b></div>
   </div>
 
   <div class="banner">
@@ -131,21 +131,21 @@
     <div class="card">
       <p class="card-title">Executive Summary</p>
       <div class="kv">
-        <div><div class="label">Project</div><div class="value">Dashboard Validation — Demo Dashboard</div></div>
-        <div><div class="label">Environment</div><div class="value">Published Dashboard</div></div>
-        <div><div class="label">Release</div><div class="value">Validation Run</div></div>
-        <div><div class="label">Suite</div><div class="value">Dashboard KPI &amp; Table Validation</div></div>
+        <div><div class="label">Project</div><div class="value">Automated BI Testing — 003</div></div>
+        <div><div class="label">Environment</div><div class="value">Validation Run</div></div>
+        <div><div class="label">Release</div><div class="value">Sprint 24.5</div></div>
+        <div><div class="label">Suite</div><div class="value">Dashboard Regression &amp; KPI Validation</div></div>
         <div><div class="label">Executed By</div><div class="value">qe.automation</div></div>
-        <div><div class="label">Executed Date</div><div class="value">07-Aug-2026</div></div>
+        <div><div class="label">Executed Date</div><div class="value">09-Sep-2026</div></div>
       </div>
     </div>
     <div class="card">
       <p class="card-title">Test Run Details</p>
       <div class="kv">
-        <div><div class="label">Base URL</div><div class="value mono" title="https://app.powerbi.com/groups/me/reports/2057f32d-34f2-4ad0-91bb-5d66ea1675e7/0ffb75878226303bc6af?ctid=b5af2451-e21b-4aa2-b4b5-dc5907908dd8&amp;experience=power-bi">https://app.powerbi.com/groups/me/reports/2057f32d-34f2-4ad0...</div></div>
-        <div><div class="label">Browser</div><div class="value">Chrome (Headed)</div></div>
-        <div><div class="label">Viewport</div><div class="value mono">1600 × 900</div></div>
-        <div><div class="label">Duration</div><div class="value mono">06 m 38 s</div></div>
+        <div><div class="label">Base URL</div><div class="value mono" title="demo_detection.yaml">demo_detection.yaml</div></div>
+        <div><div class="label">Browser</div><div class="value">Chromium (Non-Headless)</div></div>
+        <div><div class="label">Viewport</div><div class="value mono">1280 × 720</div></div>
+        <div><div class="label">Duration</div><div class="value mono">04 m 38 s</div></div>
         <div><div class="label">Execution Mode</div><div class="value">Local Automated Run</div></div>
         <div><div class="label">Test Data Source</div><div class="value">demo_detection.yaml</div></div>
       </div>
@@ -153,22 +153,22 @@
   </div>
 
   <div class="stats">
-    <div class="tile total"><div class="t-label">Total</div><div class="t-num">2</div></div>
+    <div class="tile total"><div class="t-label">Total</div><div class="t-num">3</div></div>
     <div class="tile pass"> <div class="t-label">Passed</div><div class="t-num">2</div></div>
-    <div class="tile fail"> <div class="t-label">Failed</div><div class="t-num">0</div></div>
+    <div class="tile fail"> <div class="t-label">Failed</div><div class="t-num">1</div></div>
     <div class="tile skip"> <div class="t-label">Skipped</div><div class="t-num">0</div></div>
     <div class="tile block"><div class="t-label">Blocked</div><div class="t-num">0</div></div>
-    <div class="tile rate"> <div class="t-label">Pass Rate</div><div class="t-num">100.0%</div></div>
+    <div class="tile rate"> <div class="t-label">Pass Rate</div><div class="t-num">66.7%</div></div>
   </div>
 
   <div class="progress">
-    <span class="p-pass" style="width:100.0%"></span>
-    <span class="p-fail" style="width:0.0%"></span>
+    <span class="p-pass" style="width:66.7%"></span>
+    <span class="p-fail" style="width:33.3%"></span>
   </div>
 
   <div class="section-h">
     <h3>Execution Results</h3>
-    <span class="count">2 tests</span>
+    <span class="count">3 tests</span>
     <div class="legend">
       <span><i class="lp"></i>Passed step</span>
       <span><i class="lf"></i>Failed step</span>
@@ -187,9 +187,9 @@
   <details class="tc">
     <summary>
       <span class="pill pass">Passed</span>
-      <span class="tc-id">DTC-001</span>
-      <span class="tc-name">Business Scenario[Chromium-Tc-Biz-001 - State-Level Sales Validation] — Demo Dashboard</span>
-      <span class="tc-dur">03:21</span>
+      <span class="tc-id">TC-BIZ-004</span>
+      <span class="tc-name">Sales by Ship Mode Validation — Demo Dashboard</span>
+      <span class="tc-dur">01:40</span>
       <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
     </summary>
     <div class="tc-body">
@@ -200,7 +200,27 @@
           <span class="s-title">Navigate to Summary page and confirm dashboard is loaded</span>
           <span class="s-time"></span>
         </div>
-        <div class="step-lines"></div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 2</span>
+          <span class="s-title">Clear all default slicers to start from a clean state</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 3</span>
+          <span class="s-title">Apply Slicer: Ship Mode = Standard Class</span>
+          <span class="s-time"></span>
+        </div>
+        
         
       </div>
       <div class="step ok">
@@ -208,9 +228,9 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 4</span>
           <span class="s-title">Read KPI card: Total Sales</span>
-          <span class="s-time">14:28:59</span>
+          <span class="s-time">20:12:04</span>
         </div>
-        <div class="step-lines">[14:28:59] <span class="lvl lvl-info">INFO</span> Dashboard KPI value: &#x27;$1.82K&#x27;</div>
+        <div class="step-lines">[20:12:04] <span class="lvl lvl-info">INFO</span> Dashboard KPI value: &#x27;$11.96K&#x27;</div>
         
       </div>
       <div class="step ok">
@@ -218,9 +238,9 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 5</span>
           <span class="s-title">Fetch expected value from source database</span>
-          <span class="s-time">14:29:01</span>
+          <span class="s-time">20:12:04</span>
         </div>
-        <div class="step-lines">[14:29:01] <span class="lvl lvl-info">INFO</span> Database result: 1818.5759887695312</div>
+        <div class="step-lines">[20:12:04] <span class="lvl lvl-info">INFO</span> Auto-generated SQL: SELECT SUM(Sales) FROM SALES WHERE Ship_Mode=&#x27;Standard Class&#x27;<br>[20:12:05] <span class="lvl lvl-info">INFO</span> Database result: 11963.51257967949</div>
         
       </div>
       <div class="step ok">
@@ -228,9 +248,9 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 6</span>
           <span class="s-title">Compare dashboard KPI value against database result</span>
-          <span class="s-time">14:29:01</span>
+          <span class="s-time">20:12:05</span>
         </div>
-        <div class="step-lines">[14:29:01] <span class="lvl lvl-debug">DEBUG</span> parse_pbi_number(&#x27;$1.82K&#x27;) → 1820.0<br>[14:29:01] <span class="lvl lvl-info">INFO</span> [Total Sales (State-Level Sales Validation)] Dashboard=$1.82K (parsed=1,820.0000), Source=1,818.5760, Diff=0.0782%, Tolerance=1.00% → PASS<br>[14:29:01] <span class="lvl lvl-info">INFO</span> [PASS] [Total Sales (State-Level Sales Validation)] Dashboard=$1.82K (parsed=1,820.0000), Source=1,818.5760, Diff=0.0782%, Tolerance=1.00% → PASS</div>
+        <div class="step-lines">[20:12:05] <span class="lvl lvl-info">INFO</span> [Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K (parsed=11,960.0000), Source=11,963.5126, Diff=0.0294%, Tolerance=1.00% → PASS<br>[20:12:05] <span class="lvl lvl-info">INFO</span> [PASS] [Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K (parsed=11,960.0000), Source=11,963.5126, Diff=0.0294%, Tolerance=1.00% → PASS</div>
         
       </div>
       <div class="step ok">
@@ -238,9 +258,9 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 7</span>
           <span class="s-title">Teardown — reset applied slicers to restore default state</span>
-          <span class="s-time">14:29:02</span>
+          <span class="s-time">20:12:10</span>
         </div>
-        <div class="step-lines">[14:29:02] <span class="lvl lvl-info">INFO</span> Reset slicer: State<br>[14:29:03] <span class="lvl lvl-info">INFO</span> Reset slicer: Ship Mode<br>[14:29:04] <span class="lvl lvl-info">INFO</span> Reset slicer: Sub-Category</div>
+        <div class="step-lines">[20:12:10] <span class="lvl lvl-info">INFO</span> Reset slicer: Ship Mode</div>
         
       </div></div>
   </details>
@@ -248,9 +268,9 @@
   <details class="tc">
     <summary>
       <span class="pill pass">Passed</span>
-      <span class="tc-id">DTC-002</span>
-      <span class="tc-name">Business Scenario[Chromium-Tc-Biz-002 - Customer Segment Analysis] — Demo Dashboard</span>
-      <span class="tc-dur">03:17</span>
+      <span class="tc-id">TC-BIZ-005</span>
+      <span class="tc-name">Texas Phones Sales Validation — Demo Dashboard</span>
+      <span class="tc-dur">01:33</span>
       <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
     </summary>
     <div class="tc-body">
@@ -261,47 +281,148 @@
           <span class="s-title">Navigate to Summary page and confirm dashboard is loaded</span>
           <span class="s-time"></span>
         </div>
-        <div class="step-lines"></div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 2</span>
+          <span class="s-title">Clear all default slicers to start from a clean state</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 3</span>
+          <span class="s-title">Apply Slicer: State = Texas</span>
+          <span class="s-time"></span>
+        </div>
+        
         
       </div>
       <div class="step ok">
         <div class="step-head">
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 4</span>
-          <span class="s-title">Read KPI card: Total Sales</span>
-          <span class="s-time">14:32:02</span>
+          <span class="s-title">Apply Slicer: Sub-Category = Phones</span>
+          <span class="s-time"></span>
         </div>
-        <div class="step-lines">[14:32:02] <span class="lvl lvl-info">INFO</span> Dashboard KPI value: &#x27;$147.17&#x27;</div>
+        
         
       </div>
       <div class="step ok">
         <div class="step-head">
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 5</span>
-          <span class="s-title">Fetch expected value from source database</span>
-          <span class="s-time">14:32:04</span>
+          <span class="s-title">Read KPI card: Total Sales</span>
+          <span class="s-time">20:13:31</span>
         </div>
-        <div class="step-lines">[14:32:04] <span class="lvl lvl-info">INFO</span> Database result: 147.16799926757812</div>
+        <div class="step-lines">[20:13:31] <span class="lvl lvl-info">INFO</span> Dashboard KPI value: &#x27;$1.47K&#x27;</div>
         
       </div>
       <div class="step ok">
         <div class="step-head">
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 6</span>
-          <span class="s-title">Compare dashboard KPI value against database result</span>
-          <span class="s-time">14:32:04</span>
+          <span class="s-title">Fetch expected value from source database</span>
+          <span class="s-time">20:13:31</span>
         </div>
-        <div class="step-lines">[14:32:04] <span class="lvl lvl-debug">DEBUG</span> parse_pbi_number(&#x27;$147.17&#x27;) → 147.17<br>[14:32:04] <span class="lvl lvl-info">INFO</span> [Total Sales (Customer Segment Analysis)] Dashboard=$147.17 (parsed=147.1700), Source=147.1680, Diff=0.0014%, Tolerance=1.00% → PASS<br>[14:32:04] <span class="lvl lvl-info">INFO</span> [PASS] [Total Sales (Customer Segment Analysis)] Dashboard=$147.17 (parsed=147.1700), Source=147.1680, Diff=0.0014%, Tolerance=1.00% → PASS</div>
+        <div class="step-lines">[20:13:31] <span class="lvl lvl-info">INFO</span> Auto-generated SQL: SELECT SUM(Sales) FROM SALES WHERE State=&#x27;Texas&#x27; AND Sub_Category=&#x27;Phones&#x27;<br>[20:13:33] <span class="lvl lvl-info">INFO</span> Database result: 1468.7119445800781</div>
         
       </div>
       <div class="step ok">
         <div class="step-head">
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 7</span>
-          <span class="s-title">Teardown — reset applied slicers to restore default state</span>
-          <span class="s-time">14:32:14</span>
+          <span class="s-title">Compare dashboard KPI value against database result</span>
+          <span class="s-time">20:13:33</span>
         </div>
-        <div class="step-lines">[14:32:14] <span class="lvl lvl-info">INFO</span> Reset slicer: Customer Segment<br>[14:32:15] <span class="lvl lvl-info">INFO</span> Reset slicer: State<br>[14:32:17] <span class="lvl lvl-info">INFO</span> Reset slicer: Ship Mode<br>[14:32:22] <span class="lvl lvl-info">INFO</span> Reset slicer: Sub-Category</div>
+        <div class="step-lines">[20:13:33] <span class="lvl lvl-info">INFO</span> [Total Sales (Texas Phones Sales Validation)] Dashboard=$1.47K (parsed=1,470.0000), Source=1,468.7119, Diff=0.0876%, Tolerance=1.00% → PASS<br>[20:13:33] <span class="lvl lvl-info">INFO</span> [PASS] [Total Sales (Texas Phones Sales Validation)] Dashboard=$1.47K (parsed=1,470.0000), Source=1,468.7119, Diff=0.0876%, Tolerance=1.00% → PASS</div>
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 8</span>
+          <span class="s-title">Teardown — reset applied slicers to restore default state</span>
+          <span class="s-time">20:13:39</span>
+        </div>
+        <div class="step-lines">[20:13:39] <span class="lvl lvl-info">INFO</span> Reset slicer: State<br>[20:13:44] <span class="lvl lvl-info">INFO</span> Reset slicer: Sub-Category</div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc" open>
+    <summary>
+      <span class="pill fail">Failed</span>
+      <span class="tc-id">TC-BIZ-007</span>
+      <span class="tc-name">Chairs Orders - Second Class Shipping — Demo Dashboard</span>
+      <span class="tc-dur">01:25</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Navigate to Summary page and confirm dashboard is loaded</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 2</span>
+          <span class="s-title">Clear all default slicers to start from a clean state</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 3</span>
+          <span class="s-title">Apply Slicer: Ship Mode = Second Class</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 4</span>
+          <span class="s-title">Apply Slicer: Sub-Category = Chairs</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step bad">
+        <div class="step-head">
+          <div class="s-dot bad">✕</div>
+          <span class="s-label">Step 5</span>
+          <span class="s-title">Read KPI card: No of Orders</span>
+          <span class="s-time">20:14:59</span>
+        </div>
+        <div class="step-lines">[20:14:59] <span class="lvl lvl-fail">FAIL</span> TC-BIZ-007 FAILED during execution: Could not extract value for card &#x27;No of Orders&#x27;. Verify the visual title matches exactly and it is a Card or Multi-row card visual.</div>
+        
+      </div>
+      <div class="step bad">
+        <div class="step-head">
+          <div class="s-dot bad">✕</div>
+          <span class="s-label">Step 6</span>
+          <span class="s-title">Teardown — reset applied slicers to restore default state</span>
+          <span class="s-time">20:15:05</span>
+        </div>
+        <div class="step-lines">[20:15:05] <span class="lvl lvl-info">INFO</span> Reset slicer: Ship Mode<br>[20:15:10] <span class="lvl lvl-info">INFO</span> Reset slicer: Sub-Category<br>[20:15:10] <span class="lvl lvl-fail">FAIL</span> TC-BIZ-007 FAILED during execution: Could not extract value for card &#x27;No of Orders&#x27;. Verify the visual title matches exactly and it is a Card or Multi-row card visual.</div>
         
       </div></div>
   </details>

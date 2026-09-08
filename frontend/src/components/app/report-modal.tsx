@@ -30,6 +30,7 @@ export function ResultCard({ result }: { result: TestResult }) {
   const [condOpen, setCondOpen] = useState(false);
   const statusStr = (result.status || "").toUpperCase();
   const isPass = statusStr === "PASS" || statusStr === "PASSED";
+  const isSkip = statusStr === "SKIP" || statusStr === "SKIPPED";
 
   // Build conditions list from meta (slicer name→value pairs + KPI + scenario details)
   const meta = (result as any).meta as Record<string, unknown> | undefined;
@@ -100,6 +101,8 @@ export function ResultCard({ result }: { result: TestResult }) {
               "rounded-full px-2.5 py-1 text-xs font-medium " +
               (isPass
                 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                : isSkip
+                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                 : "bg-rose-500/15 text-rose-600 dark:text-rose-400")
             }
           >

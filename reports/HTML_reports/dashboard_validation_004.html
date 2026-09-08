@@ -120,7 +120,7 @@
 
   <div class="doc-head">
     <h1>BI Dashboard Automation – Test Execution Report</h1>
-    <div class="doc-meta">Generated on <b>30-Jul-2026 at 18:03:22</b></div>
+    <div class="doc-meta">Generated on <b>09-Sep-2026 at 00:48:52</b></div>
   </div>
 
   <div class="banner">
@@ -131,21 +131,21 @@
     <div class="card">
       <p class="card-title">Executive Summary</p>
       <div class="kv">
-        <div><div class="label">Project</div><div class="value">Dashboard Validation — Demo Dashboard</div></div>
-        <div><div class="label">Environment</div><div class="value">Published Dashboard</div></div>
-        <div><div class="label">Release</div><div class="value">Validation Run</div></div>
-        <div><div class="label">Suite</div><div class="value">Dashboard KPI &amp; Table Validation</div></div>
+        <div><div class="label">Project</div><div class="value">Automated BI Testing — 004</div></div>
+        <div><div class="label">Environment</div><div class="value">Validation Run</div></div>
+        <div><div class="label">Release</div><div class="value">Sprint 24.5</div></div>
+        <div><div class="label">Suite</div><div class="value">Dashboard Regression &amp; KPI Validation</div></div>
         <div><div class="label">Executed By</div><div class="value">qe.automation</div></div>
-        <div><div class="label">Executed Date</div><div class="value">30-Jul-2026</div></div>
+        <div><div class="label">Executed Date</div><div class="value">09-Sep-2026</div></div>
       </div>
     </div>
     <div class="card">
       <p class="card-title">Test Run Details</p>
       <div class="kv">
-        <div><div class="label">Base URL</div><div class="value mono" title="https://app.powerbi.com/groups/me/reports/2057f32d-34f2-4ad0-91bb-5d66ea1675e7/0ffb75878226303bc6af?ctid=b5af2451-e21b-4aa2-b4b5-dc5907908dd8&amp;experience=power-bi">https://app.powerbi.com/groups/me/reports/2057f32d-34f2-4ad0...</div></div>
-        <div><div class="label">Browser</div><div class="value">Chrome (Headless)</div></div>
-        <div><div class="label">Viewport</div><div class="value mono">1600 × 900</div></div>
-        <div><div class="label">Duration</div><div class="value mono">03 m 07 s</div></div>
+        <div><div class="label">Base URL</div><div class="value mono" title="demo_detection.yaml">demo_detection.yaml</div></div>
+        <div><div class="label">Browser</div><div class="value">Chromium (Non-Headless)</div></div>
+        <div><div class="label">Viewport</div><div class="value mono">1280 × 720</div></div>
+        <div><div class="label">Duration</div><div class="value mono">07 m 47 s</div></div>
         <div><div class="label">Execution Mode</div><div class="value">Local Automated Run</div></div>
         <div><div class="label">Test Data Source</div><div class="value">demo_detection.yaml</div></div>
       </div>
@@ -153,22 +153,22 @@
   </div>
 
   <div class="stats">
-    <div class="tile total"><div class="t-label">Total</div><div class="t-num">1</div></div>
+    <div class="tile total"><div class="t-label">Total</div><div class="t-num">2</div></div>
     <div class="tile pass"> <div class="t-label">Passed</div><div class="t-num">1</div></div>
-    <div class="tile fail"> <div class="t-label">Failed</div><div class="t-num">0</div></div>
+    <div class="tile fail"> <div class="t-label">Failed</div><div class="t-num">1</div></div>
     <div class="tile skip"> <div class="t-label">Skipped</div><div class="t-num">0</div></div>
     <div class="tile block"><div class="t-label">Blocked</div><div class="t-num">0</div></div>
-    <div class="tile rate"> <div class="t-label">Pass Rate</div><div class="t-num">100.0%</div></div>
+    <div class="tile rate"> <div class="t-label">Pass Rate</div><div class="t-num">50.0%</div></div>
   </div>
 
   <div class="progress">
-    <span class="p-pass" style="width:100.0%"></span>
-    <span class="p-fail" style="width:0.0%"></span>
+    <span class="p-pass" style="width:50.0%"></span>
+    <span class="p-fail" style="width:50.0%"></span>
   </div>
 
   <div class="section-h">
     <h3>Execution Results</h3>
-    <span class="count">1 tests</span>
+    <span class="count">2 tests</span>
     <div class="legend">
       <span><i class="lp"></i>Passed step</span>
       <span><i class="lf"></i>Failed step</span>
@@ -187,9 +187,9 @@
   <details class="tc">
     <summary>
       <span class="pill pass">Passed</span>
-      <span class="tc-id">DTC-001</span>
-      <span class="tc-name">Business Scenario[Chromium-Tc-Biz-001] — Demo Dashboard</span>
-      <span class="tc-dur">03:07</span>
+      <span class="tc-id">TC-BIZ-004</span>
+      <span class="tc-name">Sales by Ship Mode Validation — Demo Dashboard</span>
+      <span class="tc-dur">01:56</span>
       <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
     </summary>
     <div class="tc-body">
@@ -198,9 +198,29 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 1</span>
           <span class="s-title">Navigate to Summary page and confirm dashboard is loaded</span>
-          <span class="s-time">18:00:53</span>
+          <span class="s-time"></span>
         </div>
-        <div class="step-lines">[18:00:53] <span class="lvl lvl-info">INFO</span> Switching to page: &#x27;Summary&#x27;<br>[18:00:58] <span class="lvl lvl-debug">DEBUG</span> Primary org iframe selector failed — trying fallback<br>[18:01:01] <span class="lvl lvl-debug">DEBUG</span> Tab &#x27;Summary&#x27; not in iframe context — trying outer page<br>[18:01:10] <span class="lvl lvl-info">INFO</span> Tab navigation (PTW selector): now on page &#x27;Summary&#x27;</div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 2</span>
+          <span class="s-title">Clear all default slicers to start from a clean state</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 3</span>
+          <span class="s-title">Apply Slicer: Ship Mode = Standard Class</span>
+          <span class="s-time"></span>
+        </div>
+        
         
       </div>
       <div class="step ok">
@@ -208,9 +228,9 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 4</span>
           <span class="s-title">Read KPI card: Total Sales</span>
-          <span class="s-time">18:02:37</span>
+          <span class="s-time">20:20:14</span>
         </div>
-        <div class="step-lines">[18:02:37] <span class="lvl lvl-info">INFO</span> Extracting KPI card value for: &#x27;Total Sales&#x27;<br>[18:02:42] <span class="lvl lvl-debug">DEBUG</span> Primary org iframe selector failed — trying fallback<br>[18:02:45] <span class="lvl lvl-debug">DEBUG</span> Card &#x27;Total Sales&#x27; not found via iframe — using flat-DOM approach<br>[18:02:50] <span class="lvl lvl-debug">DEBUG</span> Card &#x27;Total Sales&#x27; falling back to PTW JS extractor on flat DOM<br>[18:02:50] <span class="lvl lvl-info">INFO</span> Card &#x27;Total Sales&#x27; → raw value: &#x27;$1.82K&#x27;<br>[18:02:50] <span class="lvl lvl-info">INFO</span> Dashboard KPI value: &#x27;$1.82K&#x27;</div>
+        <div class="step-lines">[20:20:14] <span class="lvl lvl-info">INFO</span> Dashboard KPI value: &#x27;$11.96K&#x27;</div>
         
       </div>
       <div class="step ok">
@@ -218,9 +238,9 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 5</span>
           <span class="s-title">Fetch expected value from source database</span>
-          <span class="s-time">18:02:51</span>
+          <span class="s-time">20:20:14</span>
         </div>
-        <div class="step-lines">[18:02:51] <span class="lvl lvl-info">INFO</span> Database result: 1818.5759887695312</div>
+        <div class="step-lines">[20:20:14] <span class="lvl lvl-info">INFO</span> Auto-generated SQL: SELECT SUM(Sales) FROM SALES WHERE Ship_Mode=&#x27;Standard Class&#x27;<br>[20:20:16] <span class="lvl lvl-info">INFO</span> Database result: 11963.51257967949</div>
         
       </div>
       <div class="step ok">
@@ -228,9 +248,9 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 6</span>
           <span class="s-title">Compare dashboard KPI value against database result</span>
-          <span class="s-time">18:02:51</span>
+          <span class="s-time">20:20:16</span>
         </div>
-        <div class="step-lines">[18:02:51] <span class="lvl lvl-debug">DEBUG</span> parse_pbi_number(&#x27;$1.82K&#x27;) → 1820.0<br>[18:02:51] <span class="lvl lvl-info">INFO</span> [Total Sales (State-Level Sales Validation)] Dashboard=$1.82K (parsed=1,820.0000), Source=1,818.5760, Diff=0.0782%, Tolerance=1.00% → PASS<br>[18:02:51] <span class="lvl lvl-info">INFO</span> [PASS] [Total Sales (State-Level Sales Validation)] Dashboard=$1.82K (parsed=1,820.0000), Source=1,818.5760, Diff=0.0782%, Tolerance=1.00% → PASS</div>
+        <div class="step-lines">[20:20:16] <span class="lvl lvl-info">INFO</span> [Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K (parsed=11,960.0000), Source=11,963.5126, Diff=0.0294%, Tolerance=1.00% → PASS<br>[20:20:16] <span class="lvl lvl-info">INFO</span> [PASS] [Total Sales (Sales by Ship Mode Validation)] Dashboard=$11.96K (parsed=11,960.0000), Source=11,963.5126, Diff=0.0294%, Tolerance=1.00% → PASS</div>
         
       </div>
       <div class="step ok">
@@ -238,9 +258,80 @@
           <div class="s-dot ok">✓</div>
           <span class="s-label">Step 7</span>
           <span class="s-title">Teardown — reset applied slicers to restore default state</span>
-          <span class="s-time">18:02:51</span>
+          <span class="s-time">20:20:21</span>
         </div>
-        <div class="step-lines">[18:02:51] <span class="lvl lvl-info">INFO</span> Resetting slicer &#x27;State&#x27; to All<br>[18:02:56] <span class="lvl lvl-debug">DEBUG</span> Primary org iframe selector failed — trying fallback<br>[18:03:01] <span class="lvl lvl-debug">DEBUG</span> Primary org iframe selector failed — trying fallback<br>[18:03:01] <span class="lvl lvl-info">INFO</span> Visual titles (ORG): []<br>[18:03:01] <span class="lvl lvl-info">INFO</span> Slicer &#x27;State&#x27; reset attempt complete (no clear action taken)<br>[18:03:01] <span class="lvl lvl-info">INFO</span> Reset slicer: State<br>[18:03:01] <span class="lvl lvl-info">INFO</span> Resetting slicer &#x27;Ship Mode&#x27; to All<br>[18:03:06] <span class="lvl lvl-debug">DEBUG</span> Primary org iframe selector failed — trying fallback<br>[18:03:11] <span class="lvl lvl-debug">DEBUG</span> Primary org iframe selector failed — trying fallback<br>[18:03:11] <span class="lvl lvl-info">INFO</span> Visual titles (ORG): []<br>[18:03:11] <span class="lvl lvl-info">INFO</span> Slicer &#x27;Ship Mode&#x27; reset attempt complete (no clear action taken)<br>[18:03:11] <span class="lvl lvl-info">INFO</span> Reset slicer: Ship Mode<br>[18:03:11] <span class="lvl lvl-info">INFO</span> Resetting slicer &#x27;Sub-Category&#x27; to All<br>[18:03:16] <span class="lvl lvl-debug">DEBUG</span> Primary org iframe selector failed — trying fallback<br>[18:03:21] <span class="lvl lvl-debug">DEBUG</span> Primary org iframe selector failed — trying fallback<br>[18:03:21] <span class="lvl lvl-info">INFO</span> Visual titles (ORG): []<br>[18:03:21] <span class="lvl lvl-info">INFO</span> Slicer &#x27;Sub-Category&#x27; reset attempt complete (no clear action taken)<br>[18:03:21] <span class="lvl lvl-info">INFO</span> Reset slicer: Sub-Category</div>
+        <div class="step-lines">[20:20:21] <span class="lvl lvl-info">INFO</span> Reset slicer: Ship Mode</div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc" open>
+    <summary>
+      <span class="pill fail">Failed</span>
+      <span class="tc-id">TC-BIZ-005</span>
+      <span class="tc-name">Texas Phones Sales Validation — Demo Dashboard</span>
+      <span class="tc-dur">05:51</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Navigate to Summary page and confirm dashboard is loaded</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 2</span>
+          <span class="s-title">Clear all default slicers to start from a clean state</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 3</span>
+          <span class="s-title">Apply Slicer: State = Texas</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 4</span>
+          <span class="s-title">Apply Slicer: Sub-Category = Phones</span>
+          <span class="s-time"></span>
+        </div>
+        
+        
+      </div>
+      <div class="step bad">
+        <div class="step-head">
+          <div class="s-dot bad">✕</div>
+          <span class="s-label">Step 5</span>
+          <span class="s-title">Apply Slicer: Ship Mode = Rocket</span>
+          <span class="s-time">20:26:00</span>
+        </div>
+        <div class="step-lines">[20:26:00] <span class="lvl lvl-fail">FAIL</span> TC-BIZ-005 FAILED — Functional check: slicer could not be applied. This is a UI interaction issue, not a data mismatch. Detail: Could not apply slicer &#x27;Ship Mode&#x27; with value &#x27;Rocket&#x27;: Could not set slicer &#x27;Ship Mode&#x27; to &#x27;Rocket&#x27;. Slicer DOM info: [{&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Order Date&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: False}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;State&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;City&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Ship Mode&#x27;, &#x27;isTarget&#x27;: True, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Customer Segment&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Category&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Sub-Category&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}]. Check that the slicer title and item value match the dashboard exactly.</div>
+        
+      </div>
+      <div class="step bad">
+        <div class="step-head">
+          <div class="s-dot bad">✕</div>
+          <span class="s-label">Step 6</span>
+          <span class="s-title">Teardown — reset applied slicers to restore default state</span>
+          <span class="s-time">20:26:06</span>
+        </div>
+        <div class="step-lines">[20:26:06] <span class="lvl lvl-info">INFO</span> Reset slicer: State<br>[20:26:12] <span class="lvl lvl-info">INFO</span> Reset slicer: Sub-Category<br>[20:26:12] <span class="lvl lvl-fail">FAIL</span> TC-BIZ-005 FAILED — Functional check: slicer could not be applied. This is a UI interaction issue, not a data mismatch. Detail: Could not apply slicer &#x27;Ship Mode&#x27; with value &#x27;Rocket&#x27;: Could not set slicer &#x27;Ship Mode&#x27; to &#x27;Rocket&#x27;. Slicer DOM info: [{&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Order Date&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: False}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;State&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;City&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Ship Mode&#x27;, &#x27;isTarget&#x27;: True, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Customer Segment&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Category&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}, {&#x27;role&#x27;: &#x27;Slicer&#x27;, &#x27;firstLine&#x27;: &#x27;Sub-Category&#x27;, &#x27;isTarget&#x27;: False, &#x27;slicerItems&#x27;: 0, &#x27;listOptions&#x27;: 0, &#x27;hasDropdownBtn&#x27;: True}]. Check that the slicer title and item value match the dashboard exactly.</div>
         
       </div></div>
   </details>

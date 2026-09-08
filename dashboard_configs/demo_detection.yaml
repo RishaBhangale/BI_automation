@@ -20,9 +20,9 @@ dashboard:
     - "Self - Service"
 
 source_db:
-  driver:   "mssql+pymssql"
-  host:     "aibidevsqlsvr.database.windows.net"
-  port:     "1433"
+  driver: "mssql+pymssql"
+  host: "aibidevsqlsvr.database.windows.net"
+  port: "1433"
   database: "devaibisqldb"
   username: "${DB_USER}"
   password: "${DB_PASSWORD}"
