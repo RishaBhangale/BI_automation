@@ -18,7 +18,10 @@ import re
 import tempfile
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -207,20 +210,49 @@ def run_to_html(run: dict) -> str:
                 name=r.get("name", "-"),
                 outcome=outcome,
                 duration=_parse_duration_to_secs(dur_str),
+                error_text=r.get("error_text", ""),
+                screenshot_b64=r.get("screenshot_b64", ""),
                 steps=r.get("steps") or [],
+                group=r.get("group", "GROUP — OTHER"),
             ))
 
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
             tmp_path = tmp.name
 
+        config_file = str(run.get("config") or "")
+        from utils.config_loader import resolve_dashboard_info
+        dash_name, pbi_url, environment = resolve_dashboard_info(config_file, PROJECT_ROOT)
+
+        # Fallback if pbi_url not found
+        if not pbi_url:
+            pbi_url = run.get("url") or run.get("dashboard_url") or "https://app.powerbi.com/groups/me/reports/2057f32d-34f2-4ad0-91bb-5d66ea1675e7/0ffb75878226303bc6af?ctid=b5af2451-e21b-4aa2-b4b5-dc5907908dd8&experience=power-bi"
+
+        test_data_source = Path(config_file).name if config_file else "demo_detection.yaml"
+
+        # Format run timestamp for executed date
+        started_at = str(run.get("startedAt") or "")
+        exec_date = None
+        date_str = None
+        if started_at:
+            try:
+                dt_obj = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                exec_date = dt_obj.strftime("%d-%b-%Y")
+                date_str = dt_obj.strftime("%d-%b-%Y at %H:%M:%S")
+            except Exception:
+                pass
+
         generate_report(
             results=results,
             output_path=tmp_path,
             project=f"Automated BI Testing — {run.get('runId', '')}",
-            environment="Validation Run",
+            environment=environment,
             suite="Dashboard Regression & KPI Validation",
-            base_url=run.get("config", ""),
-            test_data_source=run.get("config", ""),
+            base_url=pbi_url,
+            browser="Chromium (Non-Headless)",
+            viewport="1600 × 900",
+            test_data_source=test_data_source,
+            exec_date=exec_date,
+            date_str=date_str,
         )
         html_out = open(tmp_path, encoding="utf-8").read()
         os.unlink(tmp_path)

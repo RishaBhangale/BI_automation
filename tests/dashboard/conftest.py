@@ -443,15 +443,18 @@ def pytest_sessionfinish(session, exitstatus):
     latest_path = Path(REPORT_DIR) / "dashboard_validation_latest.html"
 
     try:
+        from utils.config_loader import detect_report_environment
+        env_desc = detect_report_environment(dash_url, _current_dashboard_config)
+
         generate_report(
             results          = DASHBOARD_RESULTS,
             output_path      = str(output_path),
             project          = f"Dashboard Validation — {dash_name}",
-            environment      = "Published Dashboard",
+            environment      = env_desc,
             release          = "Validation Run",
             suite            = "Dashboard KPI & Table Validation",
             base_url         = dash_url,
-            browser          = "Chrome (Headed)" if session.config.getoption("headed") else "Google Chrome",
+            browser          = "Chromium (Non-Headless)",
             viewport         = f"{BROWSER_WIDTH} × {BROWSER_HEIGHT}",
             executed_by      = "qe.automation",
             test_data_source = config_file,

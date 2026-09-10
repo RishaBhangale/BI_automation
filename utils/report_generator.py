@@ -49,11 +49,15 @@ def generate_report(
     viewport: str = "1280 × 720",
     executed_by: str = "qe.automation",
     test_data_source: str = "login_testdata.xlsx",
+    exec_date: Optional[str] = None,
+    date_str: Optional[str] = None,
 ) -> None:
 
-    now        = datetime.now()
-    date_str   = now.strftime("%d-%b-%Y at %H:%M:%S")
-    exec_date  = now.strftime("%d-%b-%Y")
+    now = datetime.now()
+    if not date_str:
+        date_str = now.strftime("%d-%b-%Y at %H:%M:%S")
+    if not exec_date:
+        exec_date = now.strftime("%d-%b-%Y")
 
     total   = len(results)
     passed  = sum(1 for r in results if r.outcome == "passed")
@@ -215,7 +219,7 @@ def generate_report(
 
     # ── Render one step block ───────────────────────────────────────────────────
     def render_step(step: Dict, shot_html: str = "") -> str:
-        is_bad   = step.get("failed", False)
+        is_bad   = step.get("failed", False) or bool(shot_html)
         dot_cls  = "bad" if is_bad else "ok"
         dot_icon = "✕" if is_bad else "✓"
         step_cls = "bad" if is_bad else "ok"
@@ -277,8 +281,10 @@ def generate_report(
 
         if r.steps:
             steps_html = ""
+            failed_indices = [idx for idx, s in enumerate(r.steps) if s.get("failed")]
+            target_idx = failed_indices[-1] if failed_indices else (len(r.steps) - 1 if r.outcome == "failed" else -1)
             for i, step in enumerate(r.steps):
-                attach_shot = shot_html if (step.get("failed") and i == len(r.steps) - 1) else ""
+                attach_shot = shot_html if i == target_idx else ""
                 steps_html += render_step(step, attach_shot)
         else:
             # fallback if no structured steps were captured

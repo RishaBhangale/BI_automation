@@ -168,3 +168,72 @@ def get_excel_source(config: dict) -> tuple[str, str]:
     """
     src = config.get("source_excel") or {}
     return src.get("filepath", ""), src.get("sheet_name", "")
+
+
+def detect_report_environment(url: str, config: dict | None = None) -> str:
+    """
+    Determine whether the Power BI report is a Published Report or Organization Report,
+    or another kind of report environment.
+
+    Checks explicit YAML config first (e.g. dashboard.environment / config.environment),
+    then inspects the URL structure.
+    """
+    if config and isinstance(config, dict):
+        dash = config.get("dashboard", {}) if isinstance(config.get("dashboard"), dict) else {}
+        explicit_env = dash.get("environment") or config.get("environment") or dash.get("report_type")
+        if explicit_env and str(explicit_env).strip():
+            return str(explicit_env).strip()
+
+    clean_url = (url or "").strip().lower()
+    if not clean_url:
+        return "Published Report"
+    if "app.powerbi.com/view" in clean_url and "?r=" in clean_url:
+        return "Published Report"
+    elif "app.powerbi.com/groups" in clean_url or "app.powerbi.com" in clean_url:
+        return "Organization Report"
+    elif "reportserver" in clean_url or "reports/" in clean_url:
+        return "Power BI Report Server"
+    return "Published Report"
+
+
+def resolve_dashboard_info(config_file: str, project_root: Path | None = None) -> tuple[str, str, str]:
+    """
+    Given a YAML config filename or path, loads the config and returns:
+        (dashboard_name, pbi_url, environment)
+
+    Falls back gracefully if the file cannot be found.
+    """
+    dash_name = "Demo Dashboard"
+    pbi_url = ""
+    environment = "Published Report"
+
+    if not config_file:
+        return dash_name, pbi_url, environment
+
+    try:
+        cfg_path = Path(config_file)
+        if not cfg_path.is_absolute() and project_root:
+            cand1 = project_root / cfg_path
+            cand2 = project_root / "dashboard_configs" / cfg_path.name
+            if cand1.exists():
+                cfg_path = cand1
+            elif cand2.exists():
+                cfg_path = cand2
+            elif (Path("dashboard_configs") / cfg_path.name).exists():
+                cfg_path = Path("dashboard_configs") / cfg_path.name
+        elif not cfg_path.is_absolute():
+            cand = Path("dashboard_configs") / cfg_path.name
+            if cand.exists():
+                cfg_path = cand
+
+        if cfg_path.exists():
+            cfg = load_dashboard_config(str(cfg_path))
+            dash = cfg.get("dashboard", {}) if isinstance(cfg.get("dashboard"), dict) else {}
+            dash_name = dash.get("name", dash_name)
+            pbi_url = dash.get("url", "")
+            environment = detect_report_environment(pbi_url, cfg)
+    except Exception:
+        pass
+
+    return dash_name, pbi_url, environment
+
