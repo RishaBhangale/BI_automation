@@ -26,3 +26,7 @@ source_db:
   database: "devaibisqldb"
   username: "${DB_USER}"
   password: "${DB_PASSWORD}"
+
+pbi_api:
+  dataset_id: "${PBI_DATASET_ID}"
+

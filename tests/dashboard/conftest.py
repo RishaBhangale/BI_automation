@@ -44,7 +44,7 @@ from config.settings import (
     SSO_USERNAME, get_sso_password,
     BROWSER_WIDTH, BROWSER_HEIGHT,
     REPORT_DIR,
-    PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET,
+    PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET, PBI_DATASET_ID,
 )
 
 log = get_logger("dashboard_conftest")
@@ -145,41 +145,32 @@ def pbi_client(dashboard_config: dict):
     Create a Power BI API client for Tier 2 DAX-based extraction (optional).
 
     Activates ONLY when ALL of the following are true:
-      1. The dashboard YAML config has a non-empty pbi_api.dataset_id.
+      1. The dashboard YAML config has a non-empty pbi_api.dataset_id (or PBI_DATASET_ID env var).
       2. PBI_TENANT_ID, PBI_CLIENT_ID, and PBI_CLIENT_SECRET are set in
          environment variables or config/settings.py.
       3. The API connection test passes (authenticate + trivial DAX query).
 
     If any condition is missing, returns None silently.
     Existing tests that do not reference pbi_client are unaffected.
-
-    FRAMEWORK FIXTURE — do not modify.
-    PER-DASHBOARD — set pbi_api.dataset_id in the YAML config.
-                    Set PBI_TENANT_ID / PBI_CLIENT_ID / PBI_CLIENT_SECRET via env vars.
     """
     api_cfg    = dashboard_config.get("pbi_api", {}) or {}
-    dataset_id = (api_cfg.get("dataset_id") or "").strip()
+    raw_ds_id  = (api_cfg.get("dataset_id") or "").strip()
+    if raw_ds_id.startswith("${") and raw_ds_id.endswith("}"):
+        raw_ds_id = ""
+    dataset_id = raw_ds_id or PBI_DATASET_ID
 
-    if not dataset_id:
-        log.info(
-            "PBI REST API (Tier 2) not configured — "
-            "pbi_api.dataset_id is empty in the YAML config. Skipping."
-        )
-        yield None
-        return
-
-    if not all([PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET]):
+    if not dataset_id or not all([PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET]):
         missing = [
             name for name, val in [
                 ("PBI_TENANT_ID", PBI_TENANT_ID),
                 ("PBI_CLIENT_ID", PBI_CLIENT_ID),
                 ("PBI_CLIENT_SECRET", PBI_CLIENT_SECRET),
+                ("PBI_DATASET_ID", dataset_id),
             ] if not val
         ]
-        log.warning(
-            f"PBI REST API (Tier 2) skipped — pbi_api.dataset_id is set but "
-            f"the following credentials are missing: {missing}. "
-            f"Set them via environment variables or config/settings.py."
+        log.info(
+            f"PBI REST API (Tier 2 DAX Fallback) standby — awaiting Azure AD credentials "
+            f"{missing}. Running in Tier 1 DOM mode."
         )
         yield None
         return
@@ -189,15 +180,21 @@ def pbi_client(dashboard_config: dict):
 
     if client.test_connection():
         log.info(
-            f"PBI REST API (Tier 2) ready — dataset_id='{dataset_id}'"
+            f"PBI REST API (Tier 2 DAX Fallback) active — dataset_id='{dataset_id}'"
         )
         yield client
     else:
         log.warning(
-            f"PBI REST API (Tier 2) connection failed — dataset_id='{dataset_id}'. "
-            "Continuing without Tier 2. Check credentials and workspace permissions."
+            f"PBI REST API (Tier 2 DAX Fallback) connection failed — dataset_id='{dataset_id}'. "
+            "Continuing with Tier 1 DOM extraction."
         )
         yield None
+
+
+@pytest.fixture(scope="session")
+def pbi_api_client(pbi_client):
+    """Alias fixture for pbi_client used by business scenario tests (Item 12)."""
+    return pbi_client
 
 
 

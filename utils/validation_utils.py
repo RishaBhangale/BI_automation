@@ -184,22 +184,42 @@ def compare_datasets(
     Returns:
         Tuple of (passed: bool, detail: str).
     """
-    if not dashboard_data:
+    # Strip any metadata sentinel dicts or Power BI 'Total' summary footer rows
+    clean_rows = [
+        r for r in dashboard_data
+        if isinstance(r, dict)
+        and "__meta__" not in r
+        and str(next(iter(r.values()), "")).strip().lower() != "total"
+    ]
+    if not clean_rows:
         return False, "Dashboard returned no rows — visual may have rendered empty"
 
     # Step 1: Build DataFrame from dashboard scraped data
-    dash_df = pd.DataFrame(dashboard_data)
+    dash_df = pd.DataFrame(clean_rows)
 
     # Step 2: Normalize column names to lowercase
-    dash_df.columns  = [c.strip().lower() for c in dash_df.columns]
-    source_df        = source_df.copy()
+    dash_df.columns   = [c.strip().lower() for c in dash_df.columns]
+    source_df         = source_df.copy()
     source_df.columns = [c.strip().lower() for c in source_df.columns]
 
-    lower_keys = [k.lower() for k in join_keys]
-    lower_cols = [c.lower() for c in compare_cols]
+    lower_keys = [k.strip().lower() for k in join_keys]
+    lower_cols = [c.strip().lower() for c in compare_cols]
 
-    # Check all required columns exist
+    def _resolve_col(df: pd.DataFrame, target: str) -> None:
+        """If target column is missing, try matching underscore/space variants or PBI 'sum of' prefix."""
+        if target in df.columns:
+            return
+        target_norm = target.replace("_", " ").replace("sum of ", "").replace("total ", "").strip()
+        for existing in list(df.columns):
+            ex_norm = existing.replace("_", " ").replace("sum of ", "").replace("total ", "").strip()
+            if ex_norm == target_norm or existing.replace(" ", "_") == target.replace(" ", "_"):
+                df.rename(columns={existing: target}, inplace=True)
+                return
+
+    # Check and align all required columns
     for col in lower_keys + lower_cols:
+        _resolve_col(dash_df, col)
+        _resolve_col(source_df, col)
         if col not in dash_df.columns:
             available = list(dash_df.columns)
             return False, f"Column '{col}' not found in dashboard data. Available: {available}"

@@ -1748,25 +1748,143 @@ class PBIDashboardPage(BasePage):
         partial = result.get("partial", False)
         rows    = result.get("rows", [])
 
-        if partial:
+        # De-duplicate and accumulate rows across scroll passes when virtualised
+        collected_rows: list[dict] = []
+        seen_keys: set[str] = set()
+
+        def _ingest_rows(batch: list[dict]) -> int:
+            added = 0
+            for r in batch:
+                if not r or "__meta__" in r:
+                    continue
+                # Skip Power BI 'Total' footer row if present
+                first_val = str(next(iter(r.values()), "")).strip().lower()
+                if first_val == "total":
+                    continue
+                row_key = "|".join(f"{k}:{v}" for k, v in sorted(r.items()))
+                if row_key not in seen_keys:
+                    seen_keys.add(row_key)
+                    collected_rows.append(r)
+                    added += 1
+            return added
+
+        _ingest_rows(rows)
+
+        # ── Item 11 Enhancement: Scroll through virtualised PBI Table/Matrix ──
+        if partial or total == 0:
+            MAX_SCROLL_PASSES = 30
+            stagnant_passes = 0
+            for scroll_pass in range(1, MAX_SCROLL_PASSES + 1):
+                if total > 0 and len(collected_rows) >= total:
+                    break
+                scrolled_info = self.page.evaluate(f"""
+                    () => {{
+                        const innerDivs = document.querySelectorAll('[aria-roledescription]');
+                        let targetVc = null;
+                        for (const div of innerDivs) {{
+                            const vc = div.closest('visual-container');
+                            if (!vc) continue;
+                            const firstLine = (vc.innerText || '').trim().split('\\n')[0].trim();
+                            if (firstLine === '{safe_title}') {{
+                                targetVc = vc;
+                                break;
+                            }}
+                        }}
+                        if (!targetVc) return {{ scrolled: false, rows: [] }};
+                        const grid = targetVc.querySelector('[role="grid"], [role="treegrid"]');
+                        if (!grid) return {{ scrolled: false, rows: [] }};
+
+                        // Find the scrollable viewport inside the PBI grid
+                        const candidates = [
+                            ...grid.querySelectorAll('[class*="scroll"], [class*="viewport"], [class*="bodyCells"], div')
+                        ];
+                        let scroller = candidates.find(el => el.scrollHeight > el.clientHeight + 4);
+                        let didScroll = false;
+                        if (scroller) {{
+                            const prevTop = scroller.scrollTop;
+                            scroller.scrollTop += Math.max(120, Math.floor(scroller.clientHeight * 0.8));
+                            didScroll = scroller.scrollTop > prevTop;
+                        }}
+                        if (!didScroll) {{
+                            // Fallback: dispatch WheelEvent on the grid body
+                            const rect = grid.getBoundingClientRect();
+                            grid.dispatchEvent(new WheelEvent('wheel', {{
+                                deltaY: 240,
+                                clientX: rect.left + rect.width / 2,
+                                clientY: rect.top + rect.height / 2,
+                                bubbles: true
+                            }}));
+                        }}
+
+                        const headers = [];
+                        const headerCells = grid.querySelectorAll(
+                            '[role="columnheader"], [role="rowheader"]:first-child'
+                        );
+                        for (const cell of headerCells) {{
+                            const txt = (cell.innerText || '').trim().replace(/\\n/g, ' ');
+                            if (txt) headers.push(txt);
+                        }}
+
+                        const nextRows = [];
+                        const dataRows = grid.querySelectorAll('[role="row"]:not([aria-hidden="true"])');
+                        for (const row of dataRows) {{
+                            const cells = row.querySelectorAll('[role="gridcell"], [role="rowheader"]');
+                            if (cells.length === 0) continue;
+                            const rowData = {{}};
+                            cells.forEach((cell, i) => {{
+                                const key = headers[i] || `col_${{i}}`;
+                                rowData[key] = (cell.innerText || '').trim().replace(/\\n/g, ' ');
+                            }});
+                            if (Object.values(rowData).every(v => v === '')) continue;
+                            nextRows.push(rowData);
+                        }}
+                        return {{ scrolled: didScroll, rows: nextRows }};
+                    }}
+                """)
+                self.page.wait_for_timeout(250)
+                batch_rows = (scrolled_info or {}).get("rows", [])
+                newly_added = _ingest_rows(batch_rows)
+                if newly_added == 0:
+                    stagnant_passes += 1
+                    if stagnant_passes >= 2:
+                        break
+                else:
+                    stagnant_passes = 0
+
+            # Reset scroll position back to top after full extraction
+            try:
+                self.page.evaluate(f"""
+                    () => {{
+                        const innerDivs = document.querySelectorAll('[aria-roledescription]');
+                        for (const div of innerDivs) {{
+                            const vc = div.closest('visual-container');
+                            if (!vc) continue;
+                            const firstLine = (vc.innerText || '').trim().split('\\n')[0].trim();
+                            if (firstLine === '{safe_title}') {{
+                                vc.querySelectorAll('div').forEach(el => {{
+                                    if (el.scrollTop > 0) el.scrollTop = 0;
+                                }});
+                                break;
+                            }}
+                        }}
+                    }}
+                """)
+            except Exception:
+                pass
+
+        still_partial = total > 0 and len(collected_rows) < total
+        if still_partial:
             log.warning(
-                f"[dom-table] '{visual_title}' — virtualised table: "
-                f"{visible} of {total} rows in DOM. "
-                f"Only visible rows extracted. "
-                f"For full data use SQL direct comparison."
+                f"[dom-table] '{visual_title}' — virtualised table after scrolling: "
+                f"extracted {len(collected_rows)} of {total} rows in DOM."
             )
         else:
             log.info(
-                f"[dom-table] '{visual_title}' — extracted {visible} rows "
-                f"(total per aria-rowcount: {total})"
+                f"[dom-table] '{visual_title}' — extracted {len(collected_rows)} rows "
+                f"(initial visible: {visible}, total per aria-rowcount: {total})"
             )
 
-        # Prepend a metadata sentinel row so callers know it's partial
-        if partial and rows:
-            meta = {"__meta__": f"PARTIAL: {visible}/{total} rows visible in DOM"}
-            rows = [meta] + rows
-
-        return rows
+        return collected_rows
 
     def extract_table_data(
         self,
@@ -1781,13 +1899,14 @@ class PBIDashboardPage(BasePage):
           Strategy A — Aria-label scraping (headless-safe, no clicks):
             Reads Power BI's accessibility aria-labels directly from SVG data points.
             Returns {category, measure, value} dicts.
-          Strategy A2 — DOM grid/table row scraping (headless-safe, no clicks):
+          Strategy A2 — DOM grid/table row scraping with automatic virtual-scroll loop:
             Reads PBI Table/Matrix visuals directly from the DOM using role='grid'.
           Strategy B — "Show as a table" UI flow (requires headed or accessible chart):
             Right-clicks / hovers to open context menu → Show as a table.
 
         For Org mode:
-          Only Strategy B (right-click context menu) is used.
+          Strategy A2 (DOM grid scraping with scrolling) is tried first for Table/Matrix
+          visuals, falling back to Strategy B (right-click context menu).
 
         Args:
             visual_title: Exact title of the chart or table visual.  Pass an
@@ -1820,25 +1939,24 @@ class PBIDashboardPage(BasePage):
                 else:
                     log.debug(
                         f"[aria] No aria-label data points found in '{label}' "
-                        f"— falling through to Show-as-table UI flow"
+                        f"— falling through to DOM grid / Show-as-table UI flow"
                     )
             except Exception as e:
-                log.debug(f"[aria] Extraction failed for '{label}': {e} — trying UI flow")
+                log.debug(f"[aria] Extraction failed for '{label}': {e} — trying DOM grid")
 
-        # ── Strategy A2 (PTW only): DOM grid/table row scraping ──────────────────
-        # For Table and Matrix visuals in PTW — PBI renders data as div[role='grid']
-        # with div[role='gridcell'] children. No clicks or context menus needed.
-        # Note: virtualised scrolling means only visible rows (~20-40) are in DOM.
-        if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB and visual_title:
+        # ── Strategy A2 (PTW + Org): DOM grid/table row scraping with scrolling ───
+        # For Table and Matrix visuals — PBI renders data as div[role='grid']
+        # with div[role='gridcell'] children and virtualised scrolling.
+        if visual_title:
             try:
                 dom_rows = self._extract_table_visual_ptw_dom(visual_title)
                 if dom_rows:
                     data_rows = [r for r in dom_rows if "__meta__" not in r]
                     log.info(
-                        f"[dom-table] Extracted {len(data_rows)} visible rows from "
-                        f"'{label}' via DOM grid scraping"
+                        f"[dom-table] Extracted {len(data_rows)} rows from "
+                        f"'{label}' via DOM grid scraping + scroll loop"
                     )
-                    return dom_rows  # includes meta row so report shows partial warning
+                    return data_rows
                 else:
                     log.debug(
                         f"[dom-table] No grid rows found in '{label}' "

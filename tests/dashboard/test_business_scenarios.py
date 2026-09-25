@@ -21,9 +21,18 @@ import os
 import pandas as pd
 import pytest
 
-from utils.db_utils import fetch_scalar
-from utils.validation_utils import compare_single_value
-from utils.sql_template_engine import build_query
+from utils.db_utils import fetch_scalar, fetch_db_data
+from utils.validation_utils import (
+    compare_single_value,
+    compare_datasets,
+    parse_pbi_number,
+)
+from utils.sql_template_engine import (
+    build_query,
+    build_table_query,
+    build_dax_kpi_query,
+    build_dax_table_query,
+)
 
 log = logging.getLogger("dashboard_methods")
 
@@ -85,18 +94,21 @@ def _id_func(tc):
 
 @pytest.mark.dashboard
 @pytest.mark.parametrize("tc", test_cases, ids=_id_func)
-def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
+def test_business_scenario(dashboard_page, db_engine, dashboard_config, pbi_api_client, tc):
     """
-    Data-Driven Business Scenario Test.
+    Data-Driven Business Scenario Test (KPI Scalar + Multi-Row Table Validation + Tier 2 DAX Fallback).
 
-    Each row in business_scenarios.xlsx becomes one test case.  The test:
-      1. Navigates to the Summary page.
-      2. Optionally resets + applies Slicer 1.
-      3. Optionally resets + applies Slicer 2.
-      4. Reads the target KPI card value from the dashboard.
-      5. Fetches the expected value from the source database via the SQL file.
-      6. Compares dashboard vs database (within tolerance).
-      7. Resets all applied slicers in teardown (always runs, even on failure).
+    Each row in business_scenarios.xlsx becomes one test case. The test:
+      1. Navigates to the Summary page and clears default slicers.
+      2. Applies Slicer 1..6 filters.
+      3. Branches by 'Visual Type':
+         • 'KPI' (default): Reads scalar KPI card via DOM (Tier 1) with automatic
+           DAX REST API fallback (Tier 2 — Item 12) if DOM scraping fails/obfuscated,
+           then compares against SQL scalar result.
+         • 'TABLE' (Item 11): Extracts full table/matrix rows via DOM grid virtual-scrolling
+           (Tier 1) or PBI REST API DAX SUMMARIZECOLUMNS (Tier 2), then compares
+           row-by-row against the source database DataFrame using compare_datasets().
+      4. Resets all applied slicers in teardown (always runs, even on failure).
     """
     test_id       = _clean(tc.get("Test ID")) or "UNKNOWN"
     scenario_name = _clean(tc.get("Scenario Name")) or "Unnamed"
@@ -107,10 +119,15 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
         if s_name and s_value:
             slicers.append((s_name, s_value))
 
-    kpi_to_read   = _clean(tc.get("KPI to Read"))
-    sql_file      = _clean(tc.get("SQL File Name"))
+    kpi_to_read       = _clean(tc.get("KPI to Read"))
+    sql_file          = _clean(tc.get("SQL File Name"))
+    visual_type       = (_clean(tc.get("Visual Type")) or "KPI").upper()
+    table_visual_name = _clean(tc.get("Table Visual Name")) or kpi_to_read
+    join_keys_raw     = _clean(tc.get("Join Keys")) or ""
+    compare_cols_raw  = _clean(tc.get("Compare Columns")) or ""
+    custom_dax        = _clean(tc.get("DAX Query"))
 
-    log.info(f"--- Starting {test_id}: {scenario_name} ---")
+    log.info(f"--- Starting {test_id}: {scenario_name} [Visual Type: {visual_type}] ---")
 
     # ── Step 1 ─────────────────────────────────────────────────────────────────
     log.info("STEP1_START|Navigate to Summary page and confirm dashboard is loaded")
@@ -145,64 +162,204 @@ def test_business_scenario(dashboard_page, db_engine, dashboard_config, tc):
             applied_slicers.append(s_name)
             log.info(f"STEP2.{idx}_END")
 
-        # ── Step 4 ─────────────────────────────────────────────────────────────
-        log.info(f"STEP4_START|Read KPI card: {kpi_to_read}")
-        dashboard_raw = dashboard_page.extract_card_value(kpi_to_read)
-        log.info(f"Dashboard KPI value: '{dashboard_raw}'")
-        log.info("STEP4_END")
+        # ═══════════════════════════════════════════════════════════════════════
+        # BRANCH A — ITEM 11: MULTI-ROW TABLE / MATRIX VISUAL VALIDATION
+        # ═══════════════════════════════════════════════════════════════════════
+        if visual_type in ("TABLE", "MATRIX"):
+            if not table_visual_name:
+                pytest.fail(f"{test_id}: 'Table Visual Name' (or 'KPI to Read') is required when Visual Type is TABLE")
 
-        # ── Step 5 ─────────────────────────────────────────────────────────────
-        log.info("STEP5_START|Fetch expected value from source database")
+            join_keys    = [k.strip() for k in join_keys_raw.split(",") if k.strip()]
+            compare_cols = [c.strip() for c in compare_cols_raw.split(",") if c.strip()]
 
-        if db_engine is None:
-            log.info("No DB engine available — skipping DB comparison (STEP5)")
+            # ── Step 4 (TABLE): Extract rows via Tier 2 DAX (if active) or Tier 1 DOM Scroll ──
+            log.info(f"STEP4_START|Extract table rows from visual: {table_visual_name}")
+            dashboard_data: list[dict] = []
+
+            if pbi_api_client is not None:
+                # Tier 2 DAX extraction is faster and captures 100% of rows without virtual scroll limits
+                try:
+                    dax_q = custom_dax or build_dax_table_query(
+                        table_visual_name, slicers, join_keys, compare_cols
+                    )
+                    log.info(f"[Tier 2 DAX] Querying semantic model directly for table '{table_visual_name}'")
+                    dax_df = pbi_api_client.execute_dax(dax_q)
+                    if not dax_df.empty:
+                        dashboard_data = dax_df.to_dict("records")
+                        log.info(f"[Tier 2 DAX] Retrieved {len(dashboard_data)} rows from semantic model")
+                except Exception as dax_exc:
+                    log.warning(f"[Tier 2 DAX] Table query failed ({dax_exc}) — falling back to Tier 1 DOM scroll")
+
+            if not dashboard_data:
+                # Tier 1 DOM extraction with virtualized scroll loop
+                try:
+                    dashboard_data = dashboard_page.extract_table_data(table_visual_name)
+                    log.info(f"[Tier 1 DOM + Scroll] Extracted {len(dashboard_data)} rows from '{table_visual_name}'")
+                except Exception as dom_exc:
+                    log.warning(f"[Tier 1 DOM] Table extraction failed for '{table_visual_name}': {dom_exc}")
+                    if pbi_api_client is None:
+                        fallback_dax = custom_dax or build_dax_table_query(
+                            table_visual_name, slicers, join_keys, compare_cols
+                        )
+                        log.info(
+                            f"[Tier 2 Fallback Standby] Prepared DAX query (awaiting PBI_CLIENT_SECRET): {fallback_dax}"
+                        )
+                    raise
+
+            log.info("STEP4_END")
+
+            # ── Step 5 (TABLE): Fetch expected dataset from source DB ──────────
+            log.info("STEP5_START|Fetch expected table dataset from source database")
+            if db_engine is None:
+                log.info("No DB engine available — skipping DB comparison (STEP5)")
+                log.info("STEP5_END")
+                pytest.skip(
+                    "No source database configured or reachable. "
+                    "Ensure DB credentials are set and VPN is active."
+                )
+
+            if sql_file:
+                sql_path = os.path.join(SQL_DIR, sql_file)
+                if not os.path.exists(sql_path):
+                    pytest.fail(f"{test_id}: SQL file not found — {sql_path}")
+                with open(sql_path, "r") as fh:
+                    sql_query = fh.read().strip()
+                log.info(f"Using SQL file: {sql_file}")
+            else:
+                try:
+                    sql_query = build_table_query(
+                        table_visual_name, slicers, join_keys, compare_cols
+                    )
+                except ValueError as ve:
+                    pytest.fail(f"{test_id}: Table SQL auto-generation failed — {ve}")
+                log.info(f"Auto-generated Table SQL: {sql_query}")
+
+            source_df = fetch_db_data(db_engine, sql_query)
+            log.info(f"Database returned {len(source_df)} rows, columns={list(source_df.columns)}")
+
+            # If join_keys / compare_cols were omitted in Excel (using TABLE_COLUMN_MAP),
+            # infer them automatically from source_df columns (first col = join key, rest = metrics)
+            if not join_keys and len(source_df.columns) >= 1:
+                join_keys = [str(source_df.columns[0])]
+            if not compare_cols and len(source_df.columns) >= 2:
+                compare_cols = [str(c) for c in source_df.columns[1:]]
+
             log.info("STEP5_END")
-            pytest.skip(
-                "No source database configured or reachable. "
-                "Ensure DB credentials are set and VPN is active."
+
+            # ── Step 6 (TABLE): Row-by-row dataset comparison ──────────────────
+            log.info("STEP6_START|Compare dashboard table rows against database result set")
+            passed, detail = compare_datasets(
+                dashboard_data = dashboard_data,
+                source_df      = source_df,
+                join_keys      = join_keys,
+                compare_cols   = compare_cols,
+                tolerance      = 0.01,
             )
+            status = "PASS" if passed else "FAIL"
+            log.info(f"[{status}] {detail}")
+            if not passed:
+                log.error(f"FAIL — {detail}")
 
-        # ── SQL resolution: file override OR auto-generate ─────────────────────
-        if sql_file:
-            # Legacy path — explicit .sql file takes priority (backward compat)
-            sql_path = os.path.join(SQL_DIR, sql_file)
-            if not os.path.exists(sql_path):
-                pytest.fail(f"{test_id}: SQL file not found — {sql_path}")
-            with open(sql_path, "r") as fh:
-                sql_query = fh.read().strip()
-            log.info(f"Using SQL file: {sql_file}")
+            _test_passed  = passed
+            _fail_message = f"{test_id} FAILED: {detail}"
+            log.info("STEP6_END")
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # BRANCH B — SCALAR KPI VALIDATION + ITEM 12 TIER 2 DAX FALLBACK
+        # ═══════════════════════════════════════════════════════════════════════
         else:
-            # Auto-generate from KPI title + slicer state (no .sql file needed)
-            if not kpi_to_read:
-                pytest.fail(f"{test_id}: 'KPI to Read' is empty — cannot auto-generate SQL")
+            # ── Step 4 (KPI): Read KPI via Tier 1 DOM with Tier 2 DAX Fallback ──
+            log.info(f"STEP4_START|Read KPI card: {kpi_to_read}")
+            dashboard_raw = ""
+            dom_error: Exception | None = None
+
             try:
-                sql_query = build_query(kpi_to_read, slicers)
-            except ValueError as ve:
-                pytest.fail(f"{test_id}: SQL auto-generation failed — {ve}")
-            log.info(f"Auto-generated SQL: {sql_query}")
+                dashboard_raw = dashboard_page.extract_card_value(kpi_to_read)
+            except Exception as dom_exc:
+                dom_error = dom_exc
+                log.warning(
+                    f"[Tier 1 DOM] Could not scrape KPI '{kpi_to_read}' from DOM: {dom_exc}"
+                )
 
-        source_value = fetch_scalar(db_engine, sql_query)
-        log.info(f"Database result: {source_value}")
-        log.info("STEP5_END")
+            # Item 12: Trigger Tier 2 DAX Fallback if DOM returned empty or unparseable text
+            if parse_pbi_number(dashboard_raw) is None:
+                dax_query = custom_dax or build_dax_kpi_query(kpi_to_read or "", slicers)
+                if pbi_api_client is not None:
+                    log.warning(
+                        f"DOM scrape returned '{dashboard_raw}' for '{kpi_to_read}' "
+                        f"— triggering Tier 2 DAX fallback via Power BI REST API"
+                    )
+                    try:
+                        dax_df = pbi_api_client.execute_dax(dax_query)
+                        if not dax_df.empty:
+                            dashboard_raw = str(dax_df.iloc[0, 0])
+                            log.info(f"[Tier 2 DAX Fallback] Retrieved KPI value: '{dashboard_raw}'")
+                            dom_error = None
+                        else:
+                            log.warning("[Tier 2 DAX Fallback] Query returned 0 rows")
+                    except Exception as dax_exc:
+                        log.warning(f"[Tier 2 DAX Fallback] Execution failed: {dax_exc}")
+                else:
+                    log.info(
+                        f"[Tier 2 DAX Fallback Standby] DOM returned '{dashboard_raw}'. "
+                        f"Prepared fallback DAX query (awaiting Azure AD credentials): {dax_query}"
+                    )
+                    if dom_error is not None:
+                        raise dom_error
 
-        # ── Step 6 ─────────────────────────────────────────────────────────────
-        log.info("STEP6_START|Compare dashboard KPI value against database result")
-        passed, detail = compare_single_value(
-            dashboard_raw = dashboard_raw,
-            source_value  = source_value,
-            tolerance     = 0.01,
-            label         = f"{kpi_to_read} ({scenario_name})",
-        )
-        status = "PASS" if passed else "FAIL"
-        log.info(f"[{status}] {detail}")
-        if not passed:
-            log.error(f"FAIL — {detail}")
+            log.info(f"Dashboard KPI value: '{dashboard_raw}'")
+            log.info("STEP4_END")
 
-        # Store result — DO NOT assert here so that teardown (Step 7) is
-        # always green and never incorrectly shown as the point of failure.
-        _test_passed  = passed
-        _fail_message = f"{test_id} FAILED: {detail}"
-        log.info("STEP6_END")
+            # ── Step 5 (KPI): Fetch expected scalar from source database ───────
+            log.info("STEP5_START|Fetch expected value from source database")
+
+            if db_engine is None:
+                log.info("No DB engine available — skipping DB comparison (STEP5)")
+                log.info("STEP5_END")
+                pytest.skip(
+                    "No source database configured or reachable. "
+                    "Ensure DB credentials are set and VPN is active."
+                )
+
+            # ── SQL resolution: file override OR auto-generate ─────────────────
+            if sql_file:
+                sql_path = os.path.join(SQL_DIR, sql_file)
+                if not os.path.exists(sql_path):
+                    pytest.fail(f"{test_id}: SQL file not found — {sql_path}")
+                with open(sql_path, "r") as fh:
+                    sql_query = fh.read().strip()
+                log.info(f"Using SQL file: {sql_file}")
+            else:
+                if not kpi_to_read:
+                    pytest.fail(f"{test_id}: 'KPI to Read' is empty — cannot auto-generate SQL")
+                try:
+                    sql_query = build_query(kpi_to_read, slicers)
+                except ValueError as ve:
+                    pytest.fail(f"{test_id}: SQL auto-generation failed — {ve}")
+                log.info(f"Auto-generated SQL: {sql_query}")
+
+            source_value = fetch_scalar(db_engine, sql_query)
+            log.info(f"Database result: {source_value}")
+            log.info("STEP5_END")
+
+            # ── Step 6 (KPI): Compare scalar values ────────────────────────────
+            log.info("STEP6_START|Compare dashboard KPI value against database result")
+            passed, detail = compare_single_value(
+                dashboard_raw = dashboard_raw,
+                source_value  = source_value,
+                tolerance     = 0.01,
+                label         = f"{kpi_to_read} ({scenario_name})",
+            )
+            status = "PASS" if passed else "FAIL"
+            log.info(f"[{status}] {detail}")
+            if not passed:
+                log.error(f"FAIL — {detail}")
+
+            # Store result — DO NOT assert here so that teardown (Step 7) is
+            # always green and never incorrectly shown as the point of failure.
+            _test_passed  = passed
+            _fail_message = f"{test_id} FAILED: {detail}"
+            log.info("STEP6_END")
 
     except SlicerInteractionError as e:
         _test_passed = False

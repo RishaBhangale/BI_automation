@@ -122,6 +122,7 @@ def get_db_password() -> str:
 #
 # The Dataset ID is per-dashboard — set it in the YAML config under pbi_api.dataset_id.
 # These three values are global (shared across all dashboards run from this machine).
-PBI_TENANT_ID     = os.getenv("PBI_TENANT_ID", "")    # Azure AD Tenant ID (GUID)
-PBI_CLIENT_ID     = os.getenv("PBI_CLIENT_ID", "")    # App Registration Client ID (GUID)
-PBI_CLIENT_SECRET = os.getenv("PBI_CLIENT_SECRET", "") # App Registration Client Secret
+PBI_TENANT_ID     = os.getenv("PBI_TENANT_ID", "")     # Azure AD Tenant ID (GUID)
+PBI_CLIENT_ID     = os.getenv("PBI_CLIENT_ID", "")     # App Registration Client ID (GUID)
+PBI_CLIENT_SECRET = os.getenv("PBI_CLIENT_SECRET", "")  # App Registration Client Secret
+PBI_DATASET_ID    = os.getenv("PBI_DATASET_ID", "")     # Power BI Semantic Model / Dataset GUID
