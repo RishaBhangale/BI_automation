@@ -36,16 +36,14 @@ export const Route = createFileRoute("/history")({
 
 // ── Export dropdown ───────────────────────────────────────────────────────────
 
-function ExportButton({ runId, isNearBottom = false }: { runId: string; isNearBottom?: boolean }) {
+function ExportButton({ runId }: { runId: string }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -70,7 +68,7 @@ function ExportButton({ runId, isNearBottom = false }: { runId: string; isNearBo
   };
 
   return (
-    <div ref={ref} className={`relative inline-block text-right ${open ? "z-30" : "z-10"}`}>
+    <div ref={ref} className="relative inline-block text-left">
       <Button
         variant="ghost"
         size="sm"
@@ -82,26 +80,19 @@ function ExportButton({ runId, isNearBottom = false }: { runId: string; isNearBo
         {busy ? "Downloading…" : "Download"}
         <ChevronDown className="size-3 text-muted-foreground ml-0.5" />
       </Button>
-
       {open && (
-        <div
-          className={`absolute right-0 z-50 w-28 rounded-lg border border-border bg-card shadow-lg py-1 ${
-            isNearBottom ? "bottom-full mb-1.5" : "top-full mt-1"
-          }`}
-        >
+        <div className="absolute right-0 top-full z-30 mt-1 w-28 rounded-lg border border-border bg-card shadow-lg py-1">
           <button
-            type="button"
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors whitespace-nowrap cursor-pointer text-left"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-muted/60 transition-colors whitespace-nowrap"
             onClick={() => doExport("pdf")}
           >
-            <FileText className="size-3.5 text-muted-foreground shrink-0" /> PDF
+            <FileText className="size-3.5 text-muted-foreground" /> PDF
           </button>
           <button
-            type="button"
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors whitespace-nowrap cursor-pointer text-left"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-muted/60 transition-colors whitespace-nowrap"
             onClick={() => doExport("html")}
           >
-            <Globe className="size-3.5 text-muted-foreground shrink-0" /> HTML
+            <Globe className="size-3.5 text-muted-foreground" /> HTML
           </button>
         </div>
       )}
@@ -316,7 +307,7 @@ function ValidationHistory() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedRuns.map((run, index) => {
+                  paginatedRuns.map((run) => {
                     const rate = passRate(run);
                     const rateColour =
                       rate >= 80 ? "text-success font-semibold" :
@@ -324,7 +315,6 @@ function ValidationHistory() {
                       "text-destructive font-semibold";
                     const skippedCount =
                       run.skipped ?? (run.results?.filter((r) => r.status === "skipped").length ?? 0);
-                    const isNearBottom = index >= Math.max(0, paginatedRuns.length - 2);
                     return (
                       <TableRow key={run.runId} className="hover:bg-muted/30 transition-colors border-b border-border/40">
                         {/* 1. Run ID */}
@@ -391,7 +381,7 @@ function ValidationHistory() {
 
                         {/* 12. Download */}
                         <TableCell className="whitespace-nowrap px-2 py-2.5 text-right pr-3">
-                          <ExportButton runId={run.runId} isNearBottom={isNearBottom} />
+                          <ExportButton runId={run.runId} />
                         </TableCell>
                       </TableRow>
                     );

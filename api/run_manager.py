@@ -83,7 +83,14 @@ async def stream_pytest(
 
     # 2. Determine target test file & Excel source
     test_file = "tests/dashboard/test_business_scenarios.py"
-    if excel_file and "stress" in excel_file.lower():
+    if (
+        (excel_file and "functional_parity" in excel_file.lower())
+        or ("track1" in actual_config.lower())
+        or ("scenario1" in actual_config.lower())
+        or any(str(tid).strip().startswith("FP-") for tid in selected_ids)
+    ):
+        test_file = "tests/scenario1/test_functional_parity.py"
+    elif excel_file and "stress" in excel_file.lower():
         test_file = "tests/dashboard/test_stress_suite.py"
     elif any("TC-S-" in str(tid) for tid in selected_ids):
         test_file = "tests/dashboard/test_stress_suite.py"
@@ -93,7 +100,16 @@ async def stream_pytest(
     if selected_ids:
         clean_ids = [str(tid).strip() for tid in selected_ids if str(tid).strip()]
         if clean_ids:
-            k_filter = " or ".join(clean_ids)
+            if "scenario1" in test_file:
+                id_map = {
+                    "FP-A-000": "test_qlik_sheet_list_is_discoverable",
+                    "FP-A-000b": "test_pbi_page_list_is_discoverable",
+                    "FP-A-001": "test_sheet_count_parity",
+                }
+                mapped_ids = [id_map.get(tid, tid) for tid in clean_ids]
+                k_filter = " or ".join(mapped_ids)
+            else:
+                k_filter = " or ".join(clean_ids)
 
     cmd = [
         _get_python_exec(), "-m", "pytest",

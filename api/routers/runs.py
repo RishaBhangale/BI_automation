@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from api.history_store import create_run, finish_run, get_all, get_by_id, new_run_id
 from api.run_manager import stream_pytest
+from api.services.teams_notification import send_teams_notification
 
 router = APIRouter()
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -105,11 +106,11 @@ async def _run_pytest(
 
     # Regex to capture individual test results as streaming fallback
     tc_result_re = re.compile(
-        r"\[(?:(?:chromium|firefox|webkit)-)?(TC-[^\]]+?)\s*-\s*([^\]]+?)\]\s*(PASSED|FAILED|SKIPPED|ERROR)",
+        r"\[(?:(?:chromium|firefox|webkit)-)?((?:TC|FP)-[^\]]+?)\s*-\s*([^\]]+?)\]\s*(PASSED|FAILED|SKIPPED|ERROR)",
         re.IGNORECASE,
     )
     tc_start_re = re.compile(
-        r"tests/.*::\w+\[(?:(?:chromium|firefox|webkit)-)?(TC-[^\]]+?)\s*-",
+        r"tests/.*::\w+(?:\[(?:(?:chromium|firefox|webkit)-)?((?:TC|FP)-[^\]]+?)\s*-|.*::(test_qlik_sheet_list_is_discoverable|test_pbi_page_list_is_discoverable|test_sheet_count_parity))",
         re.IGNORECASE,
     )
 
@@ -124,9 +125,44 @@ async def _run_pytest(
             # Detect test start — record start time
             start_m = tc_start_re.search(text)
             if start_m:
-                tc_id = start_m.group(1).strip()
-                if tc_id not in test_start_times:
-                    test_start_times[tc_id] = time.time()
+                tc_id = (start_m.group(1) or start_m.group(2) or "").strip()
+                if tc_id:
+                    if tc_id == "test_qlik_sheet_list_is_discoverable":
+                        tc_id = "FP-A-000"
+                    elif tc_id == "test_pbi_page_list_is_discoverable":
+                        tc_id = "FP-A-000b"
+                    elif tc_id == "test_sheet_count_parity":
+                        tc_id = "FP-A-001"
+                    if tc_id not in test_start_times:
+                        test_start_times[tc_id] = time.time()
+
+            # Detect Category A unparameterized tests during streaming
+            cat_a_match = None
+            if "test_qlik_sheet_list_is_discoverable" in text and ("PASSED" in text or "FAILED" in text):
+                cat_a_match = ("FP-A-000", "Dynamic Qlik Sheet Discovery", "passed" if "PASSED" in text else "failed")
+            elif "test_pbi_page_list_is_discoverable" in text and ("PASSED" in text or "FAILED" in text):
+                cat_a_match = ("FP-A-000b", "Dynamic PBI Page Discovery", "passed" if "PASSED" in text else "failed")
+            elif "test_sheet_count_parity" in text and ("PASSED" in text or "FAILED" in text):
+                cat_a_match = ("FP-A-001", "Sheet/Page Existence Parity", "passed" if "PASSED" in text else "failed")
+
+            if cat_a_match:
+                tc_id, name, status = cat_a_match
+                if tc_id not in recorded_ids:
+                    recorded_ids.add(tc_id)
+                    t_start = test_start_times.get(tc_id, suite_start)
+                    elapsed_secs = max(time.time() - t_start, 1)
+                    mins, secs = divmod(int(elapsed_secs), 60)
+                    dur = f"{mins}m {secs:02d}s" if mins > 0 else f"{int(elapsed_secs)}s"
+                    result_entry: dict = {
+                        "tc_id": tc_id,
+                        "name": name,
+                        "status": status,
+                        "duration": dur,
+                    }
+                    meta_found = _get_meta(tc_id, len(results))
+                    if meta_found:
+                        result_entry["meta"] = meta_found
+                    results.append(result_entry)
 
             # Detect test result during live streaming
             result_m = tc_result_re.search(text)
@@ -217,17 +253,11 @@ async def _run_pytest(
                 })
 
         finish_run(run_id, results, dur_str)
-
-        # Also preserve a run-specific copy of the generated HTML report
-        try:
-            latest_html = PROJECT_ROOT / "reports" / "HTML_reports" / "dashboard_validation_latest.html"
-            if latest_html.exists() and latest_html.stat().st_mtime >= suite_start - 10:
-                import shutil
-                dest = PROJECT_ROOT / "reports" / "HTML_reports" / f"dashboard_validation_{run_id}.html"
-                shutil.copy2(str(latest_html), str(dest))
-        except Exception:
-            pass
-
+        await send_teams_notification(
+            run_id=run_id,
+            results=results,
+            duration=dur_str,
+        )
         _active_tasks.pop(run_id, None)
 
 

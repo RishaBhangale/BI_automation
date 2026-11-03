@@ -27,7 +27,7 @@ from playwright.sync_api import Page, FrameLocator, Locator, TimeoutError as PwT
 from pageobjects.base_page import BasePage
 from pageobjects.sso_login_page import SSOLoginPage
 from locators.pbi_locators import PBILocators, PageNotFoundError, DashboardLoadError
-from config.settings import PBI_RENDER_TIMEOUT, PBI_PAGE_SWITCH_WAIT
+from config.settings import PBI_RENDER_TIMEOUT, PBI_PAGE_SWITCH_WAIT, PBI_IFRAME_PROBE_TIMEOUT, PBI_PAGELIST_TIMEOUT, QLIK_FILTER_WAIT, LOG_DIR
 from utils.logger import get_logger
 
 log = get_logger("pbi_dashboard_page")
@@ -49,6 +49,44 @@ def _detect_embed_mode(url: str) -> str:
     return EMBED_MODE_ORG_REPORT
 
 
+
+_IFRAME_SEL = (
+    "iframe[title*='Power BI'], "
+    "iframe[name*='PowerBI'], "
+    "iframe[src*='powerbi.com'], "
+    "iframe[src*='report-iframe']"
+)
+
+_READY_SEL = (
+    "visual-container, "
+    "[class*='visualContainer'], "
+    "[class*='visual-container'], "
+    "[role='region'][aria-label]"
+)
+
+_PAGE_TAB_SELECTORS = [
+    "button[aria-label][class*='paginationButton']",
+    "[class*='pageNavigation'] [role='tab']",
+    "[class*='pageNavigation'] button",
+    "[class*='page-navigation'] [role='tab']",
+    "[class*='page-navigation'] button",
+    "[aria-label*='page navigation' i] [role='tab']",
+    "[aria-label*='page navigation' i] button",
+    "[role='tablist'] [role='tab']",
+    "li[role='tab']",
+    "[role='tab']",
+    "[aria-label='Pages' i] [role='listitem']",
+    "[aria-label='Pages' i] button",
+]
+
+_NOT_PAGE_NAMES = {
+    "pages", "page navigation", "previous page", "next page", "show pages", "hide pages",
+    "sheets", "bookmarks", "stories",
+}
+
+_LOGIN_HOSTS = ("login.microsoftonline.com", "login.live.com", "login.windows.net")
+
+
 class PBIDashboardPage(BasePage):
     """
     Page Object Model for published Power BI dashboards.
@@ -61,10 +99,12 @@ class PBIDashboardPage(BasePage):
     """
 
     def __init__(self, page: Page) -> None:
+
         super().__init__(page)
         self._embed_mode: str = EMBED_MODE_ORG_REPORT  # updated after open()
         self._org_frame: Optional[FrameLocator] = None
         self._current_page: Optional[str] = None        # tracks last navigated-to page
+
 
     def _wait_for_dashboard_settle(self, max_ms: int = 6_000) -> None:
         """
@@ -105,26 +145,146 @@ class PBIDashboardPage(BasePage):
 
     def _get_context(self) -> Union[Page, FrameLocator]:
         """
-        Returns the correct locator context:
-          • publish_to_web → self.page  (outer page, no iframe)
-          • org_report     → FrameLocator inside the report iframe
+        Return the correct Power BI DOM context.
+
+        This report is authenticated/org-based but its Power BI visuals
+        are rendered directly in the outer page DOM, not inside an iframe.
         """
-        if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB:
-            return self.page
-        return self._get_org_frame()
+        return self.page
 
     def _get_org_frame(self) -> FrameLocator:
         """
-        Return the FrameLocator for org report iframes.
-        Tries primary selector, falls back to secondary.
+        Diagnostic Power BI iframe discovery.
+
+        Checks all iframes on the page and logs:
+          - iframe index
+          - title
+          - src
+          - whether the frame contains Power BI visual elements
+
+        This is temporary diagnostic logic to identify the actual
+        report iframe used by the secure Power BI report.
         """
-        frame = self.page.frame_locator(PBILocators.ORG_IFRAME)
+
+        log.info("========== POWER BI IFRAME DIAGNOSTIC START ==========")
+
+        iframe_locator = self.page.locator("iframe")
+
         try:
-            frame.locator("body").wait_for(timeout=5_000)
-            return frame
-        except PwTimeoutError:
-            log.debug("Primary org iframe selector failed — trying fallback")
-            return self.page.frame_locator(PBILocators.ORG_IFRAME_FALLBACK)
+            iframe_count = iframe_locator.count()
+        except Exception as exc:
+            log.error(f"Could not count iframes: {exc}")
+            raise PwTimeoutError(
+                "Unable to inspect iframes on the Power BI page."
+            )
+
+        log.info(f"Total iframes found on page: {iframe_count}")
+
+        for i in range(iframe_count):
+            try:
+                iframe = iframe_locator.nth(i)
+
+                title = iframe.get_attribute("title") or ""
+                src = iframe.get_attribute("src") or ""
+                aria_label = iframe.get_attribute("aria-label") or ""
+
+                log.info(
+                    f"IFRAME[{i}] "
+                    f"title='{title}' "
+                    f"aria-label='{aria_label}' "
+                    f"src='{src[:300]}'"
+                )
+
+                # Get the frame corresponding to this iframe.
+                frame = self.page.frame_locator("iframe").nth(i)
+
+                # Check whether the frame has loaded.
+                try:
+                    frame.locator("body").wait_for(
+                        state="attached",
+                        timeout=3_000
+                    )
+                    log.info(f"IFRAME[{i}] body: FOUND")
+                except Exception:
+                    log.info(f"IFRAME[{i}] body: NOT AVAILABLE")
+                    continue
+
+                # Check several possible Power BI DOM signatures.
+                visual_container_count = 0
+                aria_visual_count = 0
+                visual_role_count = 0
+
+                try:
+                    visual_container_count = frame.locator(
+                        "visual-container"
+                    ).count()
+                except Exception:
+                    pass
+
+                try:
+                    aria_visual_count = frame.locator(
+                        "[aria-roledescription]"
+                    ).count()
+                except Exception:
+                    pass
+
+                try:
+                    visual_role_count = frame.locator(
+                        "[data-automation-type='visualContainer']"
+                    ).count()
+                except Exception:
+                    pass
+
+                log.info(
+                    f"IFRAME[{i}] Power BI elements: "
+                    f"visual-container={visual_container_count}, "
+                    f"aria-roledescription={aria_visual_count}, "
+                    f"visualContainer={visual_role_count}"
+                )
+
+                # Get a small amount of body text for diagnostics.
+                try:
+                    body_text = frame.locator("body").inner_text(
+                        timeout=2_000
+                    ).strip()
+
+                    body_preview = " ".join(body_text.split())[:500]
+
+                    log.info(
+                        f"IFRAME[{i}] body text preview: "
+                        f"'{body_preview}'"
+                    )
+                except Exception as exc:
+                    log.debug(
+                        f"IFRAME[{i}] body text unavailable: {exc}"
+                    )
+
+                # If this iframe actually contains Power BI visuals,
+                # use it as the report iframe.
+                if (
+                    visual_container_count > 0
+                    or aria_visual_count > 0
+                    or visual_role_count > 0
+                ):
+                    log.info(
+                        f"========== ACTUAL POWER BI IFRAME FOUND: "
+                        f"INDEX {i} =========="
+                    )
+                    return frame
+
+            except Exception as exc:
+                log.warning(
+                    f"IFRAME[{i}] inspection failed: {exc}"
+                )
+                continue
+
+        log.info("No iframe containing Power BI visuals was found.")
+        log.info("========== POWER BI IFRAME DIAGNOSTIC END ==========")
+
+        raise PwTimeoutError(
+            "Could not locate an iframe containing Power BI visuals. "
+            "The report may be rendered in the outer page DOM."
+        )
 
     # Legacy alias used by older code
     def get_iframe(self) -> FrameLocator:
@@ -148,6 +308,15 @@ class PBIDashboardPage(BasePage):
         """
         self._embed_mode = _detect_embed_mode(url)
         log.info(f"Embed mode detected: {self._embed_mode}")
+        self._report_url = url
+        current_url = self.page.url
+        if "powerbi.com" in current_url and ("/reports/" in current_url or "/groups/" in current_url):
+            try:
+                if self._ctx().locator(_READY_SEL).first.is_visible(timeout=1_500):
+                    log.info("PBI report already open and canvas active — reusing warm page")
+                    return
+            except Exception:
+                pass
         log.info(f"Navigating to: {url}")
 
         self.page.goto(url, timeout=PBI_RENDER_TIMEOUT)
@@ -233,170 +402,594 @@ class PBIDashboardPage(BasePage):
 
     def get_all_page_names(self) -> list[str]:
         """
-        Return a list of all visible page tab names in the report.
+        Return actual Power BI report page names.
 
-        Returns:
-            List of page name strings as they appear in the tab bar.
+        For secure/org reports, Power BI exposes a "Report pages"
+        section in the Pages pane. We deliberately scope discovery
+        to that section instead of scanning every title/aria-label
+        on the page.
+
+        This prevents visual titles, KPI values, buttons and other
+        Power BI shell elements from being reported as page names.
         """
-        ctx = self._get_context()
-        tab_sel = (
-            PBILocators.PTW_PAGE_TAB
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_PAGE_TAB
+        names: list[str] = []
+
+        def add_name(value: Optional[str]) -> None:
+            if not value:
+                return
+
+            value = value.strip()
+
+            if (
+                value
+                and value not in names
+                and len(value) <= 150
+            ):
+                names.append(value)
+
+        contexts = []
+
+        if self._embed_mode == EMBED_MODE_ORG_REPORT:
+            try:
+                contexts.append(self._get_org_frame())
+            except Exception:
+                pass
+
+            contexts.append(self.page)
+        else:
+            contexts.append(self.page)
+
+        for ctx in contexts:
+            try:
+                report_pages = ctx.get_by_text(
+                    "Report pages",
+                    exact=True,
+                ).first
+
+                if report_pages.count() == 0:
+                    continue
+
+                if not report_pages.is_visible(timeout=1_000):
+                    continue
+
+                # Walk up the DOM to find the container holding
+                # the actual report page navigation items.
+                for depth in range(1, 9):
+                    try:
+                        parent = report_pages
+
+                        for _ in range(depth):
+                            parent = parent.locator("xpath=..")
+
+                        # First collect semantic navigation elements.
+                        candidates = parent.locator(
+                            "[role='button'], "
+                            "[role='tab'], "
+                            "[role='treeitem'], "
+                            "[role='link']"
+                        ).all()
+
+                        found_in_level = 0
+
+                        for el in candidates:
+                            try:
+                                if not el.is_visible(timeout=200):
+                                    continue
+
+                                text = (
+                                    el.get_attribute("title")
+                                    or el.get_attribute("aria-label")
+                                    or el.inner_text()
+                                    or ""
+                                ).strip()
+
+                                # Ignore generic Power BI controls.
+                                if not text:
+                                    continue
+
+                                if text.lower() in {
+                                    "report pages",
+                                    "hide the pages pane",
+                                    "show the pages pane",
+                                    "pages",
+                                    "filters",
+                                }:
+                                    continue
+
+                                # Avoid obviously non-page controls.
+                                if len(text) > 150:
+                                    continue
+
+                                add_name(text)
+                                found_in_level += 1
+
+                            except Exception:
+                                continue
+
+                        if found_in_level > 0:
+                            log.info(
+                                f"Found {len(names)} report page labels "
+                                f"from Power BI Pages pane: {names}"
+                            )
+                            return names
+
+                    except Exception:
+                        continue
+
+            except Exception:
+                continue
+
+        if self._embed_mode == EMBED_MODE_ORG_REPORT:
+            log.warning(
+                "Power BI Pages pane could not be located for secure/org report."
+            )
+            return []
+
+        log.debug(
+            "Pages pane not found/empty — falling back to legacy whole-page discovery"
         )
-        tabs  = ctx.locator(tab_sel).all()
-        names = []
-        for tab in tabs:
-            title = tab.get_attribute("title") or tab.inner_text()
-            if title:
-                names.append(title.strip())
-        log.info(f"Found {len(names)} pages: {names}")
+
+        # Fallback: existing report-tab discovery.
+        for ctx in contexts:
+            try:
+                tab_sel = (
+                    PBILocators.PTW_PAGE_TAB
+                    if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
+                    else PBILocators.ORG_PAGE_TAB
+                )
+
+                tabs = ctx.locator(tab_sel).all()
+
+                for tab in tabs:
+                    try:
+                        if not tab.is_visible(timeout=200):
+                            continue
+
+                        title = (
+                            tab.get_attribute("title")
+                            or tab.get_attribute("aria-label")
+                            or tab.inner_text()
+                            or ""
+                        ).strip()
+
+                        if title:
+                            add_name(title)
+
+                    except Exception:
+                        continue
+
+            except Exception:
+                continue
+
+        log.info(
+            f"Found {len(names)} report page labels: {names}"
+        )
+
         return names
+
+
+    def _try_page_navigator_in(self, ctx, page_name: str) -> bool:
+        """
+        Try to click a page from the Power BI Pages pane.
+
+        For secure/org reports we first locate the "Report pages"
+        section and search only inside its DOM container.
+
+        This is intentionally scoped so KPI cards, visual titles,
+        slicers and Power BI shell controls are not mistaken for
+        report pages.
+        """
+        target = str(page_name).strip()
+
+        if not target:
+            return False
+
+        # ------------------------------------------------------------------
+        # Strategy 1:
+        # Find the Power BI "Report pages" section and search inside it.
+        # ------------------------------------------------------------------
+        try:
+            report_pages = ctx.get_by_text(
+                "Report pages",
+                exact=True,
+            ).first
+
+            if report_pages.count() > 0 and report_pages.is_visible(
+                timeout=1_000
+            ):
+                log.debug(
+                    f"Found Power BI 'Report pages' section while "
+                    f"looking for '{target}'"
+                )
+
+                # Walk up through likely Pages-pane containers.
+                for depth in range(1, 9):
+                    try:
+                        container = report_pages
+
+                        for _ in range(depth):
+                            container = container.locator("xpath=..")
+
+                        # --------------------------------------------------
+                        # Exact visible text inside the Pages pane.
+                        # --------------------------------------------------
+                        matches = container.get_by_text(
+                            target,
+                            exact=True,
+                        )
+
+                        count = matches.count()
+
+                        if count == 0:
+                            continue
+
+                        log.debug(
+                            f"Found {count} exact '{target}' "
+                            f"match(es) inside Pages pane at depth {depth}"
+                        )
+
+                        for i in range(count):
+                            el = matches.nth(i)
+
+                            try:
+                                if not el.is_visible(timeout=300):
+                                    continue
+
+                                el.click(timeout=3_000)
+
+                                self.page.wait_for_timeout(
+                                    PBI_PAGE_SWITCH_WAIT
+                                )
+
+                                self._wait_for_dashboard_settle()
+
+                                log.info(
+                                    f"Page navigator: clicked "
+                                    f"'{target}' inside Report pages pane"
+                                )
+
+                                self._current_page = target
+                                return True
+
+                            except Exception as exc:
+                                log.debug(
+                                    f"Could not click exact page text "
+                                    f"'{target}' at depth {depth}, "
+                                    f"match {i}: {exc}"
+                                )
+                                continue
+
+                    except Exception:
+                        continue
+
+        except Exception as exc:
+            log.debug(
+                f"Report pages scoped navigation failed for "
+                f"'{target}': {exc}"
+            )
+
+        # ------------------------------------------------------------------
+        # Strategy 2:
+        # Exact title attribute.
+        # ------------------------------------------------------------------
+        try:
+            elements = ctx.locator(
+                f"[title={repr(target)}]"
+            )
+
+            for i in range(elements.count()):
+                el = elements.nth(i)
+
+                try:
+                    if not el.is_visible(timeout=300):
+                        continue
+
+                    el.click(timeout=3_000)
+
+                    self.page.wait_for_timeout(
+                        PBI_PAGE_SWITCH_WAIT
+                    )
+
+                    self._wait_for_dashboard_settle()
+
+                    log.info(
+                        f"Page navigator: clicked '{target}' "
+                        f"using title attribute"
+                    )
+
+                    self._current_page = target
+                    return True
+
+                except Exception:
+                    continue
+
+        except Exception:
+            pass
+
+        # ------------------------------------------------------------------
+        # Strategy 3:
+        # Exact aria-label.
+        # ------------------------------------------------------------------
+        try:
+            elements = ctx.locator(
+                f"[aria-label={repr(target)}]"
+            )
+
+            for i in range(elements.count()):
+                el = elements.nth(i)
+
+                try:
+                    if not el.is_visible(timeout=300):
+                        continue
+
+                    el.click(timeout=3_000)
+
+                    self.page.wait_for_timeout(
+                        PBI_PAGE_SWITCH_WAIT
+                    )
+
+                    self._wait_for_dashboard_settle()
+
+                    log.info(
+                        f"Page navigator: clicked '{target}' "
+                        f"using aria-label"
+                    )
+
+                    self._current_page = target
+                    return True
+
+                except Exception:
+                    continue
+
+        except Exception:
+            pass
+
+        # ------------------------------------------------------------------
+        # Strategy 4:
+        # Exact accessible button.
+        # ------------------------------------------------------------------
+        try:
+            locator = ctx.get_by_role(
+                "button",
+                name=target,
+                exact=True,
+            )
+
+            for i in range(locator.count()):
+                el = locator.nth(i)
+
+                try:
+                    if not el.is_visible(timeout=300):
+                        continue
+
+                    el.click(timeout=3_000)
+
+                    self.page.wait_for_timeout(
+                        PBI_PAGE_SWITCH_WAIT
+                    )
+
+                    self._wait_for_dashboard_settle()
+
+                    log.info(
+                        f"Page navigator: clicked '{target}' "
+                        f"using button role"
+                    )
+
+                    self._current_page = target
+                    return True
+
+                except Exception:
+                    continue
+
+        except Exception:
+            pass
+
+        # ------------------------------------------------------------------
+        # Strategy 5:
+        # Existing report tab navigation.
+        # ------------------------------------------------------------------
+        try:
+            locator = ctx.get_by_role(
+                "tab",
+                name=target,
+                exact=True,
+            )
+
+            for i in range(locator.count()):
+                el = locator.nth(i)
+
+                try:
+                    if not el.is_visible(timeout=300):
+                        continue
+
+                    el.click(timeout=3_000)
+
+                    self.page.wait_for_timeout(
+                        PBI_PAGE_SWITCH_WAIT
+                    )
+
+                    self._wait_for_dashboard_settle()
+
+                    log.info(
+                        f"Page navigator: clicked '{target}' "
+                        f"using tab role"
+                    )
+
+                    self._current_page = target
+                    return True
+
+                except Exception:
+                    continue
+
+        except Exception:
+            pass
+
+        return False
+
 
     def switch_to_page(self, page_name: str) -> None:
         """
-        Navigate to a named page in the report.
+        Navigate to a Power BI report page.
 
-        Auto-detects navigation mode:
-          - TAB-based: clicks the tab with matching title (most org reports)
-          - ARROW-based: clicks Next/Previous until the page indicator matches
-            (some Publish-to-Web reports with arrow navigation)
-
-        Args:
-            page_name: Exact page name as it appears in the report tab bar,
-                       OR a 1-based integer string for arrow-nav reports.
+        Pipeline Hygiene is an authenticated/org report, but the
+        report navigation is rendered in the outer page DOM.
         """
+
         log.info(f"Switching to page: '{page_name}'")
-
-        # ── Fast-path: skip navigation if we're already on this page ──────────
-        if self._current_page == page_name:
-            log.debug(f"Already on page '{page_name}' — skipping navigation")
-            return
-        tab_sel = (
-            PBILocators.PTW_PAGE_TAB
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_PAGE_TAB
-        )
-        tab_by_name_tpl = (
-            PBILocators.PTW_PAGE_TAB_BY_NAME
-            if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB
-            else PBILocators.ORG_PAGE_TAB_BY_NAME
-        )
-
-
-        def _try_tab_nav_in(ctx) -> bool:
-            """
-            Look for `page_name` tab in `ctx` (iframe locator OR outer page).
-            Returns True if the tab was found and clicked, False otherwise.
-            """
+        ctx = self._ctx()
+        try:
+            backdrop = self.page.locator(".cdk-overlay-backdrop, [role='dialog']").first
+            if backdrop.count() > 0 and backdrop.is_visible(timeout=500):
+                self.page.keyboard.press("Escape")
+                self.page.wait_for_timeout(500)
+        except Exception:
+            pass
+        try:
+            active_tab = ctx.locator(
+                f"[role='tab'][aria-label*='{page_name}' i][aria-selected='true'], "
+                f"[role='tab'][aria-label*='{page_name} Selected' i], "
+                f"button[data-testid='pages-navigation-list-items'][aria-selected='true']:has-text('{page_name}')"
+            ).first
+            if active_tab.count() > 0 and active_tab.is_visible(timeout=1_000):
+                log.info(f"Already on page '{page_name}' — skipping navigation click")
+                return
+        except Exception:
+            pass
+        for sel in [
+            f"[role='tab'][aria-label*='{page_name}' i]",
+            f"button[data-testid='pages-navigation-list-items']:has-text('{page_name}')",
+            f"[role='tab']:has-text('{page_name}')",
+        ]:
             try:
-                ctx.locator(tab_sel).first.wait_for(state="attached", timeout=3_000)
-            except PwTimeoutError:
-                return False
-
-            # Strategy A: iterate all tabs, match by inner_text / title attribute
-            tabs = ctx.locator(tab_sel).all()
-            for tab in tabs:
-                try:
-                    title = tab.get_attribute("title") or tab.inner_text()
-                except Exception:
-                    continue
-                if title and title.strip() == page_name:
-                    try:
-                        tab.wait_for(state="visible", timeout=3_000)
-                        tab.click()
-                        self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-                        log.info(f"Tab navigation: now on page '{page_name}'")
-                        self._current_page = page_name
-                        return True
-                    except PwTimeoutError:
-                        pass
-
-            # Strategy B: exact attribute selector
-            try:
-                selector = tab_by_name_tpl.format(page_name=page_name)
-                tab = ctx.locator(selector)
-                tab.wait_for(state="visible", timeout=3_000)
-                tab.click()
-                self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-                log.info(f"Tab navigation (attr selector): now on page '{page_name}'")
-                self._current_page = page_name
-                return True
-            except PwTimeoutError:
+                tab = ctx.locator(sel).first
+                if tab.count() > 0 and tab.is_visible(timeout=1_500):
+                    tab.scroll_into_view_if_needed()
+                    tab.click(force=True)
+                    self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
+                    log.info(f"Switched to page '{page_name}' via tab selector: {sel}")
+                    return
+            except Exception:
                 pass
 
-            return False
-
-        # Pass 1: expected context (iframe for org_report, outer page for publish_to_web)
-        if _try_tab_nav_in(self._get_context()):
-            return
-
-        # Pass 2 (org_report only): modern flat-DOM PBI — tabs live in the outer page,
-        # not inside any iframe. Try self.page directly.
-        if self._embed_mode == EMBED_MODE_ORG_REPORT:
-            log.debug(f"Tab '{page_name}' not in iframe context — trying outer page")
-            if _try_tab_nav_in(self.page):
-                return
-
-        # Pass 3: also try PTW tab selector ([role='tab']) on the outer page,
-        # regardless of embed mode — covers reports that mix tab styles.
+        # ---------------------------------------------------------
+        # 1. Primary: outer-page DOM navigation
+        # ---------------------------------------------------------
         try:
-            ptw_tabs = self.page.locator(PBILocators.PTW_PAGE_TAB).all()
-            for tab in ptw_tabs:
-                try:
-                    title = tab.get_attribute("title") or tab.inner_text()
-                except Exception:
-                    continue
-                if title and title.strip() == page_name:
-                    tab.wait_for(state="visible", timeout=3_000)
-                    tab.click()
-                    self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-                    log.info(f"Tab navigation (PTW selector): now on page '{page_name}'")
-                    self._current_page = page_name
-                    return
-        except PwTimeoutError:
-            pass
-
-        # Pass 4: arrow-based navigation (PTW reports that use Prev/Next buttons)
-        log.debug(f"Tab '{page_name}' not found via any tab strategy — trying arrow navigation")
-        try:
-            self._arrow_navigate_to(page_name)
-        except PageNotFoundError:
-            available = self.get_all_page_names()
-            raise PageNotFoundError(
-                f"Page '{page_name}' not found in this report. "
-                f"Available pages: {available}. "
-                f"Check that the page name in your YAML matches exactly (case-sensitive)."
+            page_nav = self.page.locator(
+                f'[aria-label="{page_name}"]'
             )
 
-    def _arrow_navigate_to(self, target_page: str) -> None:
-        """
-        Navigate to a page using the Previous/Next arrow buttons.
+            count = page_nav.count()
 
-        Used for Publish-to-Web reports that display arrows instead of tabs.
-        Starts from page 1, clicks Next until the page indicator matches.
+            if count > 0:
+                for i in range(count):
+                    item = page_nav.nth(i)
 
-        Args:
-            target_page: Page name or 1-based page number as a string.
-        """
-        # First go to page 1
-        self._go_to_page_one()
-        page_count = self.get_page_count()
-        log.info(f"Arrow navigation: target='{target_page}', total pages={page_count}")
+                    try:
+                        if item.is_visible():
+                            item.click(force=True)
+                            self.page.wait_for_timeout(
+                                PBI_PAGE_SWITCH_WAIT
+                            )
 
-        for page_num in range(1, page_count + 1):
-            current_indicator = self._get_page_indicator_text()
-            if target_page in current_indicator or str(page_num) == target_page:
-                log.info(f"Reached target page '{target_page}' (indicator: {current_indicator})")
-                self.page.wait_for_timeout(PBI_PAGE_SWITCH_WAIT)
-                self._current_page = target_page
-                return
-            self.go_to_next_page()
+                            log.info(
+                                f"Page navigator: clicked "
+                                f"'{page_name}' using aria-label"
+                            )
+                            return
 
-        log.warning(f"Arrow navigation: could not find page '{target_page}' in {page_count} pages")
+                    except Exception as exc:
+                        log.debug(
+                            f"Could not click aria-label navigation "
+                            f"element {i}: {exc}"
+                        )
+
+        except Exception as exc:
+            log.debug(
+                f"Outer DOM aria-label navigation failed: {exc}"
+            )
+
+        # ---------------------------------------------------------
+        # 2. Fallback: text/title-based outer DOM navigation
+        # ---------------------------------------------------------
+        try:
+            candidates = [
+                self.page.get_by_text(
+                    page_name,
+                    exact=True
+                ),
+                self.page.locator(
+                    f'[title="{page_name}"]'
+                ),
+            ]
+
+            for candidate in candidates:
+                count = candidate.count()
+
+                for i in range(count):
+                    item = candidate.nth(i)
+
+                    try:
+                        if item.is_visible():
+                            item.click(force=True)
+                            self.page.wait_for_timeout(
+                                PBI_PAGE_SWITCH_WAIT
+                            )
+
+                            log.info(
+                                f"Page navigator: clicked "
+                                f"'{page_name}' using outer DOM fallback"
+                            )
+                            return
+
+                    except Exception as exc:
+                        log.debug(
+                            f"Outer DOM fallback click failed: {exc}"
+                        )
+
+        except Exception as exc:
+            log.debug(
+                f"Outer DOM text/title navigation failed: {exc}"
+            )
+
+        # ---------------------------------------------------------
+        # 3. Legacy iframe navigation fallback
+        # ---------------------------------------------------------
+        try:
+            frame = self._get_org_frame()
+
+            tab_selector = (
+                PBILocators.ORG_PAGE_TAB_BY_NAME
+                .format(page_name=page_name)
+            )
+
+            tab = frame.locator(tab_selector)
+
+            tab.wait_for(
+                state="visible",
+                timeout=5_000
+            )
+
+            tab.click()
+
+            self.page.wait_for_timeout(
+                PBI_PAGE_SWITCH_WAIT
+            )
+
+            log.info(
+                f"Page navigator: clicked '{page_name}' "
+                f"inside org iframe"
+            )
+            return
+
+        except Exception as exc:
+            log.debug(
+                f"Legacy iframe page navigation failed: {exc}"
+            )
+
         raise PageNotFoundError(
-            f"Page '{target_page}' not found in {page_count} pages. "
-            f"Check that the page name in your YAML matches exactly what appears in the report."
+            f"Page '{page_name}' could not be located "
+            f"in the Power BI report."
         )
 
     def get_page_count(self) -> int:
@@ -413,12 +1006,12 @@ class PBIDashboardPage(BasePage):
             "1of31- Ticket Volume & Classification2- Efficiency & Resolution3-..."
 
         This is "1 of 3" (3 pages) + "1- Section Name" + "2- ..." concatenated.
-        A greedy `of(\d+)` would incorrectly match "of31" → 31 pages.
+        A greedy `of(\\d+)` would incorrectly match "of31" → 31 pages.
 
         Fix: use a non-greedy match with a lookahead that detects when a
         section-listing digit-dash pattern follows immediately:
 
-            of(\d+?)(?=\d+\s*-)   →  "of3" (then lookahead sees "1-") ✓
+            of(\\d+?)(?=\\d+\\s*-)   →  "of3" (then lookahead sees "1-") ✓
 
         If no section listings are present (clean "1of19"), the lookahead
         won't match and we fall back to the standard greedy match → 19 ✓
@@ -680,7 +1273,7 @@ class PBIDashboardPage(BasePage):
             is always hidden on publish-to-web reports.
           • The visual 'title' is the first non-empty line of the visual's
             innerText content (e.g. a Card titled 'Sales' has innerText starting
-            with 'Sales\n\n$1.7M\n...')
+            with 'Sales\\n\\n$1.7M\\n...')
           • Types to skip: PTW_SKIP_TYPES — Text box, img, button, Slicer
           • Testable types: PTW_TESTABLE_TYPES — Card, chart, Table, Matrix types only
 
@@ -1485,45 +2078,371 @@ class PBIDashboardPage(BasePage):
         log.info(f"Card '{visual_title}' → raw value: '{raw_value}'")
         return raw_value
 
-
-        if not raw_value:
-            raise ValueError(
-                f"Could not extract value for card '{visual_title}'. "
-                f"Verify the visual title matches exactly and it is a Card or Multi-row card visual."
-            )
-        log.info(f"Card '{visual_title}' → raw value: '{raw_value}'")
-        return raw_value
-
     def _extract_card_value_org(self, visual_title: str) -> str:
-        """Extract card value for org reports (inside iframe or flat DOM)."""
-        value_selector = (
-            f"visual-container:has({PBILocators.ORG_VISUAL_TITLE_TEXT}"
-            f":has-text('{visual_title}')) {PBILocators.ORG_CARD_VALUE}"
-        )
-        
-        try:
-            frame = self._get_org_frame()
-            value_locator = frame.locator(value_selector)
-            value_locator.wait_for(timeout=3_000)
-            raw_value = value_locator.inner_text().strip()
-            log.info(f"Card '{visual_title}' → raw value: '{raw_value}' (iframe strategy)")
-            return raw_value
-        except Exception:
-            log.debug(f"Card '{visual_title}' not found via iframe — using flat-DOM approach")
-        
-        # Flat-DOM fallback
-        value_locator = self.page.locator(value_selector)
-        try:
-            value_locator.wait_for(timeout=5_000)
-            raw_value = value_locator.inner_text().strip()
-            log.info(f"Card '{visual_title}' → raw value: '{raw_value}' (flat-DOM strategy)")
-            return raw_value
-        except Exception:
-            pass
+        """
+        Extract KPI value from authenticated Power BI report.
 
-        # Ultimate fallback using the PTW JS extractor logic (which is often robust on flat DOMs)
-        log.debug(f"Card '{visual_title}' falling back to PTW JS extractor on flat DOM")
-        return self._extract_card_value_ptw(visual_title)
+        Pipeline Hygiene is an authenticated/org report, but its Power BI
+        visuals are rendered in the outer page DOM. There is no report iframe.
+
+        Extraction order:
+          1. ARIA/accessibility label of the Card visual.
+          2. Visual container innerText.
+          3. Generic visual discovery fallback.
+
+        Power BI commonly exposes cards as:
+            "KPI Title, 1.45bn card"
+        """
+
+        log.info(
+            f"Org report KPI extraction started for: '{visual_title}'"
+        )
+
+        # ---------------------------------------------------------
+        # Strategy 1 — Power BI accessibility / ARIA label
+        # ---------------------------------------------------------
+        try:
+            result = self.page.evaluate(
+                """
+                (targetTitle) => {
+
+                    const clean = value =>
+                        (value || "")
+                            .replace(/\\s+/g, " ")
+                            .trim();
+
+                    const elements = Array.from(
+                        document.querySelectorAll("[aria-label]")
+                    );
+
+                    // Exact card accessibility-label match.
+                    for (const el of elements) {
+
+                        const aria = clean(
+                            el.getAttribute("aria-label")
+                        );
+
+                        if (!aria) {
+                            continue;
+                        }
+
+                        /*
+                         * Typical Power BI Card:
+                         *
+                         * "Unweighted Revenue of Overdue Opps, 1.45bn card"
+                         */
+                        if (
+                            aria.startsWith(targetTitle + ",")
+                            &&
+                            /\\bcard\\b/i.test(aria)
+                        ) {
+
+                            let value = aria
+                                .slice(targetTitle.length + 1)
+                                .trim();
+
+                            value = value.replace(
+                                /\\s+card\\s*$/i,
+                                ""
+                            ).trim();
+
+                            if (value) {
+                                return {
+                                    value: value,
+                                    source: "aria-label",
+                                    aria: aria
+                                };
+                            }
+                        }
+
+                        /*
+                         * More tolerant case:
+                         *
+                         * "Unweighted Revenue of Overdue Opps 1.45bn card"
+                         */
+                        if (
+                            aria.startsWith(targetTitle)
+                            &&
+                            /\\bcard\\b/i.test(aria)
+                        ) {
+
+                            let remainder = aria
+                                .slice(targetTitle.length)
+                                .trim();
+
+                            remainder = remainder
+                                .replace(/^[,;:\\-]+/, "")
+                                .trim();
+
+                            remainder = remainder.replace(
+                                /\\s+card\\s*$/i,
+                                ""
+                            ).trim();
+
+                            if (remainder) {
+                                return {
+                                    value: remainder,
+                                    source: "aria-label-tolerant",
+                                    aria: aria
+                                };
+                            }
+                        }
+                    }
+
+                    return null;
+                }
+                """,
+                visual_title,
+            )
+
+            if result and result.get("value"):
+
+                raw_value = str(
+                    result["value"]
+                ).strip()
+
+                log.info(
+                    f"Card '{visual_title}' → raw value: "
+                    f"'{raw_value}' "
+                    f"(Power BI {result.get('source')})"
+                )
+
+                return raw_value
+
+        except Exception as exc:
+            log.debug(
+                f"ARIA KPI extraction failed for "
+                f"'{visual_title}': {exc}"
+            )
+
+        # ---------------------------------------------------------
+        # Strategy 2 — Find the visual and inspect its DOM
+        # ---------------------------------------------------------
+        try:
+
+            result = self.page.evaluate(
+                """
+                (targetTitle) => {
+
+                    const clean = value =>
+                        (value || "")
+                            .replace(/\\s+/g, " ")
+                            .trim();
+
+                    const visualDivs = Array.from(
+                        document.querySelectorAll(
+                            "[aria-roledescription]"
+                        )
+                    );
+
+                    for (const div of visualDivs) {
+
+                        const vc =
+                            div.closest("visual-container");
+
+                        // Split on newlines FIRST, then clean each line.
+                        // (clean() collapses newlines into spaces, so it
+                        // must not run on the whole text before the split.)
+                        const rawText = (
+                            vc
+                                ? vc.innerText
+                                : div.innerText
+                        ) || "";
+
+                        const lines = rawText
+                            .split("\\n")
+                            .map(clean)
+                            .filter(Boolean);
+
+                        if (!lines.length) {
+                            continue;
+                        }
+
+                        /*
+                         * Standalone card:
+                         *
+                         * Title
+                         * Value
+                         */
+                        if (
+                            lines.length >= 2 &&
+                            lines[0] === targetTitle
+                        ) {
+
+                            return {
+                                value: lines[1],
+                                source: "visual-innerText"
+                            };
+                        }
+
+                        /*
+                         * Multi-row / multi-KPI card.
+                         */
+                        for (
+                            let i = 0;
+                            i < lines.length;
+                            i++
+                        ) {
+
+                            if (
+                                lines[i] === targetTitle &&
+                                i + 1 < lines.length
+                            ) {
+
+                                return {
+                                    value: lines[i + 1],
+                                    source: "visual-innerText-pair"
+                                };
+                            }
+                        }
+                    }
+
+                    return null;
+                }
+                """,
+                visual_title,
+            )
+
+            if result and result.get("value"):
+
+                raw_value = str(
+                    result["value"]
+                ).strip()
+
+                log.info(
+                    f"Card '{visual_title}' → raw value: "
+                    f"'{raw_value}' "
+                    f"(outer visual DOM)"
+                )
+
+                return raw_value
+
+        except Exception as exc:
+            log.debug(
+                f"Visual DOM KPI extraction failed for "
+                f"'{visual_title}': {exc}"
+            )
+
+        # ---------------------------------------------------------
+        # Targeted fallback — Overdue Contracts
+        # Power BI exposes the title and KPI value separately.
+        # ---------------------------------------------------------
+        if visual_title == "# of Overdue Contracts":
+            try:
+                raw_value = self.page.evaluate(
+                    """
+                    (targetTitle) => {
+                        const clean = s =>
+                            (s || "").replace(/\\s+/g, " ").trim();
+
+                        const title = [...document.querySelectorAll("*")]
+                            .find(el => clean(el.textContent) === targetTitle);
+
+                        if (!title) return null;
+
+                        const titleRect = title.getBoundingClientRect();
+
+                        const numeric = [...document.querySelectorAll("*")]
+                            .filter(el => {
+                                const text = clean(el.textContent);
+                                if (!/^\\d[\\d,]*(?:\\.\\d+)?$/.test(text)) {
+                                    return false;
+                                }
+
+                                const rect = el.getBoundingClientRect();
+
+                                return (
+                                    rect.width > 0 &&
+                                    rect.height > 0 &&
+                                    rect.left >= titleRect.left - 30 &&
+                                    rect.right <= titleRect.right + 30 &&
+                                    rect.top > titleRect.bottom &&
+                                    rect.top < titleRect.bottom + 180
+                                );
+                            });
+
+                        numeric.sort(
+                            (a, b) =>
+                                a.getBoundingClientRect().top -
+                                b.getBoundingClientRect().top
+                        );
+
+                        return numeric.length
+                            ? clean(numeric[0].textContent)
+                            : null;
+                    }
+                    """,
+                    visual_title,
+                )
+
+                if raw_value:
+                    log.info(
+                        f"Card '{visual_title}' → raw value: "
+                        f"'{raw_value}' (targeted Power BI fallback)"
+                    )
+                    return raw_value
+
+            except Exception as exc:
+                log.debug(
+                    f"Overdue Contracts targeted extraction failed: {exc}"
+                )
+
+        # ---------------------------------------------------------
+        # Strategy 3 — Existing generalized visual discovery
+        # ---------------------------------------------------------
+        try:
+
+            visuals = self._evaluate_ptw_visuals()
+
+            matches = [
+                visual
+                for visual in visuals
+                if str(
+                    visual.get("title", "")
+                ).strip() == visual_title
+            ]
+
+            for visual in matches:
+
+                full_text = str(
+                    visual.get("fullText", "")
+                ).strip()
+
+                if not full_text:
+                    continue
+
+                lines = [
+                    line.strip()
+                    for line in full_text.splitlines()
+                    if line.strip()
+                ]
+
+                for i, line in enumerate(lines):
+
+                    if line == visual_title:
+
+                        if i + 1 < len(lines):
+
+                            value = lines[i + 1].strip()
+
+                            if value:
+                                log.info(
+                                    f"Card '{visual_title}' → "
+                                    f"raw value: '{value}' "
+                                    f"(visual discovery fallback)"
+                                )
+                                return value
+
+        except Exception as exc:
+            log.debug(
+                f"Visual discovery KPI fallback failed for "
+                f"'{visual_title}': {exc}"
+            )
+
+        raise ValueError(
+            f"Could not extract KPI value for '{visual_title}' "
+            f"from the authenticated Power BI report."
+        )
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Table / Chart Data Extraction ("Show as a table")
@@ -1748,143 +2667,25 @@ class PBIDashboardPage(BasePage):
         partial = result.get("partial", False)
         rows    = result.get("rows", [])
 
-        # De-duplicate and accumulate rows across scroll passes when virtualised
-        collected_rows: list[dict] = []
-        seen_keys: set[str] = set()
-
-        def _ingest_rows(batch: list[dict]) -> int:
-            added = 0
-            for r in batch:
-                if not r or "__meta__" in r:
-                    continue
-                # Skip Power BI 'Total' footer row if present
-                first_val = str(next(iter(r.values()), "")).strip().lower()
-                if first_val == "total":
-                    continue
-                row_key = "|".join(f"{k}:{v}" for k, v in sorted(r.items()))
-                if row_key not in seen_keys:
-                    seen_keys.add(row_key)
-                    collected_rows.append(r)
-                    added += 1
-            return added
-
-        _ingest_rows(rows)
-
-        # ── Item 11 Enhancement: Scroll through virtualised PBI Table/Matrix ──
-        if partial or total == 0:
-            MAX_SCROLL_PASSES = 30
-            stagnant_passes = 0
-            for scroll_pass in range(1, MAX_SCROLL_PASSES + 1):
-                if total > 0 and len(collected_rows) >= total:
-                    break
-                scrolled_info = self.page.evaluate(f"""
-                    () => {{
-                        const innerDivs = document.querySelectorAll('[aria-roledescription]');
-                        let targetVc = null;
-                        for (const div of innerDivs) {{
-                            const vc = div.closest('visual-container');
-                            if (!vc) continue;
-                            const firstLine = (vc.innerText || '').trim().split('\\n')[0].trim();
-                            if (firstLine === '{safe_title}') {{
-                                targetVc = vc;
-                                break;
-                            }}
-                        }}
-                        if (!targetVc) return {{ scrolled: false, rows: [] }};
-                        const grid = targetVc.querySelector('[role="grid"], [role="treegrid"]');
-                        if (!grid) return {{ scrolled: false, rows: [] }};
-
-                        // Find the scrollable viewport inside the PBI grid
-                        const candidates = [
-                            ...grid.querySelectorAll('[class*="scroll"], [class*="viewport"], [class*="bodyCells"], div')
-                        ];
-                        let scroller = candidates.find(el => el.scrollHeight > el.clientHeight + 4);
-                        let didScroll = false;
-                        if (scroller) {{
-                            const prevTop = scroller.scrollTop;
-                            scroller.scrollTop += Math.max(120, Math.floor(scroller.clientHeight * 0.8));
-                            didScroll = scroller.scrollTop > prevTop;
-                        }}
-                        if (!didScroll) {{
-                            // Fallback: dispatch WheelEvent on the grid body
-                            const rect = grid.getBoundingClientRect();
-                            grid.dispatchEvent(new WheelEvent('wheel', {{
-                                deltaY: 240,
-                                clientX: rect.left + rect.width / 2,
-                                clientY: rect.top + rect.height / 2,
-                                bubbles: true
-                            }}));
-                        }}
-
-                        const headers = [];
-                        const headerCells = grid.querySelectorAll(
-                            '[role="columnheader"], [role="rowheader"]:first-child'
-                        );
-                        for (const cell of headerCells) {{
-                            const txt = (cell.innerText || '').trim().replace(/\\n/g, ' ');
-                            if (txt) headers.push(txt);
-                        }}
-
-                        const nextRows = [];
-                        const dataRows = grid.querySelectorAll('[role="row"]:not([aria-hidden="true"])');
-                        for (const row of dataRows) {{
-                            const cells = row.querySelectorAll('[role="gridcell"], [role="rowheader"]');
-                            if (cells.length === 0) continue;
-                            const rowData = {{}};
-                            cells.forEach((cell, i) => {{
-                                const key = headers[i] || `col_${{i}}`;
-                                rowData[key] = (cell.innerText || '').trim().replace(/\\n/g, ' ');
-                            }});
-                            if (Object.values(rowData).every(v => v === '')) continue;
-                            nextRows.push(rowData);
-                        }}
-                        return {{ scrolled: didScroll, rows: nextRows }};
-                    }}
-                """)
-                self.page.wait_for_timeout(250)
-                batch_rows = (scrolled_info or {}).get("rows", [])
-                newly_added = _ingest_rows(batch_rows)
-                if newly_added == 0:
-                    stagnant_passes += 1
-                    if stagnant_passes >= 2:
-                        break
-                else:
-                    stagnant_passes = 0
-
-            # Reset scroll position back to top after full extraction
-            try:
-                self.page.evaluate(f"""
-                    () => {{
-                        const innerDivs = document.querySelectorAll('[aria-roledescription]');
-                        for (const div of innerDivs) {{
-                            const vc = div.closest('visual-container');
-                            if (!vc) continue;
-                            const firstLine = (vc.innerText || '').trim().split('\\n')[0].trim();
-                            if (firstLine === '{safe_title}') {{
-                                vc.querySelectorAll('div').forEach(el => {{
-                                    if (el.scrollTop > 0) el.scrollTop = 0;
-                                }});
-                                break;
-                            }}
-                        }}
-                    }}
-                """)
-            except Exception:
-                pass
-
-        still_partial = total > 0 and len(collected_rows) < total
-        if still_partial:
+        if partial:
             log.warning(
-                f"[dom-table] '{visual_title}' — virtualised table after scrolling: "
-                f"extracted {len(collected_rows)} of {total} rows in DOM."
+                f"[dom-table] '{visual_title}' — virtualised table: "
+                f"{visible} of {total} rows in DOM. "
+                f"Only visible rows extracted. "
+                f"For full data use SQL direct comparison."
             )
         else:
             log.info(
-                f"[dom-table] '{visual_title}' — extracted {len(collected_rows)} rows "
-                f"(initial visible: {visible}, total per aria-rowcount: {total})"
+                f"[dom-table] '{visual_title}' — extracted {visible} rows "
+                f"(total per aria-rowcount: {total})"
             )
 
-        return collected_rows
+        # Prepend a metadata sentinel row so callers know it's partial
+        if partial and rows:
+            meta = {"__meta__": f"PARTIAL: {visible}/{total} rows visible in DOM"}
+            rows = [meta] + rows
+
+        return rows
 
     def extract_table_data(
         self,
@@ -1899,20 +2700,19 @@ class PBIDashboardPage(BasePage):
           Strategy A — Aria-label scraping (headless-safe, no clicks):
             Reads Power BI's accessibility aria-labels directly from SVG data points.
             Returns {category, measure, value} dicts.
-          Strategy A2 — DOM grid/table row scraping with automatic virtual-scroll loop:
+          Strategy A2 — DOM grid/table row scraping (headless-safe, no clicks):
             Reads PBI Table/Matrix visuals directly from the DOM using role='grid'.
           Strategy B — "Show as a table" UI flow (requires headed or accessible chart):
             Right-clicks / hovers to open context menu → Show as a table.
 
         For Org mode:
-          Strategy A2 (DOM grid scraping with scrolling) is tried first for Table/Matrix
-          visuals, falling back to Strategy B (right-click context menu).
+          Only Strategy B (right-click context menu) is used.
 
         Args:
             visual_title: Exact title of the chart or table visual.  Pass an
                           empty string if using type+index strategy.
             visual_type:  ``aria-roledescription`` of the visual (e.g.
-                          ``\"Clustered column chart\"``) — used when
+                          ``\\"Clustered column chart\\"``) — used when
                           ``visual_title`` is blank.
             visual_index: 0-based index among visuals of ``visual_type``.
 
@@ -1939,24 +2739,25 @@ class PBIDashboardPage(BasePage):
                 else:
                     log.debug(
                         f"[aria] No aria-label data points found in '{label}' "
-                        f"— falling through to DOM grid / Show-as-table UI flow"
+                        f"— falling through to Show-as-table UI flow"
                     )
             except Exception as e:
-                log.debug(f"[aria] Extraction failed for '{label}': {e} — trying DOM grid")
+                log.debug(f"[aria] Extraction failed for '{label}': {e} — trying UI flow")
 
-        # ── Strategy A2 (PTW + Org): DOM grid/table row scraping with scrolling ───
-        # For Table and Matrix visuals — PBI renders data as div[role='grid']
-        # with div[role='gridcell'] children and virtualised scrolling.
-        if visual_title:
+        # ── Strategy A2 (PTW only): DOM grid/table row scraping ──────────────────
+        # For Table and Matrix visuals in PTW — PBI renders data as div[role='grid']
+        # with div[role='gridcell'] children. No clicks or context menus needed.
+        # Note: virtualised scrolling means only visible rows (~20-40) are in DOM.
+        if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB and visual_title:
             try:
                 dom_rows = self._extract_table_visual_ptw_dom(visual_title)
                 if dom_rows:
                     data_rows = [r for r in dom_rows if "__meta__" not in r]
                     log.info(
-                        f"[dom-table] Extracted {len(data_rows)} rows from "
-                        f"'{label}' via DOM grid scraping + scroll loop"
+                        f"[dom-table] Extracted {len(data_rows)} visible rows from "
+                        f"'{label}' via DOM grid scraping"
                     )
-                    return data_rows
+                    return dom_rows  # includes meta row so report shows partial warning
                 else:
                     log.debug(
                         f"[dom-table] No grid rows found in '{label}' "
@@ -2806,7 +3607,9 @@ class PBIDashboardPage(BasePage):
                 pass
             for idx, s_root in enumerate(search_roots):
                 try:
-                    items_text = s_root.evaluate("el => Array.from(el.querySelectorAll('.slicerItemContainer, [role=\"option\"], [role=\"listitem\"], .row')).map(i => i.innerText).join(', ')")
+                    items_text = s_root.evaluate(
+                        "el => Array.from(el.querySelectorAll(\'.slicerItemContainer, [role=\"option\"], [role=\"listitem\"], .row\')).map(i => i.innerText).join(\', \')"
+                    )
                     log.debug(f"DEBUG root[{idx}] items: {items_text}")
                 except Exception:
                     try:
@@ -2896,8 +3699,6 @@ class PBIDashboardPage(BasePage):
 
         self._wait_for_dashboard_settle()
         log.info(f"Slicer '{slicer_title}' set to '{value}' (flat-DOM strategy)")
-
-
 
 
     def clear_all_slicers(self) -> None:
@@ -3310,3 +4111,1683 @@ class PBIDashboardPage(BasePage):
     def embed_mode(self) -> str:
         """Return the detected embed mode for this report."""
         return self._embed_mode
+
+    # ── Track 1 / Scenario 1 Methods ──────────────────────────────────────────
+
+    def _assert_not_login_page(self) -> None:
+        """Handle SSO redirect: pause for user login in headed browser instead of crashing."""
+        url = self.page.url.lower()
+        if any(host in url for host in _LOGIN_HOSTS):
+            try:
+                self.capture_screenshot("pbi_sso_required")
+            except Exception:
+                pass
+            log.warning(
+                f"[AUTH REQUIRED] Power BI redirected to login page ({self.page.url[:80]}...). "
+                "Please complete SSO in the open browser window. Waiting up to 60s..."
+            )
+            try:
+                self.page.wait_for_url(
+                    lambda u: not any(host in u.lower() for host in _LOGIN_HOSTS) and "powerbi.com" in u.lower(),
+                    timeout=90_000,
+                )
+                log.info("SSO completed! Report loading...")
+                self._wait_for_pbi_load()
+            except Exception:
+                raise RuntimeError(
+                    f"Power BI redirected to login page ({self.page.url[:80]}...) "
+                    "and SSO was not completed within 90s."
+                )
+
+
+    def _get_frame(self) -> Optional[FrameLocator]:
+        """Detect (once per navigation) whether the report is inside an iframe."""
+        if self._frame_checked:
+            return self._frame
+        try:
+            self.page.wait_for_selector(_IFRAME_SEL, timeout=PBI_IFRAME_PROBE_TIMEOUT)
+            self._frame = self.page.frame_locator(_IFRAME_SEL).first
+            log.info("PBI iframe detected")
+        except PwTimeoutError:
+            log.info("No PBI iframe - using main page DOM")
+            self._frame = None
+        self._frame_checked = True
+        return self._frame
+
+
+    def _ctx(self):
+        """Return FrameLocator for iframe mode, or page for non-iframe mode."""
+        f = self._get_frame()
+        return f if f else self.page
+
+
+    def _wait_for_pbi_load(self) -> None:
+        """Wait for PBI to start rendering the report canvas."""
+        self.page.wait_for_timeout(3_000)  # initial settle
+        try:
+            self._ctx().locator(_READY_SEL).first.wait_for(
+                state="visible", timeout=PBI_RENDER_TIMEOUT
+            )
+        except PwTimeoutError:
+            log.warning(
+                "No report visuals became visible within "
+                f"{PBI_RENDER_TIMEOUT // 1000}s - continuing anyway"
+            )
+            self.capture_screenshot("pbi_load_timeout")
+        self.page.wait_for_timeout(2_000)
+
+
+    def _collect_page_names(self, ctx) -> list[str]:
+        """One snapshot pass over the page-tab selectors; first selector that yields names wins."""
+        for sel in _PAGE_TAB_SELECTORS:
+            try:
+                els = ctx.locator(sel).all()
+            except Exception:
+                continue
+            names: list[str] = []
+            for el in els:
+                try:
+                    name = (el.get_attribute("aria-label") or el.inner_text() or "").strip()
+                    name = re.sub(r"\s+Selected$", "", name, flags=re.I).strip()
+                except Exception:
+                    continue
+                if name and name.lower() not in _NOT_PAGE_NAMES and name not in names:
+                    names.append(name)
+            if names:
+                log.debug(f"Page tabs matched selector: {sel}")
+                return names
+        return []
+
+
+    def _try_open_pages_pane(self, ctx) -> None:
+        """If the left 'Pages' pane is collapsed, try to expand it (best effort)."""
+        try:
+            btn = ctx.get_by_role("button", name=re.compile(r"^(show )?pages$", re.I)).first
+            if btn.is_visible(timeout=1_500):
+                log.info("Expanding PBI Pages pane")
+                btn.click(timeout=3_000)
+                self.page.wait_for_timeout(1_000)
+        except Exception:
+            pass
+
+
+    def get_page_list(self) -> list[str]:
+        """
+        Return the names of all pages in the PBI report.
+
+        Polls (up to PBI_PAGELIST_TIMEOUT) because page tabs render after the
+        visuals. If nothing is found, dumps DOM diagnostics to logs/ so the
+        selector can be corrected from real markup.
+        """
+        log.info("Getting PBI page list")
+        if "powerbi.com" not in self.page.url.lower() and self._report_url:
+            log.warning(
+                f"PBIDashboardPage.get_page_list() invoked while on non-PBI URL ({self.page.url}). "
+                f"Re-navigating to {self._report_url}..."
+            )
+            self.open(self._report_url)
+
+        ctx = self._ctx()
+        deadline = time.monotonic() + PBI_PAGELIST_TIMEOUT / 1000
+        tried_pane = False
+        names: list[str] = []
+
+        while True:
+            names = self._collect_page_names(ctx)
+            if names or time.monotonic() >= deadline:
+                break
+            if not tried_pane:
+                self._try_open_pages_pane(ctx)
+                tried_pane = True
+            self.page.wait_for_timeout(1_500)
+
+        if not names:
+            self.dump_diagnostics("pbi_page_list_empty")
+
+        log.info(f"PBI pages found ({len(names)}): {names}")
+        return names
+
+
+    def dump_diagnostics(self, tag: str = "pbi_diag") -> None:
+        """Save screenshot + full HTML + a summary of candidate nav elements to help fix selectors."""
+        import os
+        from datetime import datetime
+
+        try:
+            os.makedirs(LOG_DIR, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.capture_screenshot(tag)
+            html_path = os.path.join(LOG_DIR, f"{tag}_{ts}.html")
+            with open(html_path, "w", encoding="utf-8") as fh:
+                fh.write(self.page.content())
+            log.warning(f"[DIAG] url={self.page.url[:120]}")
+            log.warning(f"[DIAG] title={self.page.title()!r}")
+            log.warning(f"[DIAG] iframes on page={self.page.locator('iframe').count()}")
+            log.warning(f"[DIAG] full HTML saved: {html_path}")
+            summary = self.page.evaluate(
+                """() => {
+                    const out = [];
+                    const q = "[role='tab'],[role='tablist'],[role='listitem'],[role='region'],"
+                            + "button[aria-label],[class*='age' i][class*='av' i]";
+                    document.querySelectorAll(q).forEach(e => {
+                        if (out.length < 60) out.push([
+                            e.tagName.toLowerCase(),
+                            e.getAttribute('role') || '',
+                            (e.getAttribute('aria-label') || e.innerText || '').trim().slice(0, 60),
+                            (e.className && e.className.toString ? e.className.toString() : '').slice(0, 70),
+                        ].join(' | '));
+                    });
+                    return out;
+                }"""
+            )
+            for row in summary:
+                log.warning(f"[DIAG] {row}")
+        except Exception as e:  # diagnostics must never mask the real failure
+            log.warning(f"[DIAG] could not collect diagnostics: {e}")
+
+
+    def get_visual_titles(self) -> list[str]:
+        """
+        Return titles of all data visuals on the current PBI page.
+        """
+        log.info("Getting PBI visual titles")
+        titles = []
+        ignored_titles = {"power bi report", "legend", "navigation", "visuals", "filters", "pages"}
+
+        eval_script = """
+            () => {
+                const titles = [];
+                const ignored = new Set(["power bi report", "legend", "navigation", "visuals", "filters", "pages"]);
+                const vcs = document.querySelectorAll("visual-container, [data-automation-type='visualContainer']");
+                let idx = 0;
+                for (const vc of vcs) {
+                    idx++;
+                    const isBtnSlicer = vc.querySelector(".buttonSlicerVisual, [class*='buttonSlicer']") !== null;
+                    const innerVc = vc.querySelector(".visualContainer");
+                    let title = null;
+                    if (innerVc && innerVc.getAttribute("aria-label")) {
+                        title = innerVc.getAttribute("aria-label").trim();
+                    }
+                    if (!title) {
+                        const lbl = vc.querySelector("p[id*='visualsLabel']");
+                        if (lbl) title = lbl.textContent.trim();
+                    }
+                    if (!title) {
+                        const h = vc.querySelector("[class*='visualTitle'], [class*='header-title'], h3");
+                        if (h && !h.textContent.toLowerCase().includes("press enter to explore")) {
+                            title = h.textContent.trim();
+                        }
+                    }
+                    if (!title) {
+                        const roledesc = innerVc ? innerVc.getAttribute("aria-roledescription") : "";
+                        if (roledesc && roledesc.toLowerCase().includes("table")) {
+                            const ths = Array.from(vc.querySelectorAll("[role='columnheader']")).slice(0, 3).map(e => e.textContent.trim());
+                            title = ths.length > 0 ? `Table: ${ths.join(', ')}` : "Table Visual";
+                        } else if (roledesc && !isBtnSlicer) {
+                            title = `${roledesc} ${idx}`;
+                        }
+                    }
+                    if (title) {
+                        if (title.toLowerCase().startsWith("press enter to explore data")) {
+                            title = title.substring("press enter to explore data".length).trim();
+                        }
+                        title = title.trim();
+                        if (title && !ignored.has(title.toLowerCase()) && !titles.includes(title)) {
+                            titles.push(title);
+                        }
+                    }
+                }
+                return titles;
+            }
+        """
+        try:
+            titles = self.page.evaluate(eval_script) or []
+        except Exception as e:
+            log.warning(f"Error evaluating PBI visual titles via JS: {e}")
+
+        if not titles:
+            ctx = self._ctx()
+            selectors = [
+                "[data-automation-type='visualContainer'] .visualContainer[aria-label]",
+                "visual-container .visualContainer[aria-label]",
+                "p[id*='visualsLabel']",
+                "[class*='visualTitle'] span",
+                "visual-container h3",
+            ]
+            for sel in selectors:
+                try:
+                    for el in ctx.locator(sel).all():
+                        t = el.get_attribute("aria-label") or el.inner_text().strip()
+                        if t.lower().startswith("press enter to explore data"):
+                            t = t[len("press enter to explore data"):].strip()
+                        if t and t.lower() not in ignored_titles and t not in titles:
+                            titles.append(t)
+                except Exception:
+                    pass
+
+        log.info(f"PBI visual titles found ({len(titles)}): {titles}")
+        return titles
+
+
+    def capture_page_baseline(self) -> dict[str, str | None]:
+        """
+        Snapshot displayed visual titles and data states on the current PBI page.
+
+        Returns: {visual_title: displayed_value_or_data_summary}
+
+        Captures real visual containers (KPIs, bar/line/pie charts, tables)
+        and extracts data representations (KPI values, chart data labels, bar/slice values, table cells).
+        """
+        log.info("Capturing PBI page baseline")
+        eval_script = """
+            () => {
+                const results = {};
+                const ignored = new Set(["power bi report", "legend", "navigation", "visuals", "filters", "pages"]);
+                const vcs = document.querySelectorAll("visual-container, [data-automation-type='visualContainer']");
+                let idx = 0;
+                for (const vc of vcs) {
+                    idx++;
+                    const isBtnSlicer = vc.querySelector(".buttonSlicerVisual, [class*='buttonSlicer']") !== null;
+                    const innerVc = vc.querySelector(".visualContainer");
+                    let title = null;
+                    if (innerVc && innerVc.getAttribute("aria-label")) {
+                        title = innerVc.getAttribute("aria-label").trim();
+                    }
+                    if (!title) {
+                        const lbl = vc.querySelector("p[id*='visualsLabel']");
+                        if (lbl) title = lbl.textContent.trim();
+                    }
+                    if (!title) {
+                        const h = vc.querySelector("[class*='visualTitle'], [class*='header-title'], h3");
+                        if (h && !h.textContent.toLowerCase().includes("press enter to explore")) {
+                            title = h.textContent.trim();
+                        }
+                    }
+                    if (!title) {
+                        const roledesc = innerVc ? innerVc.getAttribute("aria-roledescription") : "";
+                        if (roledesc && roledesc.toLowerCase().includes("table")) {
+                            const ths = Array.from(vc.querySelectorAll("[role='columnheader']")).slice(0, 3).map(e => e.textContent.trim());
+                            title = ths.length > 0 ? `Table: ${ths.join(', ')}` : "Table Visual";
+                        } else if (roledesc && !isBtnSlicer) {
+                            title = `${roledesc} ${idx}`;
+                        } else if (isBtnSlicer) {
+                            title = `Button Slicer ${idx}`;
+                        } else {
+                            title = `Visual_${idx}`;
+                        }
+                    }
+
+                    if (title.toLowerCase().startsWith("press enter to explore data")) {
+                        title = title.substring("press enter to explore data".length).trim();
+                    }
+                    title = title.trim();
+                    if (!title || ignored.has(title.toLowerCase())) continue;
+
+                    // 1. KPI single value
+                    let val = null;
+                    const kpi = vc.querySelector("[class*='kpiValue'], [class*='visualValue'], [class*='value']");
+                    if (kpi && kpi.textContent.trim()) {
+                        val = kpi.textContent.trim();
+                    }
+                    // 2. Chart data labels
+                    if (!val) {
+                        const labels = Array.from(vc.querySelectorAll("text.label, tspan.label-tspan, .label-container text"))
+                            .map(e => e.textContent.trim()).filter(Boolean);
+                        if (labels.length > 0) val = labels.slice(0, 8).join(", ");
+                    }
+                    // 3. Rect/path bars and slices with aria-label
+                    if (!val) {
+                        const rects = Array.from(vc.querySelectorAll("rect[aria-label], [data-automation-type*='chart-rect'][aria-label], g.slice[aria-label], path.slice[aria-label], path[aria-label]"))
+                            .map(e => e.getAttribute("aria-label")).filter(Boolean);
+                        if (rects.length > 0) val = rects.slice(0, 8).join(", ");
+                    }
+                    // 4. Table cells
+                    if (!val) {
+                        const cells = Array.from(vc.querySelectorAll("[role='gridcell']"))
+                            .map(e => e.textContent.trim()).filter(Boolean);
+                        if (cells.length > 0) val = cells.slice(0, 10).join(" | ");
+                    }
+                    // 5. Button slicer selected item
+                    if (!val && isBtnSlicer) {
+                        const selectedBtn = vc.querySelector(".selected, [aria-selected='true'], [aria-checked='true']");
+                        if (selectedBtn) val = selectedBtn.textContent.trim();
+                    }
+                    // 6. Generic text summary
+                    if (!val) {
+                        const allTxt = (vc.textContent || "").replace(/Press Enter to explore data/g, "").trim();
+                        const words = allTxt.split(/\\s+/).slice(0, 10);
+                        val = words.length > 0 ? words.join(" ") : "rendered";
+                    }
+
+                    results[title] = val;
+                }
+                return results;
+            }
+        """
+        results = {}
+        try:
+            results = self.page.evaluate(eval_script) or {}
+        except Exception as e:
+            log.warning(f"Error evaluating PBI baseline via JS: {e}")
+
+        # Fallback to region locator if JS returned empty
+        if not results:
+            ctx = self._ctx()
+            try:
+                for region in ctx.locator("[role='region'][aria-label]").all():
+                    t = region.get_attribute("aria-label", timeout=1_000)
+                    if t and t.lower() not in {"power bi report", "legend", "navigation"}:
+                        val_el = region.locator("[class*='value'], text").first
+                        results[t] = val_el.inner_text(timeout=500).strip() if val_el.count() else "rendered"
+            except Exception as e:
+                log.debug(f"PBI baseline region fallback error: {e}")
+
+        log.info(f"PBI baseline: {len(results)} visuals captured ({list(results.keys())[:4]}...)")
+        return results
+
+
+    def deselect_all_visuals(self) -> None:
+        """
+        Deselect any active visual on the canvas so the Filters Pane shows
+        page-level / report-level filters instead of 'Filters on this visual'.
+        """
+        try:
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(150)
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(150)
+        except Exception as e:
+            log.debug(f"Deselect visuals error (non-fatal): {e}")
+
+
+    def ensure_filters_pane_open(self) -> bool:
+        """
+        Ensure the Power BI Filters Pane on the right is expanded.
+        If collapsed, clicks the expand button.
+        """
+        ctx = self._ctx()
+        check_script = """
+            () => {
+                const pane = document.querySelector(".filtersPane, [class*='filtersPane'], [data-automation-type='filterPane'], [aria-label='Filters']");
+                if (pane) {
+                    const rect = pane.getBoundingClientRect();
+                    return rect.width > 50;
+                }
+                return false;
+            }
+        """
+        try:
+            is_open = self.page.evaluate(check_script)
+            if is_open:
+                return True
+        except Exception:
+            pass
+
+        expand_selectors = [
+            "button[aria-label*='Expand filter' i]",
+            "button[aria-label*='Expand Filters' i]",
+            "button[aria-label*='Expand' i][aria-label*='filter' i]",
+            "button[aria-label*='Expand' i]",
+            "[data-automation-id='filters-pane-expand-button']",
+            ".filtersPaneCollapsed button",
+            "button.expandPaneBtn",
+            "button:has(.pbi-glyph-chevronleft)",
+            "button:has(.pbi-glyph-chevronright)",
+            "[title*='Expand filter' i]",
+        ]
+        for sel in expand_selectors:
+            try:
+                btn = ctx.locator(sel).first
+                if btn.count() > 0 and btn.is_visible(timeout=500):
+                    btn.click(timeout=1_500, force=True)
+                    self.page.wait_for_timeout(600)
+                    log.info(f"Expanded Filters Pane using selector: {sel}")
+                    return True
+            except Exception:
+                continue
+        return False
+
+
+    def _stem_word(word: str) -> str:
+        w = re.sub(r"[^a-z0-9]", "", word.lower().strip())
+        if w.startswith("opp"):
+            return "opp"
+        if w.startswith("rev"):
+            return "rev"
+        if w.startswith("quant") or w.startswith("qty"):
+            return "qty"
+        return w
+
+
+    def select_visual(self, visual_target: Optional[str] = None) -> bool:
+        """
+        Locate and click a visual on the canvas to activate its 'Filters on this visual'
+        section in the Power BI Filters Pane.
+
+        Args:
+            visual_target: Title, partial name, or keywords of the visual to select.
+                          If None, clicks the primary data visual (chart or table) on the canvas.
+        Returns:
+            True if a visual was successfully located and clicked, False otherwise.
+        """
+        log.info(f"Selecting visual on canvas: {visual_target or '<primary data visual>'}")
+        ctx = self._ctx()
+        try:
+            candidate_vis = None
+            if visual_target:
+                v_clean = visual_target.strip().lower()
+                is_target_qty = ("quant" in v_clean) or ("qty" in v_clean)
+                is_target_rev = ("rev" in v_clean) or ("usd" in v_clean) or ("rate" in v_clean)
+
+                stop_words = {"by", "the", "for", "in", "of", "and", "usd", "@", "actual", "rate"}
+                target_stems = [
+                    PBIDashboardPage._stem_word(w)
+                    for w in re.split(r"\s+", v_clean)
+                    if len(w) > 1 and w not in stop_words
+                ]
+
+                selectors = [
+                    f"visual-container:has([class*='visualTitle']:has-text('{visual_target}'))",
+                    f"visual-container[aria-label*='{visual_target}' i]",
+                    f"[class*='visualContainer'][aria-label*='{visual_target}' i]",
+                    f"visual-container:has-text('{visual_target}')",
+                    f"[class*='visualContainer']:has-text('{visual_target}')",
+                ]
+                v_words = [w for w in re.split(r"\s+", v_clean) if len(w) > 2 and w not in stop_words]
+                if len(v_words) >= 2:
+                    phrase = " ".join(v_words[:3])
+                    selectors.append(f"visual-container:has-text('{phrase}')")
+                    selectors.append(f"[class*='visualContainer']:has-text('{phrase}')")
+
+                for sel in selectors:
+                    loc = ctx.locator(sel).first
+                    if loc.count() > 0 and loc.is_visible(timeout=1_500):
+                        if loc.locator(".buttonSlicerVisual, [class*='buttonSlicer']").count() > 0:
+                            continue
+                        candidate_vis = loc
+                        log.debug(f"Matched target visual with selector: {sel}")
+                        break
+
+                # If exact visual target did not match a data chart (e.g. 'Quantity of Overdue Opportunities'
+                # when chart has author title 'Revenue of Overdue Opportunities'), search via core phrase
+                if not candidate_vis:
+                    core_target = re.sub(r"^(quantity|revenue)\s+of\s+", "", visual_target, flags=re.I).strip()
+                    if core_target and core_target.lower() != visual_target.lower():
+                        core_selectors = [
+                            f"visual-container:has([class*='visualTitle']:has-text('{core_target}'))",
+                            f"visual-container:has-text('{core_target}')",
+                            f"[class*='visualContainer'][aria-label*='{core_target}' i]",
+                        ]
+                        for sel in core_selectors:
+                            loc = ctx.locator(sel).first
+                            if loc.count() > 0 and loc.is_visible(timeout=1_500):
+                                if loc.locator(".buttonSlicerVisual, [class*='buttonSlicer']").count() > 0:
+                                    continue
+                                candidate_vis = loc
+                                log.debug(f"Matched target visual via core target '{core_target}' with selector: {sel}")
+                                break
+
+                if not candidate_vis:
+                    all_vcs = ctx.locator("visual-container, [data-automation-type='visualContainer']").all()
+                    best_match_vc = None
+                    best_match_score = 0
+
+                    for vc in all_vcs:
+                        try:
+                            if vc.locator(".buttonSlicerVisual, [class*='buttonSlicer']").count() > 0:
+                                continue
+                            txt = (vc.inner_text(timeout=500) or "").lower()
+                            aria = (vc.get_attribute("aria-label") or "").lower()
+                            combined = f"{txt} {aria}"
+
+                            # Prevent cross-measure matching (Revenue vs Quantity)
+                            if is_target_qty and ("revenue" in combined or "rev " in combined or "usd" in combined) and ("quantity" not in combined and "qty" not in combined):
+                                continue
+                            if is_target_rev and ("quantity" in combined or "qty" in combined) and ("revenue" not in combined and "rev" not in combined and "usd" not in combined):
+                                continue
+
+                            cand_stems = [PBIDashboardPage._stem_word(w) for w in re.split(r"\s+", combined)]
+                            match_count = sum(1 for st in target_stems if st in cand_stems or st in combined)
+
+                            if match_count > best_match_score:
+                                best_match_score = match_count
+                                best_match_vc = vc
+                        except Exception:
+                            continue
+
+                    min_required = max(1, len(target_stems) - 1) if len(target_stems) >= 2 else 1
+                    if best_match_vc and best_match_score >= min_required:
+                        candidate_vis = best_match_vc
+                        log.debug(f"Matched target visual via stemmed tokens {target_stems} (score={best_match_score}/{len(target_stems)})")
+
+            if not candidate_vis:
+                data_vis_selectors = [
+                    "visual-container:has([role='grid'])",
+                    "visual-container:has([class*='tablix'])",
+                    "visual-container:has([class*='pivotTable'])",
+                    "visual-container:has([aria-roledescription*='table' i])",
+                    "visual-container:has([aria-roledescription*='chart' i])",
+                    "visual-container:has(svg.cartesian-chart)",
+                    "visual-container:has(svg)",
+                ]
+                for d_sel in data_vis_selectors:
+                    loc = ctx.locator(d_sel).first
+                    if loc.count() > 0 and loc.is_visible(timeout=500):
+                        if loc.locator(".buttonSlicerVisual, [class*='buttonSlicer']").count() > 0:
+                            continue
+                        candidate_vis = loc
+                        log.debug(f"Matched fallback data visual with selector: {d_sel}")
+                        break
+
+            if not candidate_vis:
+                log.warning(f"Could not locate visual '{visual_target}' on canvas to select")
+                return False
+
+            candidate_vis.scroll_into_view_if_needed()
+            clicked = False
+
+            # 1. Header click: click visual title or header wrapper with force=True
+            header = candidate_vis.locator(
+                "[class*='visualTitle'], [class*='header-title'], h3, .visualHeader, .visualHeaderWrapper, .header-text"
+            ).first
+            if header.count() > 0 and header.is_visible(timeout=800):
+                try:
+                    header.click(timeout=1_500, force=True)
+                    clicked = True
+                    self.page.wait_for_timeout(400)
+                    log.info(f"Visual '{visual_target or '<primary data visual>'}' selected via header click")
+                except Exception as ex_h:
+                    log.debug(f"Header click failed: {ex_h}")
+
+            # 2. Container margin click fallback: click corner offset without opening context menu
+            if not clicked:
+                try:
+                    candidate_vis.click(position={"x": 25, "y": 25}, timeout=1_500, force=True)
+                    clicked = True
+                    self.page.wait_for_timeout(400)
+                    log.info(f"Visual '{visual_target or '<primary data visual>'}' selected via container margin click")
+                except Exception as ex_c:
+                    log.debug(f"Container margin click failed: {ex_c}")
+
+            # 4. Dispatch event fallback
+            if not clicked:
+                try:
+                    candidate_vis.dispatch_event("click")
+                    clicked = True
+                    log.debug("Fallback dispatch_event('click') executed on visual container")
+                except Exception as ex_d:
+                    log.warning(f"Fallback dispatch_event('click') failed: {ex_d}")
+
+            self.page.wait_for_timeout(500)
+            log.info(f"Visual '{visual_target or '<primary data visual>'}' selected on canvas")
+            return True
+
+        except Exception as e:
+            log.warning(f"Error selecting visual '{visual_target}' on canvas: {e}")
+            return False
+
+
+    def set_metric_toggle(self, metric_name: str) -> bool:
+        """
+        Click the canvas toggle button corresponding to the requested metric.
+        e.g., if measure is 'Revenue USD @ Actual Rate' -> click 'Revenue'.
+        if measure is 'Quantity' -> click 'Quantity'.
+        """
+        if not metric_name:
+            return False
+        ctx = self._ctx()
+        m_lower = metric_name.lower()
+        target = "Revenue" if ("rev" in m_lower or "usd" in m_lower or "rate" in m_lower) else ("Quantity" if ("qty" in m_lower or "quant" in m_lower) else None)
+        if not target:
+            return False
+
+        log.info(f"Setting metric toggle to: '{target}'")
+
+        # 1. First, check modern Power BI Button Slicer (.buttonSlicerVisual)
+        cell_selectors = [
+            f".buttonSlicerVisual[role='button']:has([title='{target}'])",
+            f".buttonSlicerVisual[role='button']:has-text('{target}')",
+            f".buttonSlicerVisual:has([title='{target}'])",
+            f".buttonSlicerVisual:has-text('{target}')",
+            f"[class*='buttonSlicer']:has([title='{target}'])",
+            f"[class*='buttonSlicer']:has-text('{target}')",
+        ]
+
+        target_cell = None
+        for c_sel in cell_selectors:
+            loc = ctx.locator(c_sel).first
+            try:
+                if loc.count() > 0 and loc.is_visible(timeout=1_000):
+                    target_cell = loc
+                    break
+            except Exception:
+                continue
+
+        if target_cell and target_cell.count() > 0:
+            is_pressed = target_cell.get_attribute("aria-pressed") == "true" or "selected" in (target_cell.get_attribute("class") or "").lower()
+            if is_pressed:
+                log.info(f"Metric toggle '{target}' is already active (aria-pressed=true)")
+                self.page.wait_for_timeout(500)
+                return True
+
+            log.info(f"Activating metric toggle '{target}' button slicer")
+            try:
+                target_cell.scroll_into_view_if_needed(timeout=1_000)
+            except Exception:
+                pass
+
+            clicked = False
+            click_targets = [
+                target_cell.locator("path.ui-role-button-fill, path.fill, .tile").first,
+                target_cell,
+                target_cell.locator(f".ui-role-button-text, [title='{target}']").first,
+            ]
+            for ct in click_targets:
+                try:
+                    if ct.count() > 0 and ct.is_visible(timeout=500):
+                        ct.click(timeout=2_000, force=True)
+                        self.page.wait_for_timeout(400)
+                        if target_cell.get_attribute("aria-pressed") == "true":
+                            clicked = True
+                            break
+                except Exception:
+                    continue
+
+            if not clicked:
+                try:
+                    target_cell.dispatch_event("click")
+                    self.page.wait_for_timeout(400)
+                    if target_cell.get_attribute("aria-pressed") == "true":
+                        clicked = True
+                except Exception:
+                    pass
+
+            for _ in range(10):
+                if target_cell.get_attribute("aria-pressed") == "true":
+                    clicked = True
+                    break
+                self.page.wait_for_timeout(200)
+
+            if clicked:
+                log.info(f"Metric toggle '{target}' toggled and verified (aria-pressed=true)")
+                self.page.wait_for_timeout(1_500)
+                return True
+
+        # 2. Check for Bookmark / Shape action buttons (common in migrated Qlik reports)
+        try:
+            bm_locs = ctx.locator("[aria-label*='Bookmark'], .visual-shape, [class*='shapeVisual']")
+            bm_count = bm_locs.count()
+            if bm_count > 0:
+                txt_locs = ctx.locator(f":text-matches('^{target}$', 'i')")
+                if txt_locs.count() > 0:
+                    txt_box = txt_locs.first.bounding_box()
+                    if txt_box:
+                        best_shape = None
+                        min_dist = 999999
+                        for i in range(bm_count):
+                            s_loc = bm_locs.nth(i)
+                            s_box = s_loc.bounding_box()
+                            if s_box and s_box['width'] > 0 and s_box['height'] > 0:
+                                dist = (
+                                    abs((s_box['x'] + s_box['width'] / 2) - (txt_box['x'] + txt_box['width'] / 2))
+                                    + abs((s_box['y'] + s_box['height'] / 2) - (txt_box['y'] + txt_box['height'] / 2))
+                                )
+                                if dist < min_dist:
+                                    min_dist = dist
+                                    best_shape = (s_loc, s_box)
+                        if best_shape and min_dist < 200:
+                            s_loc, s_box = best_shape
+                            click_x = s_box['x'] + 15
+                            click_y = s_box['y'] + s_box['height'] / 2
+                            log.info(f"Clicking bookmark shape for '{target}' at ({click_x:.1f}, {click_y:.1f})")
+                            self.page.mouse.click(click_x, click_y)
+                            self.page.wait_for_timeout(2_500)
+                            return True
+        except Exception as e:
+            log.debug(f"Bookmark shape detection failed: {e}")
+
+        # 3. Fallback to generic button selectors (classic bookmarks / shapes / actionButtons)
+        fallback_selectors = [
+            f".visual-actionButton:has-text('{target}')",
+            f".actionButtonWrapper:has-text('{target}')",
+            f".shape:has-text('{target}')",
+            f":text-matches('^{target}$', 'i')",
+            f"[role='button']:has-text('{target}')",
+            f"button:has-text('{target}')",
+            f"div[title='{target}']",
+            f"[role='button'][title='{target}']",
+        ]
+        for sel in fallback_selectors:
+            try:
+                btn = ctx.locator(sel).first
+                if btn.count() > 0 and btn.is_visible(timeout=1_000):
+                    btn.click(timeout=2_000, force=True)
+                    self.page.wait_for_timeout(1_500)
+                    log.info(f"Metric toggle '{target}' clicked via fallback selector: {sel}")
+                    return True
+            except Exception:
+                continue
+
+        log.debug(f"Metric toggle '{target}' not found on current page")
+        return False
+
+
+    def extract_visual_value(
+        self,
+        visual_target: str,
+        category_filter: Optional[Union[str, list[str]]] = None,
+    ) -> Optional[str]:
+        """
+        Extract the displayed numeric or total value for a target visual on the current page.
+
+        Supports:
+          - KPI cards (kpiValue, visualValue, text)
+          - Bar & column charts (data bars, axis ticks, category matching)
+          - Pie & donut charts (slices with accessibility aria-labels)
+          - Tables & matrix grids
+        """
+        # Ensure stabilization wait for visual rendering post-toggle/slicer
+        self.page.wait_for_timeout(1_000)
+
+        target_clean = visual_target.replace("'", "\\'")
+        cats_json = "[]"
+        if category_filter:
+            if isinstance(category_filter, str):
+                c_list = [c.strip().lower() for c in category_filter.split(",") if c.strip()]
+            else:
+                c_list = [str(c).strip().lower() for c in category_filter if str(c).strip()]
+            import json
+            cats_json = json.dumps(c_list)
+
+        eval_script = f"""
+            () => {{
+                const targetLower = '{target_clean}'.toLowerCase().trim();
+                const targetWords = targetLower.split(/\\s+/).filter(w => w.length > 2);
+                const stem = w => {{
+                    let s = (w || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (s.startsWith('opp')) return 'opp';
+                    if (s.startsWith('rev')) return 'rev';
+                    if (s.startsWith('quant') || s.startsWith('qty')) return 'qty';
+                    return s;
+                }};
+
+                const stopWords = ['the', 'for', 'in', 'of', 'and', 'usd', 'actual', 'rate', 'by'];
+                const targetTokens = targetLower.split(/\\s+/).map(stem).filter(w => w.length > 1 && !stopWords.includes(w));
+                const catFilters = {cats_json};
+
+                const isTargetQty = targetLower.includes('quant') || targetLower.includes('qty');
+                const isTargetRev = targetLower.includes('rev') || targetLower.includes('usd') || targetLower.includes('rate');
+
+                // 1. Find matching visual container
+                const vcs = Array.from(document.querySelectorAll('visual-container, [class*="visualContainer"]'));
+                let targetVc = null;
+
+                const hasChartVisual = vc => vc.querySelector('svg.cartesian-chart, [data-automation-type*="chart-rect"], rect[aria-label], path[aria-label]') !== null;
+                const hasCategoryMatch = vc => {{
+                    if (catFilters.length === 0) return false;
+                    const texts = Array.from(vc.querySelectorAll('text')).map(t => (t.textContent || '').trim().toLowerCase());
+                    return catFilters.some(cf => texts.some(t => t.includes(cf) || cf.includes(t)));
+                }};
+
+                let bestScore = -1;
+                for (const vc of vcs) {{
+                    if (vc.querySelector('.buttonSlicerVisual, [class*="buttonSlicer"]')) continue;
+
+                    const titleEl = vc.querySelector("[class*='visualTitle'], h3, [class*='header-title']");
+                    const tText = (titleEl ? titleEl.textContent : '').toLowerCase().trim();
+                    const aria = (vc.getAttribute('aria-label') || '').toLowerCase().trim();
+                    const combined = tText + ' ' + aria;
+
+                    const catMatch = hasCategoryMatch(vc);
+                    const isChart = hasChartVisual(vc);
+
+                    // If it has category match on the chart, do not disqualify due to measure keywords in static title
+                    if (!catMatch) {{
+                        if (isTargetQty && (combined.includes('revenue') || combined.includes('rev ') || combined.includes('usd'))) continue;
+                        if (isTargetRev && (combined.includes('quantity') || combined.includes('qty'))) continue;
+                    }}
+
+                    const candTokens = combined.split(/\\s+/).map(stem);
+                    const matchWords = targetTokens.filter(t => candTokens.includes(t) || combined.includes(t));
+
+                    let score = 0;
+                    if (tText.includes(targetLower) || aria.includes(targetLower)) score += 100;
+                    score += matchWords.length * 25;
+
+                    if (catFilters.length > 0) {{
+                        if (catMatch) score += 150;
+                        if (isChart) score += 50;
+                        if (combined.includes('by market') || combined.includes('by geolevel3') || combined.includes('by region')) score += 80;
+                    }}
+
+                    if (score > bestScore && score > 0) {{
+                        bestScore = score;
+                        targetVc = vc;
+                    }}
+                }}
+
+                if (!targetVc) {{
+                    for (const vc of vcs) {{
+                        if (vc.querySelector('.buttonSlicerVisual, [class*="buttonSlicer"]')) continue;
+                        const fullText = (vc.textContent || '').toLowerCase();
+                        const catMatch = hasCategoryMatch(vc);
+                        if (!catMatch) {{
+                            if (isTargetQty && (fullText.includes('revenue') || fullText.includes('rev ') || fullText.includes('usd'))) continue;
+                            if (isTargetRev && (fullText.includes('quantity') || fullText.includes('qty'))) continue;
+                        }}
+
+                        const candTokens = fullText.split(/\\s+/).map(stem);
+                        const matchWords = targetTokens.filter(t => candTokens.includes(t) || fullText.includes(t));
+                        if (matchWords.length >= Math.max(1, targetTokens.length - 1) && targetTokens.length > 0) {{
+                            targetVc = vc;
+                            break;
+                        }}
+                    }}
+                }}
+
+                if (!targetVc && !targetLower) {{
+                    const selVc = document.querySelector(
+                        'visual-container.selected, visual-container.visualContainerFocused, ' +
+                        'visual-container:has([class*="selected"]), visual-container:has(.visualContainerSelection)'
+                    );
+                    if (selVc && !selVc.querySelector('.buttonSlicerVisual, [class*="buttonSlicer"]') && (hasChartVisual(selVc) || selVc.querySelector("[class*='kpiValue'], [class*='visualValue']"))) {{
+                        targetVc = selVc;
+                    }}
+                }}
+
+                if (!targetVc) return null;
+
+                // 2. Case A: KPI card values
+                const cardSelectors = [
+                    \"[class*='kpiValue']\",
+                    \"[class*='visualValue']\",
+                    \"[class*='card'] [class*='value']\",
+                    \".value.kpi\",
+                    \"span[class*='value']\",
+                ];
+                for (const sel of cardSelectors) {{
+                    const el = targetVc.querySelector(sel);
+                    if (el && el.textContent.trim()) {{
+                        return el.textContent.trim();
+                    }}
+                }}
+
+                // 3. Case B: Bar / Column Chart with rect[aria-label] and axis tick labels
+                const barRects = Array.from(targetVc.querySelectorAll(
+                    '[data-automation-type="column-chart-rect"], [data-automation-type="bar-chart-rect"], rect[aria-label]'
+                )).filter(r => r.getAttribute('aria-label') !== null);
+
+                const dedup = s => {{
+                    if (s.length % 2 === 0 && s.slice(0, s.length / 2) === s.slice(s.length / 2)) {{
+                        return s.slice(0, s.length / 2);
+                    }}
+                    return s;
+                }};
+
+                const axisTickEls = Array.from(targetVc.querySelectorAll('text')).map(t => dedup(t.textContent.trim()));
+                const nonNumericAxis = [];
+                for (const t of axisTickEls) {{
+                    if (!t || /^[\\d.,]+[kmgb%]?$/i.test(t) || t.includes('GEO Level') || t.includes('Measure')) continue;
+                    if (t.toLowerCase().includes('% of') || t.toLowerCase().includes('total')) continue;
+                    if (!nonNumericAxis.includes(t)) nonNumericAxis.push(t);
+                }}
+
+                if (barRects.length > 0 && nonNumericAxis.length > 0) {{
+                    const nCats = nonNumericAxis.length;
+                    const catMap = {{}};
+                    barRects.forEach((r, i) => {{
+                        const cat = nonNumericAxis[i % nCats];
+                        const rawAria = r.getAttribute('aria-label');
+                        const val = (rawAria && rawAria !== 'null' && !isNaN(parseFloat(rawAria))) ? parseFloat(rawAria) : 0;
+                        if (cat) {{
+                            if (!(cat in catMap)) {{
+                                catMap[cat] = val;
+                            }}
+                        }}
+                    }});
+
+                    if (catFilters.length > 0) {{
+                        let matchedSum = 0;
+                        let found = false;
+                        const matchedCats = [];
+                        for (const [cName, val] of Object.entries(catMap)) {{
+                            if (catFilters.some(cf => cName.toLowerCase().includes(cf) || cf.includes(cName.toLowerCase()))) {{
+                                matchedSum += val;
+                                matchedCats.push(`${{cName}}: ${{val}}`);
+                                found = true;
+                            }}
+                        }}
+                        if (found) {{
+                            return JSON.stringify({{
+                                val: String(matchedSum),
+                                catMap: catMap,
+                                matchedCats: matchedCats,
+                                nCats: nCats,
+                                nonNumericAxis: nonNumericAxis
+                            }});
+                        }}
+                    }} else {{
+                        const total = Object.values(catMap).reduce((a, b) => a + b, 0);
+                        return JSON.stringify({{
+                            val: String(total),
+                            catMap: catMap,
+                            nCats: nCats
+                        }});
+                    }}
+                }}
+
+                // 4. Case C: Donut / Pie Chart slices (path[aria-label] / g[aria-label])
+                const sliceEls = Array.from(targetVc.querySelectorAll('path[aria-label], g[aria-label]'));
+                const sliceData = [];
+                for (const s of sliceEls) {{
+                    const aria = (s.getAttribute('aria-label') || '').trim();
+                    if (!aria || aria.length < 5) continue;
+                    const clean = aria.replace(/\\.$/, '');
+                    const parts = clean.split('. ');
+                    if (parts.length >= 2) {{
+                        const cat = parts[0].trim();
+                        const valStr = parts[parts.length - 1];
+                        const numMatch = valStr.match(/([\\d,]+(?:\\.\\d+)?)/);
+                        if (numMatch) {{
+                            const val = parseFloat(numMatch[1].replace(/,/g, ''));
+                            sliceData.push({{ category: cat, val: val }});
+                        }}
+                    }}
+                }}
+
+                if (sliceData.length > 0) {{
+                    if (catFilters.length > 0) {{
+                        let matchedSum = 0;
+                        let found = false;
+                        for (const sd of sliceData) {{
+                            if (catFilters.some(cf => sd.category.toLowerCase().includes(cf) || cf.includes(sd.category.toLowerCase()))) {{
+                                matchedSum += sd.val;
+                                found = true;
+                            }}
+                        }}
+                        if (found) return String(matchedSum);
+                    }} else {{
+                        const total = sliceData.reduce((a, b) => a + b.val, 0);
+                        return String(total);
+                    }}
+                }}
+
+                // 5. Case D: Table Visual gridcells
+                const gridcells = Array.from(targetVc.querySelectorAll("[role='gridcell'], [class*='pivotTableCellWrap']"));
+                if (gridcells.length > 0) {{
+                    for (const cell of gridcells) {{
+                        const txt = cell.textContent.trim();
+                        if (txt && !/^[a-zA-Z]{{2,4}}-/i.test(txt) && /^[\\$€£]?\\s*[\\d,]+(?:\\.\\d+)?\\s*[KkMmBb%]?$/.test(txt)) return txt;
+                    }}
+                }}
+
+                // 6. Case E: Fallback to any numeric string in targetVc
+                const allText = targetVc.textContent || '';
+                const numMatches = allText.match(/[\\$€£]?\\s*[\\d,]+(?:\\.\\d+)?\\s*[KkMmBb%]?/g);
+                if (numMatches && numMatches.length > 0) {{
+                    return numMatches[numMatches.length - 1].trim();
+                }}
+
+                return null;
+            }}
+        """
+
+        try:
+            raw_eval = self.page.evaluate(eval_script)
+            if raw_eval:
+                import json
+                if isinstance(raw_eval, str) and raw_eval.strip().startswith("{"):
+                    try:
+                        data = json.loads(raw_eval)
+                        raw = data.get("val")
+                        if "catMap" in data:
+                            log.info(f"Visual '{visual_target}' category breakdown: {data['catMap']}")
+                        if "matchedCats" in data:
+                            log.info(f"Visual '{visual_target}' matched categories: {data['matchedCats']}")
+                    except Exception:
+                        raw = raw_eval
+                else:
+                    raw = raw_eval
+                if raw:
+                    log.info(f"Extracted visual value for '{visual_target}': '{raw}'")
+                    return str(raw).strip()
+        except Exception as e:
+            log.warning(f"Error evaluating visual extraction for '{visual_target}': {e}")
+
+        return None
+
+
+    def _card_matches(
+        self,
+        card: Any,
+        target_name: str,
+        value: Optional[str] = None,
+        tokens: Optional[list[str]] = None,
+    ) -> bool:
+        """Robustly match a Power BI Filters Pane filter card against target slicer/field name."""
+        try:
+            t_el = card.locator("[data-testid='filter-card-title'], .textLabel, .title").first
+            t_text = (t_el.inner_text(timeout=300) if t_el.count() > 0 else "")
+            if not t_text and t_el.count() > 0:
+                t_text = t_el.text_content() or ""
+            t_text = t_text.strip().lower()
+            aria = (card.get_attribute("aria-label") or "").strip().lower()
+            title_attr = (card.get_attribute("title") or "").strip().lower()
+            card_text = (card.text_content() or "").strip().lower()
+            combined = f"{t_text} {aria} {title_attr} {card_text[:120]}"
+
+            t_clean = target_name.strip().lower().replace("[", " ").replace("]", " ")
+
+            # 1. Level 3 vs Level 1 disambiguation
+            if "level 3" in t_clean or "level3" in t_clean:
+                if "level 3" in t_text or "level3" in t_text:
+                    return True
+                if "level 1" in t_text or "level1" in t_text or "level 2" in t_text or "level2" in t_text:
+                    return False
+                return ("level 3" in combined or "level3" in combined or "geo level3" in combined or "geo level 3" in combined)
+
+            if "level 1" in t_clean or "level1" in t_clean:
+                if "level 1" in t_text or "level1" in t_text:
+                    return True
+                if "level 3" in t_text or "level3" in t_text or "level 2" in t_text or "level2" in t_text:
+                    return False
+                return ("level 1" in combined or "level1" in combined or "geo level1" in combined or "geo level 1" in combined)
+
+            # 2. Calendar / YearMonth / Date matching
+            is_date_field = any(k in t_clean for k in ["date", "calendar", "yearmonth", "year month"]) or bool(re.search(r"\d{4}-\d{2}", str(value or "")))
+            if is_date_field:
+                if "fiscal" in combined and "calendar" not in combined:
+                    return False
+                date_keywords = [
+                    "calendar yearmonth", "calendar[yearmonth]", "calendar year month",
+                    "yearmonth", "year month", "calendaryearmonth",
+                    "calendar date", "calendar[date]", "date", "calendar"
+                ]
+                if any(k in t_text for k in date_keywords):
+                    return True
+                if any(k in combined for k in date_keywords):
+                    return True
+
+            # 3. Check against caller tokens
+            if tokens:
+                for tok in tokens:
+                    tok_lower = tok.lower()
+                    if tok_lower in t_text or tok_lower in combined:
+                        return True
+
+            return t_clean in combined
+        except Exception:
+            return False
+
+
+    def has_slicer(self, slicer_name: str) -> bool:
+        """Check if a slicer or filter matching slicer_name exists on the current page."""
+        self.ensure_filters_pane_open()
+        ctx = self._ctx()
+        clean = slicer_name.lower().strip()
+
+        # Common dimension aliases across Qlik and PBI models
+        alias_map = {
+            "geo level 3": ["geo level 3", "geo level3", "level 3", "level 3 region", "country[geo level3]", "geo", "market", "region", "country"],
+            "geo level3": ["geo level 3", "geo level3", "level 3", "level 3 region", "country[geo level3]", "geo", "market", "region", "country"],
+            "country[geo level3]": ["country[geo level3]", "geo level 3", "geo level3", "level 3", "geo", "market", "region", "country"],
+            "geo": ["geo", "geo level3", "geo level 3", "market", "region", "country"],
+            "date": ["date", "calendar", "calendar[date]", "calendar date", "yearmonth", "year month", "calendar yearmonth", "calendar[yearmonth]", "month", "period"],
+            "calendar[date]": ["calendar[date]", "calendar date", "date", "calendar", "yearmonth", "year month", "calendar yearmonth", "calendar[yearmonth]", "month", "period"],
+            "calendar yearmonth": ["calendar yearmonth", "calendar[yearmonth]", "yearmonth", "year month", "calendar[date]", "calendar date", "date", "calendar"],
+            "calendar[yearmonth]": ["calendar[yearmonth]", "calendar yearmonth", "yearmonth", "year month", "calendar[date]", "calendar date", "date", "calendar"],
+            "yearmonth": ["yearmonth", "year month", "calendar yearmonth", "calendar[yearmonth]", "calendar[date]", "date", "calendar"],
+        }
+        tokens = list(alias_map.get(clean, [clean]))
+        for t in clean.replace("[", " ").replace("]", " ").split():
+            clean_t = t.strip()
+            # Do not add generic words that cause false positive containment
+            if clean_t in ("geo", "level", "region", "country", "calendar", "period"):
+                continue
+            if len(clean_t) > 2 and clean_t not in tokens:
+                tokens.append(clean_t)
+
+        # 1. Check canvas slicers
+        for tok in tokens:
+            selectors = [
+                f"visual-container:has([aria-roledescription*='slicer' i]:has-text('{tok}'))",
+                f"visual-container:has([class*='slicer']:has-text('{tok}'))",
+                f"[class*='visualContainer'][aria-roledescription*='slicer' i]:has-text('{tok}')",
+                f".slicer-header:has-text('{tok}')",
+                f".slicerContainer:has-text('{tok}')",
+                f"[role='region'][aria-roledescription*='slicer' i][aria-label*='{tok}' i]",
+            ]
+            for sel in selectors:
+                try:
+                    cand = ctx.locator(sel).first
+                    if cand.count() > 0 and cand.is_visible(timeout=500):
+                        return True
+                except Exception:
+                    pass
+
+        # 2. Check Filters Pane cards (both before and after selecting data visuals on canvas)
+        try:
+            card_sel = "[data-automation-type='filterCard'], .filterCard, [class*='filterCard'], .card.categorical"
+            cards = self.page.locator(card_sel).all()
+            for c in cards:
+                if self._card_matches(c, slicer_name, tokens=tokens):
+                    return True
+
+            if self.select_visual(None):
+                cards = self.page.locator(card_sel).all()
+                for c in cards:
+                    if self._card_matches(c, slicer_name, tokens=tokens):
+                        return True
+        except Exception:
+            pass
+
+        return False
+
+
+    def apply_slicer(
+        self,
+        slicer_name: str,
+        value: str,
+        raise_on_error: bool = False,
+        target_visual: Optional[str] = None,
+    ) -> bool:
+        """
+        Apply a slicer on the current PBI page with robust alias matching and dropdown handling.
+
+        Finds the slicer by visual title, aria-label, or alias tokens, interacts with dropdowns/lists,
+        and selects the specified values. Falls back to the collapsible Filters Pane (including
+        visual-level filters on the selected canvas visual).
+        """
+        log.info(f"Applying PBI slicer: {slicer_name} = {value} (target_visual='{target_visual}')")
+        ctx = self._ctx()
+
+        clean = slicer_name.lower().strip()
+        alias_map = {
+            "geo level 3": [
+                "country[geo level3]", "geo level 3", "geo level3", "level 3", "level3",
+                "geo level_3", "level_3", "geo level 3 region", "market", "region", "geo", "country"
+            ],
+            "geo level3": [
+                "country[geo level3]", "geo level 3", "geo level3", "level 3", "level3",
+                "geo level_3", "level_3", "geo level 3 region", "market", "region", "geo", "country"
+            ],
+            "country[geo level3]": [
+                "country[geo level3]", "geo level 3", "geo level3", "level 3", "level3",
+                "geo level_3", "level_3", "geo level 3 region", "market", "region", "geo", "country"
+            ],
+            "geo level 1": [
+                "country[geo level1]", "geo level 1", "geo level1", "level 1", "level1", "geo level_1", "level_1"
+            ],
+            "geo level1": [
+                "country[geo level1]", "geo level 1", "geo level1", "level 1", "level1", "geo level_1", "level_1"
+            ],
+            "calendar yearmonth": [
+                "calendar[calendaryearmonth]", "calendar[yearmonth]", "calendar yearmonth",
+                "calendar year month", "yearmonth", "year month", "calendar[date]", "calendar date", "date", "calendar"
+            ],
+            "calendar[yearmonth]": [
+                "calendar[calendaryearmonth]", "calendar[yearmonth]", "calendar yearmonth",
+                "calendar year month", "yearmonth", "year month", "calendar[date]", "calendar date", "date", "calendar"
+            ],
+            "calendar[date]": [
+                "calendar[date]", "calendar date", "calendar[calendaryearmonth]", "calendar[yearmonth]",
+                "calendar yearmonth", "calendar year month", "yearmonth", "year month", "date", "calendar"
+            ],
+            "date": [
+                "date", "calendar[date]", "calendar date", "calendar[calendaryearmonth]", "calendar[yearmonth]",
+                "calendar yearmonth", "calendar year month", "yearmonth", "year month", "calendar"
+            ],
+            "yearmonth": [
+                "yearmonth", "year month", "calendar[calendaryearmonth]", "calendar[yearmonth]",
+                "calendar yearmonth", "calendar date", "calendar[date]", "date", "calendar"
+            ],
+        }
+        tokens = list(alias_map.get(clean, [clean]))
+        for t in clean.replace("[", " ").replace("]", " ").split():
+            clean_t = t.strip()
+            # If slicer specifies a level, do not add generic 'geo' or 'level' as a standalone token
+            if ("level 3" in clean or "level3" in clean or "level 1" in clean or "level1" in clean) and clean_t in ("geo", "level"):
+                continue
+            if len(clean_t) > 2 and clean_t not in tokens:
+                tokens.append(clean_t)
+
+        slicer_region = None
+        for tok in tokens:
+            candidate = ctx.locator(
+                f"[role='region'][aria-label*='{tok}' i], "
+                f"visual-container:has([class*='visualTitle']:has-text('{tok}')), "
+                f"visual-container:has(h3:has-text('{tok}')), "
+                f"visual-container:has([class*='slicer']:has-text('{tok}')), "
+                f"visual-container[aria-roledescription*='slicer' i]:has-text('{tok}'), "
+                f"visual-container[aria-label*='{tok}' i], "
+                f"[class*='slicer']:has-text('{tok}'), "
+                f".slicer-header:has-text('{tok}'), "
+                f".slicerContainer:has-text('{tok}')"
+            ).first
+            try:
+                if candidate.count() > 0 and candidate.is_visible(timeout=1_000):
+                    slicer_region = candidate
+                    log.debug(f"Slicer '{slicer_name}' matched candidate token '{tok}'")
+                    break
+            except Exception:
+                continue
+
+        if not slicer_region or not slicer_region.count():
+            # Check Filters Pane fallback before giving up
+            if self._apply_filter_pane_slicer(slicer_name, value, tokens, target_visual=target_visual):
+                return True
+            msg = f"Slicer region '{slicer_name}' not found on current page or Filters Pane."
+            log.warning(msg)
+            if raise_on_error:
+                raise RuntimeError(msg)
+            return False
+
+        try:
+            # 1. Expand dropdown if this is a dropdown-style slicer
+            dropdown_triggers = [
+                "[class*='slicer-dropdown-menu']",
+                "[class*='slicerDropdown']",
+                "[class*='slicer-rest-of-header']",
+                "[class*='dropdown-chevron']",
+                "[class*='dropdownChevron']",
+                "i[class*='chevron']",
+                "i[class*='dropdown']",
+                "[aria-haspopup='true']",
+                "button[class*='slicer']",
+            ]
+            expanded = False
+            for trig_sel in dropdown_triggers:
+                trig = slicer_region.locator(trig_sel).first
+                try:
+                    if trig.count() > 0 and trig.is_visible(timeout=1_000):
+                        trig.click(timeout=3_000)
+                        self.page.wait_for_timeout(500)
+                        expanded = True
+                        break
+                except Exception:
+                    pass
+
+            if not expanded:
+                # Try clicking the slicer region directly
+                try:
+                    slicer_region.click(timeout=3_000)
+                    self.page.wait_for_timeout(400)
+                except Exception:
+                    pass
+
+            # 2. Select each target value
+            vals = [v.strip() for v in str(value).split(",") if v.strip()]
+            any_clicked = False
+            for single_val in vals:
+                # Check for search input in slicer
+                search_box = slicer_region.locator("input[type='text'], input[type='search'], [class*='searchInput']").first
+                if search_box.count() > 0:
+                    try:
+                        search_box.fill(single_val)
+                        self.page.wait_for_timeout(400)
+                    except Exception:
+                        pass
+
+                # Locate value element in popup or container
+                val_selectors = [
+                    f"[role='option']:has-text('{single_val}')",
+                    f"[class*='slicerText']:has-text('{single_val}')",
+                    f"[aria-label='{single_val}']",
+                    f"[title='{single_val}']",
+                    f"span:text-is('{single_val}')",
+                    f":text-is('{single_val}')",
+                    f"div:has-text('{single_val}')",
+                ]
+                clicked = False
+                for vsel in val_selectors:
+                    item_el = ctx.locator(vsel).first
+                    try:
+                        if item_el.count() > 0 and item_el.is_visible(timeout=1_500):
+                            item_el.click(timeout=3_000)
+                            self.page.wait_for_timeout(400)
+                            clicked = True
+                            any_clicked = True
+                            break
+                    except Exception:
+                        continue
+
+                if not clicked:
+                    log.warning(f"Could not click slicer item '{single_val}' inside '{slicer_name}'")
+
+            # 3. Close popup if open
+            try:
+                self.page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+            if not any_clicked:
+                log.info(f"Canvas slicer items not matched for '{slicer_name}'; attempting Filters Pane fallback")
+                if self._apply_filter_pane_slicer(slicer_name, value, tokens, target_visual=target_visual):
+                    return True
+
+            self.page.wait_for_timeout(QLIK_FILTER_WAIT)
+            log.info(f"PBI slicer applied: {slicer_name} = {value}")
+            return any_clicked
+
+        except Exception as e:
+            self.capture_screenshot("pbi_slicer_fail")
+            msg = f"Could not apply PBI slicer '{slicer_name}' = '{value}': {e}"
+            log.warning(msg)
+            if raise_on_error:
+                raise RuntimeError(msg)
+            return False
+
+
+    def _apply_filter_pane_slicer(
+        self,
+        slicer_name: str,
+        value: str,
+        tokens: list[str],
+        target_visual: Optional[str] = None,
+    ) -> bool:
+        """
+        Apply filter via Power BI's collapsible Filters Pane when not found on canvas.
+        First locates and clicks the target visual (or fallback data visual) on the canvas
+        to activate its 'Filters on this visual' section in the Filters Pane.
+        Then searches the Filters Pane, matches the exact filter card (preventing collisions
+        such as GEO Level1 vs GEO Level3), expands it, searches and checks target values,
+        and allows the visual to update.
+        """
+        log.info(f"Looking for '{slicer_name}' in Power BI Filters Pane (target_visual='{target_visual}')")
+        ctx = self._ctx()
+        try:
+            # 1. Expand Filters Pane container if present and collapsed
+            self.ensure_filters_pane_open()
+
+            top_search_sel = (
+                "input[data-testid='search-bar-input'], "
+                "article.outspacePane input[data-testid='search-bar-input'], "
+                "article.outspacePane input[aria-label*='Search Filters' i], "
+                ".filterPaneModern input[placeholder*='Search' i], "
+                "mat-form-field.searchBox input, "
+                "search-box-modern input"
+            )
+            top_search = ctx.locator(top_search_sel).first if ctx.locator(top_search_sel).count() > 0 else self.page.locator(top_search_sel).first
+
+            used_top_search = False
+
+            def _clear_top_search() -> None:
+                nonlocal used_top_search
+                if top_search.count() > 0 and top_search.is_visible(timeout=500):
+                    try:
+                        top_search.fill("")
+                        self.page.wait_for_timeout(200)
+                    except Exception:
+                        pass
+                used_top_search = False
+
+            def _search_pane(term: str) -> None:
+                if top_search.count() > 0 and top_search.is_visible(timeout=500):
+                    try:
+                        top_search.click(timeout=1_000)
+                        top_search.fill("")
+                        if term:
+                            top_search.fill(term)
+                        self.page.wait_for_timeout(400)
+                    except Exception:
+                        pass
+
+            def _find_card() -> Optional[Any]:
+                card_sel = "[data-automation-type='filterCard'], .filterCard, [class*='filterCard'], .card.categorical"
+                cards = ctx.locator(card_sel).all() if ctx.locator(card_sel).count() > 0 else self.page.locator(card_sel).all()
+                for c in cards:
+                    try:
+                        if self._card_matches(c, slicer_name, value=value, tokens=tokens):
+                            try:
+                                c.scroll_into_view_if_needed(timeout=1_000)
+                            except Exception:
+                                pass
+                            t_el = c.locator("[data-testid='filter-card-title'], .textLabel, .title").first
+                            matched_title = (t_el.inner_text(timeout=300) if t_el.count() > 0 else "") or (t_el.text_content() if t_el.count() > 0 else "")
+                            log.info(f"Matched filter card in Filters Pane: '{matched_title}' for '{slicer_name}'")
+                            return c
+                    except Exception:
+                        continue
+                return None
+
+            try:
+                # 2. Check directly in Filters Pane first (page-level filters may already be visible)
+                filter_card = _find_card()
+
+                # If not found directly, activate target visual (or fallback primary visual) to reveal visual-level filters
+                if not filter_card:
+                    if target_visual:
+                        log.info(f"Activating target visual '{target_visual}' on canvas to reveal visual-level filters")
+                        self.select_visual(target_visual)
+                    else:
+                        log.info("Activating canvas primary data visual to reveal visual-level filters")
+                        self.select_visual(None)
+                    self.page.wait_for_timeout(1_000)
+                    filter_card = _find_card()
+
+                # 4. If not directly visible, search the Filters Pane top search bar
+                if not filter_card:
+                    s_lower = slicer_name.lower()
+                    search_candidates = []
+                    if "geo" in s_lower:
+                        search_candidates = ["GEO Level3" if "3" in s_lower else "GEO Level1", "GEO"]
+                    elif "calendar" in s_lower or "date" in s_lower or "yearmonth" in s_lower or re.search(r"\d{4}-\d{2}", str(value)):
+                        search_candidates = ["YearMonth", "Calendar", "Date"]
+                    else:
+                        search_candidates = [slicer_name]
+
+                    for term in search_candidates:
+                        log.info(f"Searching '{term}' in Filters Pane top search bar")
+                        _search_pane(term)
+                        used_top_search = True
+                        filter_card = _find_card()
+                        if filter_card:
+                            break
+
+                # Clear top search bar if probed initial visual without finding card
+                if used_top_search and not filter_card:
+                    _clear_top_search()
+
+                # 6. If still not found, probe other canvas data visuals (tables, charts)
+                if not filter_card and not target_visual:
+                    log.info("Filter card not yet found on current visual; probing other canvas data visuals")
+                    data_vis_sel = (
+                        "visual-container:has([aria-roledescription*='table' i]), "
+                        "visual-container:has([class*='tablix']), "
+                        "visual-container:has([role='grid']), "
+                        "visual-container:has([aria-roledescription*='chart' i]), "
+                        "visual-container:has(svg)"
+                    )
+                    data_visual_candidates = ctx.locator(data_vis_sel).all() if ctx.locator(data_vis_sel).count() > 0 else self.page.locator(data_vis_sel).all()
+
+                    for cand_vc in data_visual_candidates:
+                        try:
+                            cand_vc.scroll_into_view_if_needed()
+                            header = cand_vc.locator("[class*='visualTitle'], [class*='header-title'], h3, .visualHeader, .visualHeaderWrapper, .header-text").first
+                            if header.count() > 0 and header.is_visible(timeout=500):
+                                header.click(timeout=1_500, force=True)
+                            else:
+                                cand_vc.click(position={"x": 25, "y": 25}, timeout=1_500, force=True)
+                            self.page.wait_for_timeout(300)
+
+                            s_lower = slicer_name.lower()
+                            search_term = (
+                                "YearMonth" if ("calendar" in s_lower or "yearmonth" in s_lower)
+                                else ("GEO" if "geo" in s_lower else slicer_name)
+                            )
+                            _search_pane(search_term)
+                            used_top_search = True
+                            filter_card = _find_card()
+                            if filter_card:
+                                log.info("Discovered filter card after selecting canvas data visual")
+                                break
+                            _clear_top_search()
+                        except Exception:
+                            _clear_top_search()
+                            continue
+
+                if not filter_card:
+                    _clear_top_search()
+                    self.deselect_all_visuals()
+                    log.debug(f"No filter card matching '{slicer_name}' found in Filters Pane")
+                    return False
+
+                filter_card.scroll_into_view_if_needed()
+
+                # 7. Expand card if collapsed (wait for content to be visible)
+                collapse_btn = filter_card.locator(
+                    "button.collapse, button[aria-label*='Expand or collapse' i], button[aria-label*='expand' i]"
+                ).first
+                if collapse_btn.count() > 0:
+                    is_expanded = collapse_btn.get_attribute("aria-expanded") == "true"
+                    if not is_expanded:
+                        collapse_btn.click(timeout=1_500, force=True)
+                        log.info(f"Clicked collapse button to expand card '{slicer_name}'")
+                        try:
+                            filter_card.locator(".filterContent:not([hidden]), [role='checkbox']").first.wait_for(
+                                state="visible", timeout=2_000
+                            )
+                        except Exception:
+                            self.page.wait_for_timeout(400)
+                else:
+                    try:
+                        filter_card.locator(".filterContent:not([hidden]), [role='checkbox']").first.wait_for(
+                            state="visible", timeout=1_500
+                        )
+                    except Exception:
+                        pass
+                self.page.wait_for_timeout(300)
+
+                # 8. Apply target values to checkboxes
+                vals = [v.strip() for v in str(value).split(",") if v.strip()]
+                any_clicked = False
+
+                cb_selectors_template = [
+                    lambda v: f".row:has([title='{v}']) [role='checkbox']",
+                    lambda v: f".row:has-text('{v}') [role='checkbox']",
+                    lambda v: f"[role='checkbox']:has-text('{v}')",
+                    lambda v: f"[role='checkbox'][title='{v}']",
+                    lambda v: f".slicerItemContainer:has-text('{v}') [role='checkbox']",
+                    lambda v: f".categoricalFilterValues [role='checkbox']:has-text('{v}')",
+                    lambda v: f"span.textLabel:has-text('{v}')",
+                    lambda v: f"span.slicerText:has-text('{v}')",
+                    lambda v: f"[role='option']:has-text('{v}')",
+                    lambda v: f":text-is('{v}')",
+                ]
+
+                for single_val in vals:
+                    clicked = False
+
+                    def _try_click_cb() -> bool:
+                        for fn in cb_selectors_template:
+                            cb = filter_card.locator(fn(single_val)).first
+                            if cb.count() > 0 and cb.is_visible(timeout=500):
+                                chk_el = None
+                                if cb.get_attribute("role") == "checkbox":
+                                    chk_el = cb
+                                elif cb.locator("[role='checkbox']").count() > 0:
+                                    chk_el = cb.locator("[role='checkbox']").first
+                                else:
+                                    row_parent = cb.locator("xpath=ancestor::*[contains(@class, 'row') or contains(@class, 'slicerItemContainer') or @role='option'][1]")
+                                    if row_parent.count() > 0 and row_parent.locator("[role='checkbox']").count() > 0:
+                                        chk_el = row_parent.locator("[role='checkbox']").first
+
+                                aria_checked = chk_el.get_attribute("aria-checked") if (chk_el and chk_el.count() > 0) else cb.get_attribute("aria-checked")
+                                if aria_checked != "true":
+                                    click_target = chk_el if (chk_el and chk_el.count() > 0 and chk_el.is_visible(timeout=300)) else cb
+                                    click_target.click(timeout=2_000, force=True)
+                                    self.page.wait_for_timeout(400)
+                                    log.info(f"Selected checkbox '{single_val}' in Filters Pane")
+                                else:
+                                    log.info(f"Checkbox '{single_val}' already selected")
+                                return True
+                        return False
+
+                    # 1. Check if directly visible without scrolling
+                    if _try_click_cb():
+                        clicked = True
+                        any_clicked = True
+
+                    # 2. If not visible directly, incrementally scroll the card container down
+                    if not clicked:
+                        scroll_target = filter_card.locator(".scrollable-content, .slicer-content-wrapper, .visibleGroup, .scrollWrapper, div[style*='overflow']").first
+                        for _scroll_i in range(8):
+                            try:
+                                if scroll_target.count() > 0:
+                                    scroll_target.evaluate("el => el.scrollTop += 150")
+                                else:
+                                    filter_card.evaluate("el => { const sc = el.querySelector('[class*=\"scroll\"], [class*=\"visibleGroup\"]') || el; sc.scrollTop += 150; }")
+                                self.page.wait_for_timeout(250)
+                            except Exception:
+                                pass
+                            if _try_click_cb():
+                                clicked = True
+                                any_clicked = True
+                                break
+
+                    # 3. If still not found, try search inside the filter card (with hover to reveal search button)
+                    if not clicked:
+                        try:
+                            filter_card.hover()
+                            self.page.wait_for_timeout(200)
+                        except Exception:
+                            pass
+
+                        search_icon = filter_card.locator("button[aria-label*='Search' i], .searchBtn, i.pbi-glyph-search, [title*='Search' i]").first
+                        if search_icon.count() > 0 and search_icon.is_visible(timeout=300):
+                            try:
+                                search_icon.click(timeout=1_000, force=True)
+                                self.page.wait_for_timeout(300)
+                            except Exception:
+                                pass
+
+                        search_input = filter_card.locator(
+                            "input.searchInput, input[data-testid='filter-search-input'], input[type='search'], input[type='text'], input[placeholder*='Search' i]"
+                        ).first
+                        if search_input.count() > 0 and search_input.is_visible(timeout=600):
+                            try:
+                                search_input.click(timeout=1_000)
+                                search_input.fill("")
+                                search_input.fill(single_val)
+                                search_input.press("Enter")
+                                self.page.wait_for_timeout(500)
+                                if _try_click_cb():
+                                    clicked = True
+                                    any_clicked = True
+                                search_input.fill("")
+                                search_input.press("Enter")
+                                self.page.wait_for_timeout(200)
+                            except Exception:
+                                pass
+
+                    # 4. Scroll container back to top for subsequent values
+                    try:
+                        filter_card.evaluate("el => { const sc = el.querySelector('[class*=\"scroll\"], [class*=\"visibleGroup\"]') || el; sc.scrollTop = 0; }")
+                    except Exception:
+                        pass
+
+                    if not clicked:
+                        log.warning(f"Could not locate checkbox for '{single_val}' in Filters Pane")
+
+                # 9. Clean up top search bar unconditionally
+                _clear_top_search()
+
+                if any_clicked:
+                    self.page.wait_for_timeout(QLIK_FILTER_WAIT)
+                    log.info(f"Filters Pane filter applied: {slicer_name} = {value}")
+                    self.deselect_all_visuals()
+                    return True
+                else:
+                    log.warning(f"No values could be selected for '{slicer_name}' in Filters Pane")
+                    self.deselect_all_visuals()
+                    return False
+
+            finally:
+                _clear_top_search()
+                self.deselect_all_visuals()
+
+        except Exception as e:
+            log.warning(f"Error applying filter via Filters Pane: {e}")
+            self.deselect_all_visuals()
+            return False
+

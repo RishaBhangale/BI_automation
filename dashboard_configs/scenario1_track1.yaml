@@ -1,0 +1,80 @@
+# scenario1_track1.yaml
+# Functional Parity: Qlik 6f0756c3 <-> PBI 2321717b
+
+dashboard:
+  name: "Pipeline Hygiene - Qlik to PBI Functional Parity (Track 1)"
+  pages:
+    - "Pipeline Hygiene IDG"
+    - "Pipeline Hygiene ISG"
+    - "Pipeline Hygiene ISG Nprint"
+    - "Pipeline Hygiene GA"
+    - "NPrint Pipeline Hygiene Nordics"
+    - "Overdue Opportunities"
+    - "Overdue Opportunities ISG"
+    - "7 Days Opportunities ISG"
+    - "Missing PN Opportunities"
+    - "Missing PN Opportunities ISG"
+    - "Next QTR Opportunities Unweighted"
+    - "Next QTR Opportunities Unweighted ISG"
+    - "Next QTR Opportunities Weighted"
+    - "Next QTR Opportunities Weighted ISG"
+    - "Order Date vs Creation Date UAT"
+    - "Raw Data"
+    - "7 Days Opportunities"
+
+scenario: 1
+track: 1
+description: "Functional Parity - Pipeline Hygiene Main (Track 1)"
+
+qlik:
+  tenant: "5wnjr4er56khtqe.in.qlikcloud.com"
+  app_id: "6f0756c3-f251-45d9-b569-868b8191798e"
+  base_url: "https://5wnjr4er56khtqe.in.qlikcloud.com"
+  primary_sheet_id: "ec6922ca-7f1b-4766-9066-38074d8849ca"
+  session_file: "playwright/.auth/qlik_session.json"
+
+pbi:
+  tenant_id: "b5af2451-e21b-4aa2-b4b5-dc5907908dd8"
+  report_id: "2321717b-8815-48c1-8065-0b8747ca83d7"
+  report_url: "https://app.powerbi.com/groups/me/reports/2321717b-8815-48c1-8065-0b8747ca83d7/1523bb40960e2dbc7823?ctid=b5af2451-e21b-4aa2-b4b5-dc5907908dd8&experience=power-bi"
+  session_file: "playwright/.auth/pbi_session.json"
+
+# Qlik sheet -> PBI page name mapping
+# Built from the real page lists discovered on 2026-10-06 (21 Qlik sheets, 17 PBI pages).
+# 16 sheets have an identical page name in PBI.
+sheet_page_mapping:
+  # --- identical names in Qlik and PBI ---
+  "Pipeline Hygiene IDG": "Pipeline Hygiene IDG"
+  "Pipeline Hygiene ISG": "Pipeline Hygiene ISG"
+  "Pipeline Hygiene ISG Nprint": "Pipeline Hygiene ISG Nprint"
+  "Pipeline Hygiene GA": "Pipeline Hygiene GA"
+  "NPrint Pipeline Hygiene Nordics": "NPrint Pipeline Hygiene Nordics"
+  "Overdue Opportunities": "Overdue Opportunities"
+  "Overdue Opportunities ISG": "Overdue Opportunities ISG"
+  "7 Days Opportunities ISG": "7 Days Opportunities ISG"
+  "Missing PN Opportunities": "Missing PN Opportunities"
+  "Missing PN Opportunities ISG": "Missing PN Opportunities ISG"
+  "Next QTR Opportunities Unweighted": "Next QTR Opportunities Unweighted"
+  "Next QTR Opportunities Unweighted ISG": "Next QTR Opportunities Unweighted ISG"
+  "Next QTR Opportunities Weighted": "Next QTR Opportunities Weighted"
+  "Next QTR Opportunities Weighted ISG": "Next QTR Opportunities Weighted ISG"
+  "Order Date vs Creation Date UAT": "Order Date vs Creation Date UAT"
+  "Raw Data": "Raw Data"
+
+  "7 Days Opportunities": "7 Days Opportunities"
+
+  # --- NO matching page found in PBI. These are expected to FAIL until the migration team
+  #     confirms whether they are missing, hidden pages, or intentionally out of scope.
+  "Idle Opportunities ISG": "Idle Opportunities ISG"
+  "Overloaded Contracts": "Overloaded Contracts"
+  "Overloaded Contracts ISG": "Overloaded Contracts ISG"
+  "Underloaded Services Contracts ISG": "Underloaded Services Contracts ISG"
+
+# Sheets the migration team has CONFIRMED (in writing) are intentionally NOT migrated.
+# Listed sheets are excluded from FP-A-001 / FP-A-002 and a WARNING is logged on every run.
+# Leave empty until confirmed - adding a sheet here hides a real migration gap.
+out_of_scope_sheets:
+  - "Idle Opportunities ISG"
+  - "Overloaded Contracts"
+  - "Overloaded Contracts ISG"
+  - "Underloaded Services Contracts ISG"

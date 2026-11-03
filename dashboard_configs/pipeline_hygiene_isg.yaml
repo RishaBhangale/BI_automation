@@ -1,0 +1,25 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# pipeline_hygiene_isg.yaml — Connection config for Pipeline Hygiene
+# ──────────────────────────────────────────────────────────────────────────────
+
+dashboard:
+  name: "Pipeline Hygiene"
+
+  url: "https://app.powerbi.com/groups/me/reports/b6da800f-28c2-4f6c-ad9b-b28869e54da3/p20?ctid=b5af2451-e21b-4aa2-b4b5-dc5907908dd8&experience=power-bi"
+
+  pages:
+    - "Pipeline Hygiene ISG"
+    - "Raw Data"
+    - "Overdue Opportunities"
+    - "7 Days Opportunities"
+    - "Missing PN Opportunities"
+    - "Overloaded Contracts"
+    - "Underloaded Services"
+    - "Idle Opportunities ISG"
+    - "Next QTR Opportunities"
+    - "Pipeline Hygiene GA"
+    - "Order Date vs Creation"
+
+source_db:
+  type: "excel_folder"
+  path: "Source_data"

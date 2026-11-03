@@ -122,7 +122,35 @@ def get_db_password() -> str:
 #
 # The Dataset ID is per-dashboard — set it in the YAML config under pbi_api.dataset_id.
 # These three values are global (shared across all dashboards run from this machine).
-PBI_TENANT_ID     = os.getenv("PBI_TENANT_ID", "")     # Azure AD Tenant ID (GUID)
-PBI_CLIENT_ID     = os.getenv("PBI_CLIENT_ID", "")     # App Registration Client ID (GUID)
-PBI_CLIENT_SECRET = os.getenv("PBI_CLIENT_SECRET", "")  # App Registration Client Secret
-PBI_DATASET_ID    = os.getenv("PBI_DATASET_ID", "")     # Power BI Semantic Model / Dataset GUID
+PBI_TENANT_ID     = os.getenv("PBI_TENANT_ID", "")    # Azure AD Tenant ID (GUID)
+PBI_CLIENT_ID     = os.getenv("PBI_CLIENT_ID", "")    # App Registration Client ID (GUID)
+PBI_CLIENT_SECRET = os.getenv("PBI_CLIENT_SECRET", "") # App Registration Client Secret
+
+
+# ── Track 1 & Qlik Cloud Configuration ─────────────────────────────────────────
+AUTH_DIR            = "playwright/.auth"
+BROWSER_PROFILE_DIR = "playwright/.auth/browser_profile"
+QLIK_SESSION_FILE   = "playwright/.auth/qlik_session.json"
+PBI_SESSION_FILE    = "playwright/.auth/pbi_session.json"
+
+QLIK_TENANT         = "5wnjr4er56khtqe.in.qlikcloud.com"
+QLIK_BASE_URL       = f"https://{QLIK_TENANT}"
+QLIK_APP_ID_TRACK1  = "6f0756c3-f251-45d9-b569-868b8191798e"
+QLIK_SHEET_ID_MAIN  = "ec6922ca-7f1b-4766-9066-38074d8849ca"
+
+ENIGMA_JS_URL       = "https://unpkg.com/enigma.js@2.14.0/enigma.min.js"
+ENIGMA_SCHEMA_URL   = "https://unpkg.com/enigma.js@2.14.0/schemas/12.170.2.json"
+
+PBI_REPORT_ID_TRACK1  = "2321717b-8815-48c1-8065-0b8747ca83d7"
+PBI_REPORT_URL_TRACK1 = (
+    "https://app.powerbi.com/groups/me/reports/2321717b-8815-48c1-8065-0b8747ca83d7"
+    "/1523bb40960e2dbc7823?ctid=b5af2451-e21b-4aa2-b4b5-dc5907908dd8&experience=power-bi"
+)
+
+PBI_IFRAME_PROBE_TIMEOUT = 8_000
+PBI_PAGELIST_TIMEOUT     = 30_000
+QLIK_RENDER_TIMEOUT      = 60_000
+QLIK_FILTER_WAIT         = 4_000
+
+QLIK_USERNAME = os.getenv("QLIK_USERNAME", "")
+QLIK_PASSWORD = os.getenv("QLIK_PASSWORD", "")
