@@ -130,9 +130,9 @@ async def _run_pytest(
                     if tc_id == "test_qlik_sheet_list_is_discoverable":
                         tc_id = "FP-A-000"
                     elif tc_id == "test_pbi_page_list_is_discoverable":
-                        tc_id = "FP-A-000b"
-                    elif tc_id == "test_sheet_count_parity":
                         tc_id = "FP-A-001"
+                    elif tc_id == "test_sheet_count_parity":
+                        tc_id = "FP-A-002"
                     if tc_id not in test_start_times:
                         test_start_times[tc_id] = time.time()
 
@@ -141,9 +141,9 @@ async def _run_pytest(
             if "test_qlik_sheet_list_is_discoverable" in text and ("PASSED" in text or "FAILED" in text):
                 cat_a_match = ("FP-A-000", "Dynamic Qlik Sheet Discovery", "passed" if "PASSED" in text else "failed")
             elif "test_pbi_page_list_is_discoverable" in text and ("PASSED" in text or "FAILED" in text):
-                cat_a_match = ("FP-A-000b", "Dynamic PBI Page Discovery", "passed" if "PASSED" in text else "failed")
+                cat_a_match = ("FP-A-001", "Dynamic PBI Page Discovery", "passed" if "PASSED" in text else "failed")
             elif "test_sheet_count_parity" in text and ("PASSED" in text or "FAILED" in text):
-                cat_a_match = ("FP-A-001", "Sheet/Page Existence Parity", "passed" if "PASSED" in text else "failed")
+                cat_a_match = ("FP-A-002", "Sheet/Page Existence Parity", "passed" if "PASSED" in text else "failed")
 
             if cat_a_match:
                 tc_id, name, status = cat_a_match

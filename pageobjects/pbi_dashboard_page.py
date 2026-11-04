@@ -65,6 +65,12 @@ _READY_SEL = (
 )
 
 _PAGE_TAB_SELECTORS = [
+    "button[data-testid='pages-navigation-list-items']",
+    "mat-action-list[aria-label='Pages' i] button",
+    "mat-action-list[aria-label='Pages' i] [role='tab']",
+    ".exploration-fluent-li",
+    "[aria-label='Pages' i] button",
+    "[aria-label='Pages' i] [role='tab']",
     "button[aria-label][class*='paginationButton']",
     "[class*='pageNavigation'] [role='tab']",
     "[class*='pageNavigation'] button",
@@ -75,13 +81,17 @@ _PAGE_TAB_SELECTORS = [
     "[role='tablist'] [role='tab']",
     "li[role='tab']",
     "[role='tab']",
-    "[aria-label='Pages' i] [role='listitem']",
-    "[aria-label='Pages' i] button",
 ]
 
 _NOT_PAGE_NAMES = {
     "pages", "page navigation", "previous page", "next page", "show pages", "hide pages",
-    "sheets", "bookmarks", "stories",
+    "sheets", "bookmarks", "stories", "home", "view", "comments", "share", "viewing",
+    "app launcher", "search", "focus mode", "notifications", "settings", "download",
+    "help & support", "help improve fabric (preview)", "switch ribbons", "report pages",
+    "hide the pages pane", "refresh visuals", "reset to default", "power bi", "create",
+    "onelake catalog", "apps", "workspaces", "my workspace", "power bi copilot",
+    "more options", "unpin power bi copilot", "unpin create", "unpin onelake catalog",
+    "unpin apps", "pipeline hygiene - track 1 - my workspace", "pipeline hygiene - track 2 - my workspace",
 }
 
 _LOGIN_HOSTS = ("login.microsoftonline.com", "login.live.com", "login.windows.net")
@@ -104,6 +114,9 @@ class PBIDashboardPage(BasePage):
         self._embed_mode: str = EMBED_MODE_ORG_REPORT  # updated after open()
         self._org_frame: Optional[FrameLocator] = None
         self._current_page: Optional[str] = None        # tracks last navigated-to page
+        self._frame: Optional[FrameLocator] = None
+        self._frame_checked: bool = False
+        self._report_url: str = ""
 
 
     def _wait_for_dashboard_settle(self, max_ms: int = 6_000) -> None:
@@ -312,12 +325,17 @@ class PBIDashboardPage(BasePage):
         current_url = self.page.url
         if "powerbi.com" in current_url and ("/reports/" in current_url or "/groups/" in current_url):
             try:
-                if self._ctx().locator(_READY_SEL).first.is_visible(timeout=1_500):
+                if (
+                    self._ctx().locator(_READY_SEL).first.is_visible(timeout=4_000)
+                    or self.page.locator("button[data-testid='pages-navigation-list-items'], mat-action-list[aria-label='Pages' i]").first.is_visible(timeout=2_000)
+                ):
                     log.info("PBI report already open and canvas active — reusing warm page")
                     return
             except Exception:
                 pass
         log.info(f"Navigating to: {url}")
+        self._frame = None
+        self._frame_checked = False
 
         self.page.goto(url, timeout=PBI_RENDER_TIMEOUT)
 
@@ -330,7 +348,8 @@ class PBIDashboardPage(BasePage):
             # Org report: wait for DOM + subresources ("load"), not networkidle.
             # networkidle is unreliable on dashboards with live/streaming tiles.
             self.page.wait_for_load_state("load", timeout=PBI_RENDER_TIMEOUT)
-            # For org reports, caller must invoke login_via_sso() next if redirected.
+            self._assert_not_login_page()
+            self._wait_for_pbi_load()
 
     def _wait_for_ptw_render(self) -> None:
         """
@@ -4142,13 +4161,13 @@ class PBIDashboardPage(BasePage):
 
     def _get_frame(self) -> Optional[FrameLocator]:
         """Detect (once per navigation) whether the report is inside an iframe."""
-        if self._frame_checked:
-            return self._frame
+        if getattr(self, "_frame_checked", False):
+            return getattr(self, "_frame", None)
         try:
             self.page.wait_for_selector(_IFRAME_SEL, timeout=PBI_IFRAME_PROBE_TIMEOUT)
             self._frame = self.page.frame_locator(_IFRAME_SEL).first
             log.info("PBI iframe detected")
-        except PwTimeoutError:
+        except Exception:
             log.info("No PBI iframe - using main page DOM")
             self._frame = None
         self._frame_checked = True
@@ -4179,6 +4198,53 @@ class PBIDashboardPage(BasePage):
 
     def _collect_page_names(self, ctx) -> list[str]:
         """One snapshot pass over the page-tab selectors; first selector that yields names wins."""
+        # 1. Fast, robust DOM evaluation directly in the page
+        try:
+            js_extract = """() => {
+                const ignored = new Set([
+                    'pages', 'page navigation', 'previous page', 'next page', 'show pages', 'hide pages',
+                    'sheets', 'bookmarks', 'stories', 'home', 'view', 'comments', 'share', 'viewing',
+                    'app launcher', 'search', 'focus mode', 'notifications', 'settings', 'download',
+                    'help & support', 'help improve fabric (preview)', 'switch ribbons', 'report pages',
+                    'hide the pages pane', 'refresh visuals', 'reset to default', 'power bi', 'create',
+                    'onelake catalog', 'apps', 'workspaces', 'my workspace', 'power bi copilot',
+                    'more options', 'unpin power bi copilot', 'unpin create', 'unpin onelake catalog',
+                    'unpin apps', 'pipeline hygiene - track 1 - my workspace', 'pipeline hygiene - track 2 - my workspace'
+                ]);
+                const selectors = [
+                    "button[data-testid='pages-navigation-list-items']",
+                    "mat-action-list[aria-label='Pages' i] button",
+                    "mat-action-list[aria-label='Pages' i] [role='tab']",
+                    ".exploration-fluent-li",
+                    "[aria-label='Pages' i] button",
+                    "[class*='pageNavigation'] [role='tab']",
+                    "[class*='page-navigation'] [role='tab']",
+                    "button[aria-label][class*='paginationButton']"
+                ];
+                for (const sel of selectors) {
+                    const els = document.querySelectorAll(sel);
+                    if (els && els.length > 0) {
+                        const names = [];
+                        for (const el of els) {
+                            let name = (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim();
+                            name = name.replace(/\\s+Selected$/i, '').trim();
+                            if (name && !ignored.has(name.toLowerCase()) && !names.includes(name)) {
+                                names.push(name);
+                            }
+                        }
+                        if (names.length > 0) return names;
+                    }
+                }
+                return [];
+            }"""
+            names = self.page.evaluate(js_extract)
+            if names:
+                log.debug(f"Page tabs discovered via DOM evaluation: {names}")
+                return names
+        except Exception:
+            pass
+
+        # 2. Fallback to Playwright element locators
         for sel in _PAGE_TAB_SELECTORS:
             try:
                 els = ctx.locator(sel).all()
@@ -4187,7 +4253,7 @@ class PBIDashboardPage(BasePage):
             names: list[str] = []
             for el in els:
                 try:
-                    name = (el.get_attribute("aria-label") or el.inner_text() or "").strip()
+                    name = (el.get_attribute("aria-label") or el.inner_text(timeout=500) or "").strip()
                     name = re.sub(r"\s+Selected$", "", name, flags=re.I).strip()
                 except Exception:
                     continue

@@ -22,13 +22,13 @@ import { useState } from "react";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Automated BI Testing - Validation" },
+      { title: "Dashboard — Automated BI Testing - Validator" },
       {
         name: "description",
-        content: "Live overview of BI dashboard validation runs, pass/fail trends and durations.",
+        content: "Live overview of BI dashboard validator runs, pass/fail trends and durations.",
       },
-      { property: "og:title", content: "Dashboard — Automated BI Testing - Validation" },
-      { property: "og:description", content: "Overview of BI validation runs and pass/fail trends." },
+      { property: "og:title", content: "Dashboard — Automated BI Testing - Validator" },
+      { property: "og:description", content: "Overview of BI validator runs and pass/fail trends." },
     ],
   }),
   component: Dashboard,

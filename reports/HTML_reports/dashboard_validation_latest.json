@@ -1,382 +1,90 @@
 [
   {
-    "tc_id": "PH-BIZ-001",
-    "name": "Validate Overdue Opportunities Revenue — Pipeline Hygiene",
+    "tc_id": "FP-A-000",
+    "name": "Dynamic Qlik Sheet Discovery — Functional Parity - Pipeline Hygiene Main (Track 1)",
     "status": "passed",
-    "duration": "3m 36s",
-    "duration_secs": 216.5,
+    "duration": "1s",
+    "duration_secs": 1.09,
     "error_text": "",
-    "steps": [
-      {
-        "step_no": 1,
-        "title": "Navigate to Pipeline Hygiene ISG page and confirm dashboard is loaded",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 2,
-        "title": "Clear all default slicers to start from a clean state",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 3,
-        "title": "Read KPI card: Unweighted Revenue of Overdue Opps",
-        "lines": [
-          [
-            "INFO",
-            "17:55:54",
-            "Dashboard KPI value: '1.45bn'"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 4,
-        "title": "Fetch expected value from source database",
-        "lines": [
-          [
-            "INFO",
-            "17:55:54",
-            "Using SQL file: ph_isg_001_overdue_revenue.sql"
-          ],
-          [
-            "INFO",
-            "17:55:58",
-            "Database result: 1447396446.11"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 5,
-        "title": "Compare dashboard KPI value against database result",
-        "lines": [
-          [
-            "INFO",
-            "17:55:58",
-            "[Unweighted Revenue of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45bn (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
-          ],
-          [
-            "INFO",
-            "17:55:58",
-            "[PASS] [Unweighted Revenue of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45bn (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 6,
-        "title": "Teardown — reset applied slicers to restore default state",
-        "lines": [],
-        "failed": false
-      }
-    ],
-    "group": "GROUP 5 — BUSINESS SCENARIOS",
-    "screenshot_b64": ""
+    "steps": [],
+    "group": "CATEGORY A — DISCOVERY & PARITY",
+    "screenshot_b64": null
   },
   {
-    "tc_id": "PH-BIZ-002",
-    "name": "Validate Weighted Revenue of Missing PN Opportunities — Pipeline Hygiene",
+    "tc_id": "FP-A-001",
+    "name": "Dynamic PBI Page Discovery — Functional Parity - Pipeline Hygiene Main (Track 1)",
     "status": "passed",
-    "duration": "12s",
-    "duration_secs": 12.39,
+    "duration": "8s",
+    "duration_secs": 8.01,
     "error_text": "",
-    "steps": [
-      {
-        "step_no": 1,
-        "title": "Navigate to Pipeline Hygiene ISG page and confirm dashboard is loaded",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 2,
-        "title": "Clear all default slicers to start from a clean state",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 3,
-        "title": "Read KPI card: Weighted Revenue of Missing PN Opps",
-        "lines": [
-          [
-            "INFO",
-            "17:56:08",
-            "Dashboard KPI value: '341M'"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 4,
-        "title": "Fetch expected value from source database",
-        "lines": [
-          [
-            "INFO",
-            "17:56:08",
-            "Using SQL file: ph_isg_009_missing_pn_weighted_revenue.sql"
-          ],
-          [
-            "INFO",
-            "17:56:10",
-            "Database result: 340960863.082"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 5,
-        "title": "Compare dashboard KPI value against database result",
-        "lines": [
-          [
-            "INFO",
-            "17:56:10",
-            "[Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities)] Dashboard=341M (parsed=341,000,000.0000), Source=340,960,863.0820, Diff=0.0115%, Tolerance=1.00% → PASS"
-          ],
-          [
-            "INFO",
-            "17:56:10",
-            "[PASS] [Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities)] Dashboard=341M (parsed=341,000,000.0000), Source=340,960,863.0820, Diff=0.0115%, Tolerance=1.00% → PASS"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 6,
-        "title": "Teardown — reset applied slicers to restore default state",
-        "lines": [],
-        "failed": false
-      }
-    ],
-    "group": "GROUP 5 — BUSINESS SCENARIOS",
-    "screenshot_b64": ""
+    "steps": [],
+    "group": "CATEGORY A — DISCOVERY & PARITY",
+    "screenshot_b64": null
   },
   {
-    "tc_id": "PH-BIZ-003",
-    "name": "Validate Unweighted Revenue of 7 Day Opportunities — Pipeline Hygiene",
+    "tc_id": "FP-A-002",
+    "name": "Sheet/Page Existence Parity — Functional Parity - Pipeline Hygiene Main (Track 1)",
+    "status": "passed",
+    "duration": "18s",
+    "duration_secs": 18.25,
+    "error_text": "",
+    "steps": [],
+    "group": "CATEGORY A — DISCOVERY & PARITY",
+    "screenshot_b64": null
+  },
+  {
+    "tc_id": "FP-B-001",
+    "name": "Visual Existence: Overdue Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)",
     "status": "passed",
     "duration": "13s",
-    "duration_secs": 13.26,
+    "duration_secs": 13.23,
     "error_text": "",
-    "steps": [
-      {
-        "step_no": 1,
-        "title": "Navigate to Pipeline Hygiene IDG page and confirm dashboard is loaded",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 2,
-        "title": "Clear all default slicers to start from a clean state",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 3,
-        "title": "Read KPI card: Unweighted Revenue of 7 Day Opps",
-        "lines": [
-          [
-            "INFO",
-            "17:56:21",
-            "Dashboard KPI value: '64.52M'"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 4,
-        "title": "Fetch expected value from source database",
-        "lines": [
-          [
-            "INFO",
-            "17:56:21",
-            "Using SQL file: ph_isg_010_7day_unweighted_revenue.sql"
-          ],
-          [
-            "INFO",
-            "17:56:24",
-            "Database result: 64523113.43"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 5,
-        "title": "Compare dashboard KPI value against database result",
-        "lines": [
-          [
-            "INFO",
-            "17:56:24",
-            "[Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities)] Dashboard=64.52M (parsed=64,520,000.0000), Source=64,523,113.4300, Diff=0.0048%, Tolerance=1.00% → PASS"
-          ],
-          [
-            "INFO",
-            "17:56:24",
-            "[PASS] [Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities)] Dashboard=64.52M (parsed=64,520,000.0000), Source=64,523,113.4300, Diff=0.0048%, Tolerance=1.00% → PASS"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 6,
-        "title": "Teardown — reset applied slicers to restore default state",
-        "lines": [],
-        "failed": false
-      }
-    ],
-    "group": "GROUP 5 — BUSINESS SCENARIOS",
-    "screenshot_b64": ""
+    "steps": [],
+    "group": "CATEGORY B — VISUAL EXISTENCE",
+    "screenshot_b64": null
   },
   {
-    "tc_id": "PH-BIZ-004",
-    "name": "Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics) — Pipeline Hygiene",
+    "tc_id": "FP-B-002",
+    "name": "Visual Existence: 7 Days Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)",
     "status": "passed",
-    "duration": "12s",
-    "duration_secs": 12.95,
+    "duration": "13s",
+    "duration_secs": 13.18,
     "error_text": "",
-    "steps": [
-      {
-        "step_no": 1,
-        "title": "Navigate to NPrint Pipeline Hygiene Nordics page and confirm dashboard is loaded",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 2,
-        "title": "Clear all default slicers to start from a clean state",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 3,
-        "title": "Read KPI card: Weighted Revenue of Missing PN Opps",
-        "lines": [
-          [
-            "INFO",
-            "17:56:34",
-            "Dashboard KPI value: '6.17M'"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 4,
-        "title": "Fetch expected value from source database",
-        "lines": [
-          [
-            "INFO",
-            "17:56:34",
-            "Using SQL file: ph_idg_011_missing_pn_weighted_revenue.sql"
-          ],
-          [
-            "INFO",
-            "17:56:37",
-            "Database result: 6168960.3025"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 5,
-        "title": "Compare dashboard KPI value against database result",
-        "lines": [
-          [
-            "INFO",
-            "17:56:37",
-            "[Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics))] Dashboard=6.17M (parsed=6,170,000.0000), Source=6,168,960.3025, Diff=0.0169%, Tolerance=1.00% → PASS"
-          ],
-          [
-            "INFO",
-            "17:56:37",
-            "[PASS] [Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics))] Dashboard=6.17M (parsed=6,170,000.0000), Source=6,168,960.3025, Diff=0.0169%, Tolerance=1.00% → PASS"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 6,
-        "title": "Teardown — reset applied slicers to restore default state",
-        "lines": [],
-        "failed": false
-      }
-    ],
-    "group": "GROUP 5 — BUSINESS SCENARIOS",
-    "screenshot_b64": ""
+    "steps": [],
+    "group": "CATEGORY B — VISUAL EXISTENCE",
+    "screenshot_b64": null
   },
   {
-    "tc_id": "PH-BIZ-005",
-    "name": "Validate Unweighted Revenue of 7 Day Opportunities (GA) — Pipeline Hygiene",
+    "tc_id": "FP-B-003",
+    "name": "Visual Existence: Missing PN Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)",
     "status": "passed",
-    "duration": "12s",
-    "duration_secs": 12.96,
+    "duration": "13s",
+    "duration_secs": 13.17,
     "error_text": "",
-    "steps": [
-      {
-        "step_no": 1,
-        "title": "Navigate to Pipeline Hygiene GA page and confirm dashboard is loaded",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 2,
-        "title": "Clear all default slicers to start from a clean state",
-        "lines": [],
-        "failed": false
-      },
-      {
-        "step_no": 3,
-        "title": "Read KPI card: Unweighted Revenue of 7 Day Opps",
-        "lines": [
-          [
-            "INFO",
-            "17:56:47",
-            "Dashboard KPI value: '74.06M'"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 4,
-        "title": "Fetch expected value from source database",
-        "lines": [
-          [
-            "INFO",
-            "17:56:47",
-            "Using SQL file: ph_ga_012_7day_unweighted_revenue.sql"
-          ],
-          [
-            "INFO",
-            "17:56:49",
-            "Database result: 74061553.84"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 5,
-        "title": "Compare dashboard KPI value against database result",
-        "lines": [
-          [
-            "INFO",
-            "17:56:49",
-            "[Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities (GA))] Dashboard=74.06M (parsed=74,060,000.0000), Source=74,061,553.8400, Diff=0.0021%, Tolerance=1.00% → PASS"
-          ],
-          [
-            "INFO",
-            "17:56:49",
-            "[PASS] [Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities (GA))] Dashboard=74.06M (parsed=74,060,000.0000), Source=74,061,553.8400, Diff=0.0021%, Tolerance=1.00% → PASS"
-          ]
-        ],
-        "failed": false
-      },
-      {
-        "step_no": 6,
-        "title": "Teardown — reset applied slicers to restore default state",
-        "lines": [],
-        "failed": false
-      }
-    ],
-    "group": "GROUP 5 — BUSINESS SCENARIOS",
-    "screenshot_b64": ""
+    "steps": [],
+    "group": "CATEGORY B — VISUAL EXISTENCE",
+    "screenshot_b64": null
+  },
+  {
+    "tc_id": "FP-E-001",
+    "name": "Bookmark Button: Measure Toggle (Revenue / Quantity) — Functional Parity - Pipeline Hygiene Main (Track 1)",
+    "status": "passed",
+    "duration": "46s",
+    "duration_secs": 46.82,
+    "error_text": "",
+    "steps": [],
+    "group": "CATEGORY E — NAVIGATION & BUTTONS",
+    "screenshot_b64": null
+  },
+  {
+    "tc_id": "FP-F-001",
+    "name": "Cross-Filter Segment Click: FRANCE — Functional Parity - Pipeline Hygiene Main (Track 1)",
+    "status": "passed",
+    "duration": "20s",
+    "duration_secs": 20.09,
+    "error_text": "",
+    "steps": [],
+    "group": "CATEGORY F — CROSS-FILTER BEHAVIOR",
+    "screenshot_b64": null
   }
 ]

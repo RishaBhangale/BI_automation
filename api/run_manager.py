@@ -104,7 +104,8 @@ async def stream_pytest(
                 id_map = {
                     "FP-A-000": "test_qlik_sheet_list_is_discoverable",
                     "FP-A-000b": "test_pbi_page_list_is_discoverable",
-                    "FP-A-001": "test_sheet_count_parity",
+                    "FP-A-001": "test_pbi_page_list_is_discoverable",
+                    "FP-A-002": "test_sheet_count_parity",
                 }
                 mapped_ids = [id_map.get(tid, tid) for tid in clean_ids]
                 k_filter = " or ".join(mapped_ids)

@@ -21,7 +21,7 @@ const API = "http://localhost:8000";
 export const Route = createFileRoute("/test-cases")({
   head: () => ({
     meta: [
-      { title: "Test Data — Automated BI Testing - Validation" },
+      { title: "Test Data — Automated BI Testing - Validator" },
       {
         name: "description",
         content: "Edit business scenarios, slicer selections, KPIs and SQL baselines inline.",

@@ -117,9 +117,9 @@ class TestCategoryA:
     @pytest.mark.cat_a
     @pytest.mark.scenario1
     def test_pbi_page_list_is_discoverable(self, pbi_dashboard, config):
-        """FP-A-000b: Enumerate all published PBI report pages dynamically."""
+        """FP-A-001: Enumerate all published PBI report pages dynamically."""
         report_url = config.get("pbi", {}).get("report_url", PBI_REPORT_URL_TRACK1)
-        log.info("FP-A-000b: Opening PBI report and enumerating page tabs")
+        log.info("FP-A-001: Opening PBI report and enumerating page tabs")
         pbi_dashboard.open(report_url)
 
         pages = pbi_dashboard.get_page_list()
@@ -131,7 +131,7 @@ class TestCategoryA:
     @pytest.mark.cat_a
     @pytest.mark.scenario1
     def test_sheet_count_parity(self, qlik_dashboard, pbi_dashboard, config):
-        """FP-A-001: Every in-scope Qlik sheet must have a corresponding PBI page."""
+        """FP-A-002: Every in-scope Qlik sheet must have a corresponding PBI page."""
         app_id = config.get("qlik", {}).get("app_id", QLIK_APP_ID_TRACK1)
         sheet_id = config.get("qlik", {}).get("primary_sheet_id", QLIK_SHEET_ID_MAIN)
         report_url = config.get("pbi", {}).get("report_url", PBI_REPORT_URL_TRACK1)

@@ -386,10 +386,10 @@ def pytest_runtest_makereport(item, call):
         tc_id = "FP-A-000"
         clean_test_title = "Dynamic Qlik Sheet Discovery"
     elif "test_pbi_page_list_is_discoverable" in item.name:
-        tc_id = "FP-A-000b"
+        tc_id = "FP-A-001"
         clean_test_title = "Dynamic PBI Page Discovery"
     elif "test_sheet_count_parity" in item.name:
-        tc_id = "FP-A-001"
+        tc_id = "FP-A-002"
         clean_test_title = "Sheet/Page Existence Parity"
     else:
         tc_id = f"TC-{len(DASHBOARD_RESULTS) + 1:03d}"
@@ -473,12 +473,14 @@ def pytest_sessionfinish(session, exitstatus):
     report_name = f"dashboard_validation_{dash_slug}_{timestamp}.html"
 
     reports_dir = Path(REPORT_DIR)
-    html_reports_dir = reports_dir / "HTML_reports"
+    if reports_dir.name.lower() == "html_reports":
+        html_reports_dir = reports_dir
+    else:
+        html_reports_dir = reports_dir / "HTML_reports"
     html_reports_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = html_reports_dir / report_name
     latest_html = html_reports_dir / "dashboard_validation_latest.html"
-    root_latest_html = reports_dir / "dashboard_validation_latest.html"
 
     try:
         generate_report(
@@ -497,7 +499,8 @@ def pytest_sessionfinish(session, exitstatus):
 
         # Maintain latest copies
         shutil.copy2(str(output_path), str(latest_html))
-        shutil.copy2(str(output_path), str(root_latest_html))
+        if html_reports_dir.resolve() != reports_dir.resolve():
+            shutil.copy2(str(output_path), str(reports_dir / "dashboard_validation_latest.html"))
         log.info(f"Dashboard validation HTML report saved → {output_path}")
         log.info(f"Latest report link                     → {latest_html}")
 
@@ -505,7 +508,6 @@ def pytest_sessionfinish(session, exitstatus):
         try:
             pdf_output_path = output_path.with_suffix(".pdf")
             latest_pdf = html_reports_dir / "dashboard_validation_latest.pdf"
-            root_latest_pdf = reports_dir / "dashboard_validation_latest.pdf"
 
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True, channel="chrome")
@@ -525,7 +527,8 @@ def pytest_sessionfinish(session, exitstatus):
                 browser.close()
 
             shutil.copy2(str(pdf_output_path), str(latest_pdf))
-            shutil.copy2(str(pdf_output_path), str(root_latest_pdf))
+            if html_reports_dir.resolve() != reports_dir.resolve():
+                shutil.copy2(str(pdf_output_path), str(reports_dir / "dashboard_validation_latest.pdf"))
             log.info(f"Dashboard validation PDF report saved  → {pdf_output_path}")
             log.info(f"Latest PDF report link                 → {latest_pdf}")
         except Exception as pdf_err:
@@ -549,10 +552,10 @@ def pytest_sessionfinish(session, exitstatus):
             })
 
         latest_json = html_reports_dir / "dashboard_validation_latest.json"
-        root_latest_json = reports_dir / "dashboard_validation_latest.json"
         json_data = json.dumps(json_results, indent=2, ensure_ascii=False)
         latest_json.write_text(json_data, encoding="utf-8")
-        root_latest_json.write_text(json_data, encoding="utf-8")
+        if html_reports_dir.resolve() != reports_dir.resolve():
+            (reports_dir / "dashboard_validation_latest.json").write_text(json_data, encoding="utf-8")
         log.info(f"JSON execution results exported        → {latest_json}")
 
     except Exception as e:
