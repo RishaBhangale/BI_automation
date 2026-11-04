@@ -39,9 +39,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# ── Large Data Files (>100MB exceeds GitHub limits) ────────────────────────
-Source_data/
-!Source_data/.gitkeep
+# ── Generated Database Cache ────────────────────────────────────────────────
 reports/excel_source_cache/
 *.sqlite
 *.db
