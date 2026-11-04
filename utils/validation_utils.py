@@ -82,7 +82,7 @@ def parse_pbi_number(raw: str) -> Optional[float]:
     # Strip commas used as thousands separators
     cleaned = cleaned.replace(",", "")
 
-    # Apply K / M / B / BN multipliers
+    # Apply K / M / B / BN / G multipliers
     multiplier = 1.0
 
     if cleaned.lower().endswith("bn"):
@@ -97,7 +97,12 @@ def parse_pbi_number(raw: str) -> Optional[float]:
         multiplier = 1_000_000.0
         cleaned = cleaned[:-1]
 
-    elif cleaned.endswith("B") or cleaned.endswith("b"):
+    elif (
+        cleaned.endswith("B")
+        or cleaned.endswith("b")
+        or cleaned.endswith("G")
+        or cleaned.endswith("g")
+    ):
         multiplier = 1_000_000_000.0
         cleaned = cleaned[:-1]
 

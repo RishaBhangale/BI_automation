@@ -3,8 +3,8 @@
     "tc_id": "PH-BIZ-001",
     "name": "Validate Overdue Opportunities Revenue — Pipeline Hygiene",
     "status": "passed",
-    "duration": "3m 36s",
-    "duration_secs": 216.5,
+    "duration": "46s",
+    "duration_secs": 46.96,
     "error_text": "",
     "steps": [
       {
@@ -21,12 +21,12 @@
       },
       {
         "step_no": 3,
-        "title": "Read KPI card: Unweighted Revenue of Overdue Opps",
+        "title": "Read KPI card: Unweighted Revenue Of Overdue Opps",
         "lines": [
           [
             "INFO",
-            "17:55:54",
-            "Dashboard KPI value: '1.45bn'"
+            "17:46:54",
+            "Dashboard KPI value: '1.45G'"
           ]
         ],
         "failed": false
@@ -37,12 +37,12 @@
         "lines": [
           [
             "INFO",
-            "17:55:54",
+            "17:46:54",
             "Using SQL file: ph_isg_001_overdue_revenue.sql"
           ],
           [
             "INFO",
-            "17:55:58",
+            "17:46:54",
             "Database result: 1447396446.11"
           ]
         ],
@@ -54,13 +54,13 @@
         "lines": [
           [
             "INFO",
-            "17:55:58",
-            "[Unweighted Revenue of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45bn (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
+            "17:46:54",
+            "[Unweighted Revenue Of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45G (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "17:55:58",
-            "[PASS] [Unweighted Revenue of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45bn (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
+            "17:46:54",
+            "[PASS] [Unweighted Revenue Of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45G (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
           ]
         ],
         "failed": false
@@ -79,8 +79,8 @@
     "tc_id": "PH-BIZ-002",
     "name": "Validate Weighted Revenue of Missing PN Opportunities — Pipeline Hygiene",
     "status": "passed",
-    "duration": "12s",
-    "duration_secs": 12.39,
+    "duration": "3s",
+    "duration_secs": 3.35,
     "error_text": "",
     "steps": [
       {
@@ -101,7 +101,7 @@
         "lines": [
           [
             "INFO",
-            "17:56:08",
+            "17:46:58",
             "Dashboard KPI value: '341M'"
           ]
         ],
@@ -113,12 +113,12 @@
         "lines": [
           [
             "INFO",
-            "17:56:08",
+            "17:46:58",
             "Using SQL file: ph_isg_009_missing_pn_weighted_revenue.sql"
           ],
           [
             "INFO",
-            "17:56:10",
+            "17:46:58",
             "Database result: 340960863.082"
           ]
         ],
@@ -130,12 +130,12 @@
         "lines": [
           [
             "INFO",
-            "17:56:10",
+            "17:46:58",
             "[Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities)] Dashboard=341M (parsed=341,000,000.0000), Source=340,960,863.0820, Diff=0.0115%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "17:56:10",
+            "17:46:58",
             "[PASS] [Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities)] Dashboard=341M (parsed=341,000,000.0000), Source=340,960,863.0820, Diff=0.0115%, Tolerance=1.00% → PASS"
           ]
         ],
@@ -155,8 +155,8 @@
     "tc_id": "PH-BIZ-003",
     "name": "Validate Unweighted Revenue of 7 Day Opportunities — Pipeline Hygiene",
     "status": "passed",
-    "duration": "13s",
-    "duration_secs": 13.26,
+    "duration": "8s",
+    "duration_secs": 8.7,
     "error_text": "",
     "steps": [
       {
@@ -177,7 +177,7 @@
         "lines": [
           [
             "INFO",
-            "17:56:21",
+            "17:47:06",
             "Dashboard KPI value: '64.52M'"
           ]
         ],
@@ -189,12 +189,12 @@
         "lines": [
           [
             "INFO",
-            "17:56:21",
+            "17:47:06",
             "Using SQL file: ph_isg_010_7day_unweighted_revenue.sql"
           ],
           [
             "INFO",
-            "17:56:24",
+            "17:47:06",
             "Database result: 64523113.43"
           ]
         ],
@@ -206,12 +206,12 @@
         "lines": [
           [
             "INFO",
-            "17:56:24",
+            "17:47:06",
             "[Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities)] Dashboard=64.52M (parsed=64,520,000.0000), Source=64,523,113.4300, Diff=0.0048%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "17:56:24",
+            "17:47:06",
             "[PASS] [Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities)] Dashboard=64.52M (parsed=64,520,000.0000), Source=64,523,113.4300, Diff=0.0048%, Tolerance=1.00% → PASS"
           ]
         ],
@@ -231,8 +231,8 @@
     "tc_id": "PH-BIZ-004",
     "name": "Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics) — Pipeline Hygiene",
     "status": "passed",
-    "duration": "12s",
-    "duration_secs": 12.95,
+    "duration": "8s",
+    "duration_secs": 8.66,
     "error_text": "",
     "steps": [
       {
@@ -253,7 +253,7 @@
         "lines": [
           [
             "INFO",
-            "17:56:34",
+            "17:47:15",
             "Dashboard KPI value: '6.17M'"
           ]
         ],
@@ -265,12 +265,12 @@
         "lines": [
           [
             "INFO",
-            "17:56:34",
+            "17:47:15",
             "Using SQL file: ph_idg_011_missing_pn_weighted_revenue.sql"
           ],
           [
             "INFO",
-            "17:56:37",
+            "17:47:15",
             "Database result: 6168960.3025"
           ]
         ],
@@ -282,12 +282,12 @@
         "lines": [
           [
             "INFO",
-            "17:56:37",
+            "17:47:15",
             "[Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics))] Dashboard=6.17M (parsed=6,170,000.0000), Source=6,168,960.3025, Diff=0.0169%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "17:56:37",
+            "17:47:15",
             "[PASS] [Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics))] Dashboard=6.17M (parsed=6,170,000.0000), Source=6,168,960.3025, Diff=0.0169%, Tolerance=1.00% → PASS"
           ]
         ],
@@ -307,8 +307,8 @@
     "tc_id": "PH-BIZ-005",
     "name": "Validate Unweighted Revenue of 7 Day Opportunities (GA) — Pipeline Hygiene",
     "status": "passed",
-    "duration": "12s",
-    "duration_secs": 12.96,
+    "duration": "8s",
+    "duration_secs": 8.66,
     "error_text": "",
     "steps": [
       {
@@ -329,7 +329,7 @@
         "lines": [
           [
             "INFO",
-            "17:56:47",
+            "17:47:24",
             "Dashboard KPI value: '74.06M'"
           ]
         ],
@@ -341,12 +341,12 @@
         "lines": [
           [
             "INFO",
-            "17:56:47",
+            "17:47:24",
             "Using SQL file: ph_ga_012_7day_unweighted_revenue.sql"
           ],
           [
             "INFO",
-            "17:56:49",
+            "17:47:24",
             "Database result: 74061553.84"
           ]
         ],
@@ -358,12 +358,12 @@
         "lines": [
           [
             "INFO",
-            "17:56:49",
+            "17:47:24",
             "[Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities (GA))] Dashboard=74.06M (parsed=74,060,000.0000), Source=74,061,553.8400, Diff=0.0021%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "17:56:49",
+            "17:47:24",
             "[PASS] [Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities (GA))] Dashboard=74.06M (parsed=74,060,000.0000), Source=74,061,553.8400, Diff=0.0021%, Tolerance=1.00% → PASS"
           ]
         ],

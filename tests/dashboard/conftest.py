@@ -338,13 +338,18 @@ def dashboard_page(
     Session-scoped: all dashboard tests share this browser context.
     """
 
-    context = browser.new_context(
-        viewport={
+    session_file = Path("playwright/.auth/pbi_session.json")
+    context_kwargs = {
+        "viewport": {
             "width": BROWSER_WIDTH,
             "height": BROWSER_HEIGHT,
         },
-        ignore_https_errors=True,
-    )
+        "ignore_https_errors": True,
+    }
+    if session_file.exists():
+        context_kwargs["storage_state"] = str(session_file)
+
+    context = browser.new_context(**context_kwargs)
 
     page = context.new_page()
 
@@ -394,6 +399,12 @@ def dashboard_page(
         f"{dashboard_config['dashboard'].get('name', 'Unnamed')} "
         f"[{pbi._embed_mode}]"
     )
+
+    try:
+        session_file.parent.mkdir(parents=True, exist_ok=True)
+        context.storage_state(path=str(session_file))
+    except Exception:
+        pass
 
     yield pbi
 

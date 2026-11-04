@@ -1983,7 +1983,7 @@ class PBIDashboardPage(BasePage):
     # KPI Card Extraction
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    def extract_card_value(self, visual_title: str) -> str:
+    def extract_card_value(self, visual_title: str, timeout_sec: int = 10) -> str:
         """
         Extract the displayed value from a KPI Card visual.
 
@@ -1993,15 +1993,36 @@ class PBIDashboardPage(BasePage):
 
         Args:
             visual_title: Exact title of the KPI card visual.
+            timeout_sec:  Maximum seconds to retry/poll while visuals recalculate.
 
         Returns:
             Raw value string as displayed on the card.
         """
         log.info(f"Extracting KPI card value for: '{visual_title}'")
 
-        if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB:
-            return self._extract_card_value_ptw(visual_title)
-        return self._extract_card_value_org(visual_title)
+        deadline = time.time() + timeout_sec
+        last_error = None
+
+        while True:
+            try:
+                if self._embed_mode == EMBED_MODE_PUBLISH_TO_WEB:
+                    val = self._extract_card_value_ptw(visual_title)
+                else:
+                    val = self._extract_card_value_org(visual_title)
+                if val:
+                    return val
+            except Exception as exc:
+                last_error = exc
+
+            if time.time() >= deadline:
+                break
+            self.page.wait_for_timeout(1_000)
+
+        if last_error:
+            raise last_error
+        raise ValueError(
+            f"Could not extract KPI value for '{visual_title}' within {timeout_sec}s"
+        )
 
     def _extract_card_value_ptw(self, visual_title: str) -> str:
         """
@@ -2022,6 +2043,9 @@ class PBIDashboardPage(BasePage):
         safe_title = visual_title.replace("'", "\\'")
         raw_value = self.page.evaluate(f"""
             () => {{
+                const clean = s => (s || "").replace(/\\s+/g, " ").trim();
+                const targetLower = clean('{safe_title}').toLowerCase();
+
                 const innerDivs = document.querySelectorAll(
                     "[aria-roledescription]"
                 );
@@ -2033,8 +2057,8 @@ class PBIDashboardPage(BasePage):
                 for (const div of innerDivs) {{
                     const vc = div.closest('visual-container');
                     const allText = (vc ? vc.innerText : div.innerText || '').trim();
-                    const lines   = allText.split('\\n').map(l => l.trim()).filter(Boolean);
-                    if (lines.length === 0 || lines[0] !== '{safe_title}') continue;
+                    const lines   = allText.split('\\n').map(clean).filter(Boolean);
+                    if (lines.length === 0 || lines[0].toLowerCase() !== targetLower) continue;
 
                     // Return the first non-title line that looks like a KPI value.
                     // Skip lines that look like dates (contain a weekday/month name)
@@ -2063,13 +2087,13 @@ class PBIDashboardPage(BasePage):
                 for (const div of innerDivs) {{
                     const vc = div.closest('visual-container');
                     const allText = (vc ? vc.innerText : div.innerText || '').trim();
-                    const lines   = allText.split('\\n').map(l => l.trim()).filter(Boolean);
+                    const lines   = allText.split('\\n').map(clean).filter(Boolean);
 
                     // Skip if title is line[0] — already handled by Pass 1
-                    if (lines.length > 0 && lines[0] === '{safe_title}') continue;
+                    if (lines.length > 0 && lines[0].toLowerCase() === targetLower) continue;
 
                     for (let i = 0; i < lines.length; i++) {{
-                        if (lines[i] === '{safe_title}') {{
+                        if (lines[i].toLowerCase() === targetLower) {{
                             // Value is the next non-empty line
                             for (let j = i + 1; j < lines.length; j++) {{
                                 if (lines[j]) return lines[j];
@@ -2079,8 +2103,8 @@ class PBIDashboardPage(BasePage):
 
                     // Also try tab-separated pairs on the same line
                     for (const line of lines) {{
-                        const parts = line.split('\\t').map(p => p.trim()).filter(Boolean);
-                        if (parts.length === 2 && parts[0] === '{safe_title}') {{
+                        const parts = line.split('\\t').map(clean).filter(Boolean);
+                        if (parts.length === 2 && parts[0].toLowerCase() === targetLower) {{
                             return parts[1];
                         }}
                     }}
@@ -2130,80 +2154,104 @@ class PBIDashboardPage(BasePage):
                             .replace(/\\s+/g, " ")
                             .trim();
 
+                    const targetClean = clean(targetTitle);
+                    const targetLower = targetClean.toLowerCase();
+
+                    // Known Power BI DAX measure aliases / synonyms
+                    const aliases = {
+                        "unweighted revenue of overdue opps": [
+                            "overdue opps display",
+                            "overdue opps",
+                            "unweighted revenue overdue opps"
+                        ],
+                        "overdue opps display": [
+                            "unweighted revenue of overdue opps",
+                            "overdue opps"
+                        ],
+                        "# of overdue contracts": [
+                            "# of overdue conracts",
+                            "overdue contracts"
+                        ],
+                        "# of overdue conracts": [
+                            "# of overdue contracts"
+                        ]
+                    };
+
+                    const searchTitles = [targetLower];
+                    if (aliases[targetLower]) {
+                        searchTitles.push(...aliases[targetLower]);
+                    }
+
                     const elements = Array.from(
                         document.querySelectorAll("[aria-label]")
                     );
 
-                    // Exact card accessibility-label match.
-                    for (const el of elements) {
+                    // Pass 1: exact or alias prefix card accessibility-label match
+                    for (const candidate of searchTitles) {
+                        for (const el of elements) {
+                            const rawAria = el.getAttribute("aria-label");
+                            if (!rawAria) continue;
+                            const aria = clean(rawAria);
+                            const ariaLower = aria.toLowerCase();
 
-                        const aria = clean(
-                            el.getAttribute("aria-label")
-                        );
+                            if (!ariaLower.endsWith("card") && !ariaLower.includes(" card")) continue;
 
-                        if (!aria) {
-                            continue;
-                        }
+                            if (ariaLower.startsWith(candidate)) {
+                                let remainder = aria
+                                    .slice(candidate.length)
+                                    .trim();
 
-                        /*
-                         * Typical Power BI Card:
-                         *
-                         * "Unweighted Revenue of Overdue Opps, 1.45bn card"
-                         */
-                        if (
-                            aria.startsWith(targetTitle + ",")
-                            &&
-                            /\\bcard\\b/i.test(aria)
-                        ) {
+                                remainder = remainder
+                                    .replace(/^[,;:\\-\\s]+/, "")
+                                    .trim();
 
-                            let value = aria
-                                .slice(targetTitle.length + 1)
-                                .trim();
+                                remainder = remainder.replace(
+                                    /\\s+card\\s*$/i,
+                                    ""
+                                ).trim();
 
-                            value = value.replace(
-                                /\\s+card\\s*$/i,
-                                ""
-                            ).trim();
-
-                            if (value) {
-                                return {
-                                    value: value,
-                                    source: "aria-label",
-                                    aria: aria
-                                };
+                                if (remainder) {
+                                    return {
+                                        value: remainder,
+                                        source: "aria-label",
+                                        aria: aria
+                                    };
+                                }
                             }
                         }
+                    }
 
-                        /*
-                         * More tolerant case:
-                         *
-                         * "Unweighted Revenue of Overdue Opps 1.45bn card"
-                         */
+                    // Pass 2: token-overlap fallback for cards
+                    const stopWords = new Set(["of", "and", "the", "in", "as", "%", "a", "an", "for"]);
+                    const targetTokens = targetLower
+                        .split(/\\s+/)
+                        .filter(t => t.length > 2 && !stopWords.has(t));
+
+                    for (const el of elements) {
+                        const rawAria = el.getAttribute("aria-label");
+                        if (!rawAria) continue;
+                        const aria = clean(rawAria);
+                        const ariaLower = aria.toLowerCase();
+
+                        if (!ariaLower.endsWith("card") && !ariaLower.includes(" card")) continue;
+
+                        const matchedTokens = targetTokens.filter(t => ariaLower.includes(t));
                         if (
-                            aria.startsWith(targetTitle)
-                            &&
-                            /\\bcard\\b/i.test(aria)
+                            (targetTokens.length > 0 && matchedTokens.length === targetTokens.length)
+                            ||
+                            (matchedTokens.length >= 2 && ariaLower.includes("opps") && ariaLower.includes("overdue"))
                         ) {
-
-                            let remainder = aria
-                                .slice(targetTitle.length)
-                                .trim();
-
-                            remainder = remainder
-                                .replace(/^[,;:\\-]+/, "")
-                                .trim();
-
-                            remainder = remainder.replace(
-                                /\\s+card\\s*$/i,
-                                ""
-                            ).trim();
-
-                            if (remainder) {
-                                return {
-                                    value: remainder,
-                                    source: "aria-label-tolerant",
-                                    aria: aria
-                                };
+                            const parts = aria.split(",");
+                            if (parts.length >= 2) {
+                                let val = parts[parts.length - 1].trim();
+                                val = val.replace(/\\s+card\\s*$/i, "").trim();
+                                if (val) {
+                                    return {
+                                        value: val,
+                                        source: "aria-token-overlap",
+                                        aria: aria
+                                    };
+                                }
                             }
                         }
                     }
@@ -2248,6 +2296,9 @@ class PBIDashboardPage(BasePage):
                             .replace(/\\s+/g, " ")
                             .trim();
 
+                    const targetClean = clean(targetTitle);
+                    const targetLower = targetClean.toLowerCase();
+
                     const visualDivs = Array.from(
                         document.querySelectorAll(
                             "[aria-roledescription]"
@@ -2285,7 +2336,7 @@ class PBIDashboardPage(BasePage):
                          */
                         if (
                             lines.length >= 2 &&
-                            lines[0] === targetTitle
+                            lines[0].toLowerCase() === targetLower
                         ) {
 
                             return {
@@ -2304,7 +2355,7 @@ class PBIDashboardPage(BasePage):
                         ) {
 
                             if (
-                                lines[i] === targetTitle &&
+                                lines[i].toLowerCase() === targetLower &&
                                 i + 1 < lines.length
                             ) {
 
@@ -2346,16 +2397,20 @@ class PBIDashboardPage(BasePage):
         # Targeted fallback — Overdue Contracts
         # Power BI exposes the title and KPI value separately.
         # ---------------------------------------------------------
-        if visual_title == "# of Overdue Contracts":
+        if visual_title.lower() in ("# of overdue contracts", "# of overdue conracts"):
             try:
                 raw_value = self.page.evaluate(
                     """
                     (targetTitle) => {
                         const clean = s =>
                             (s || "").replace(/\\s+/g, " ").trim();
+                        const targetLower = clean(targetTitle).toLowerCase();
 
                         const title = [...document.querySelectorAll("*")]
-                            .find(el => clean(el.textContent) === targetTitle);
+                            .find(el => {
+                                const t = clean(el.textContent).toLowerCase();
+                                return t === targetLower || t === "# of overdue conracts";
+                            });
 
                         if (!title) return null;
 
@@ -2412,13 +2467,14 @@ class PBIDashboardPage(BasePage):
         try:
 
             visuals = self._evaluate_ptw_visuals()
+            target_lower = visual_title.strip().lower()
 
             matches = [
                 visual
                 for visual in visuals
                 if str(
                     visual.get("title", "")
-                ).strip() == visual_title
+                ).strip().lower() == target_lower
             ]
 
             for visual in matches:
@@ -2438,7 +2494,7 @@ class PBIDashboardPage(BasePage):
 
                 for i, line in enumerate(lines):
 
-                    if line == visual_title:
+                    if line.lower() == target_lower:
 
                         if i + 1 < len(lines):
 
