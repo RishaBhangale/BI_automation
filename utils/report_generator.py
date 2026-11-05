@@ -49,9 +49,12 @@ def generate_report(
     viewport: str = "1280 × 720",
     executed_by: str = "qe.automation",
     test_data_source: str = "login_testdata.xlsx",
+    executed_at: Optional[datetime] = None,
+    duration_str: Optional[str] = None,
+    run_id: str = "",
 ) -> None:
 
-    now        = datetime.now()
+    now        = executed_at or datetime.now()
     date_str   = now.strftime("%d-%b-%Y at %H:%M:%S")
     exec_date  = now.strftime("%d-%b-%Y")
 
@@ -62,9 +65,10 @@ def generate_report(
     blocked = 0
     rate    = round((passed / max(total, 1)) * 100, 1)
 
-    total_secs = sum(r.duration for r in results)
-    mins, secs = divmod(int(total_secs), 60)
-    duration_str = f"{mins:02d} m {secs:02d} s"
+    if not duration_str:
+        total_secs = sum(r.duration for r in results)
+        mins, secs = divmod(int(total_secs), 60)
+        duration_str = f"{mins:02d} m {secs:02d} s"
 
     pass_pct = round((passed / max(total, 1)) * 100, 1)
     fail_pct = round((failed / max(total, 1)) * 100, 1)
@@ -176,7 +180,146 @@ def generate_report(
   .assert-box.exp{background:var(--pass-bg);border-color:var(--pass-line)}
   .assert-box.act{background:var(--fail-bg);border-color:var(--fail-line)}
   footer{margin-top:36px;text-align:center;font-size:11.5px;color:var(--faint)}
-  @media(max-width:820px){.top-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}.fail-grid{flex-direction:column;margin-left:0}.shot{max-width:100%}.legend{display:none}}
+  @media screen and (max-width:820px){.top-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}.fail-grid{flex-direction:column;margin-left:0}.shot{max-width:100%}.legend{display:none}}
+  @media print {
+    @page {
+      size: A4 portrait;
+      margin: 8mm 8mm 8mm 8mm;
+    }
+    body {
+      background: #ffffff !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .wrap {
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 6px 12px 20px !important;
+    }
+    .doc-head {
+      margin: 0 0 8px !important;
+    }
+    .doc-head h1 {
+      font-size: 18px !important;
+    }
+    .banner {
+      padding: 8px 14px !important;
+      margin-bottom: 8px !important;
+      border-radius: 6px !important;
+    }
+    .banner h2 {
+      font-size: 13px !important;
+    }
+    .top-grid {
+      display: grid !important;
+      grid-template-columns: 1.15fr 1fr !important;
+      gap: 10px !important;
+      margin-top: 8px !important;
+    }
+    .card {
+      padding: 10px 14px !important;
+      border-radius: 8px !important;
+    }
+    .card-title {
+      margin: 0 0 6px !important;
+      padding-bottom: 5px !important;
+      font-size: 9.5px !important;
+    }
+    .kv {
+      gap: 6px 14px !important;
+    }
+    .kv .label {
+      font-size: 9px !important;
+      margin-bottom: 1px !important;
+    }
+    .kv .value {
+      font-size: 11.5px !important;
+    }
+    .kv .value.mono {
+      font-size: 10.5px !important;
+    }
+    .stats {
+      display: grid !important;
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 6px !important;
+      margin-top: 8px !important;
+    }
+    .tile {
+      padding: 6px 4px !important;
+      border-radius: 6px !important;
+    }
+    .tile .t-label {
+      font-size: 9px !important;
+      margin-bottom: 2px !important;
+    }
+    .tile .t-num {
+      font-size: 18px !important;
+    }
+    .progress {
+      margin-top: 6px !important;
+      height: 6px !important;
+    }
+    .toolbar {
+      display: none !important;
+    }
+    .section-h {
+      margin: 12px 2px 6px !important;
+    }
+    .section-h h3 {
+      font-size: 12px !important;
+    }
+    .tc {
+      margin-bottom: 8px !important;
+      border-radius: 6px !important;
+      break-inside: auto !important;
+      page-break-inside: auto !important;
+      border: 1px solid var(--line-strong) !important;
+      box-shadow: none !important;
+    }
+    .tc summary {
+      padding: 8px 12px !important;
+      pointer-events: none !important;
+      cursor: default !important;
+    }
+    .tc-name {
+      font-size: 12px !important;
+    }
+    .chev {
+      display: none !important;
+    }
+    .tc-body {
+      display: block !important;
+      border-top: 1px solid var(--line) !important;
+    }
+    .step {
+      padding: 8px 12px !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .step-head {
+      margin-bottom: 4px !important;
+    }
+    .s-title {
+      font-size: 12px !important;
+    }
+    .step-lines {
+      font-size: 10.5px !important;
+      line-height: 1.5 !important;
+    }
+    .fail-grid {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .shot {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+      max-width: 360px !important;
+    }
+    footer {
+      margin-top: 14px !important;
+      font-size: 9.5px !important;
+    }
+  }
 """
 
     # ── Render one log line with colored level tag ─────────────────────────────
@@ -306,6 +449,11 @@ def generate_report(
     # ── Render cards in order, no group headers shown ──────────────────────────
     cards_html = "\n".join(make_card(r) for r in results)
 
+    run_meta_part = f' &nbsp;·&nbsp; Run ID: <b style="font-family:var(--mono);color:var(--indigo-600)">#{html_module.escape(run_id)}</b>' if run_id else ''
+    banner_run_part = f' — Run #{html_module.escape(run_id)}' if run_id else ''
+    status_label = "PASSED" if failed == 0 else "FAILED"
+    status_color = "var(--pass)" if failed == 0 else "var(--fail)"
+
     # ── Assemble full HTML ────────────────────────────────────────────────────
     html_out = f"""<!DOCTYPE html>
 <html lang="en">
@@ -322,11 +470,11 @@ def generate_report(
 
   <div class="doc-head">
     <h1>BI Dashboard Automation – Test Execution Report</h1>
-    <div class="doc-meta">Generated on <b>{date_str}</b></div>
+    <div class="doc-meta">Generated on <b>{date_str}</b>{run_meta_part}</div>
   </div>
 
   <div class="banner">
-    <h2>Test Automation Execution Report</h2>
+    <h2>Test Automation Execution Report{banner_run_part}</h2>
   </div>
 
   <div class="top-grid">
@@ -337,8 +485,10 @@ def generate_report(
         <div><div class="label">Environment</div><div class="value">{html_module.escape(environment)}</div></div>
         <div><div class="label">Release</div><div class="value">{html_module.escape(release)}</div></div>
         <div><div class="label">Suite</div><div class="value">{html_module.escape(suite)}</div></div>
-        <div><div class="label">Executed By</div><div class="value">{html_module.escape(executed_by)}</div></div>
+        <div><div class="label">Run ID</div><div class="value mono" style="font-weight:700;color:var(--indigo-600)">{f'#{html_module.escape(run_id)}' if run_id else '—'}</div></div>
         <div><div class="label">Executed Date</div><div class="value">{exec_date}</div></div>
+        <div><div class="label">Executed By</div><div class="value">{html_module.escape(executed_by)}</div></div>
+        <div><div class="label">Execution Mode</div><div class="value">Local Automated Run</div></div>
       </div>
     </div>
     <div class="card">
@@ -348,8 +498,8 @@ def generate_report(
         <div><div class="label">Browser</div><div class="value">{html_module.escape(browser)}</div></div>
         <div><div class="label">Viewport</div><div class="value mono">{html_module.escape(viewport)}</div></div>
         <div><div class="label">Duration</div><div class="value mono">{duration_str}</div></div>
-        <div><div class="label">Execution Mode</div><div class="value">Local Automated Run</div></div>
         <div><div class="label">Test Data Source</div><div class="value">{html_module.escape(test_data_source)}</div></div>
+        <div><div class="label">Overall Status</div><div class="value mono" style="font-weight:700;color:{status_color}">{status_label}</div></div>
       </div>
     </div>
   </div>

@@ -510,19 +510,28 @@ def pytest_sessionfinish(session, exitstatus):
             latest_pdf = html_reports_dir / "dashboard_validation_latest.pdf"
 
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True, channel="chrome")
+                browser = None
+                for launch_args in [{"headless": True}, {"channel": "chrome", "headless": True}]:
+                    try:
+                        browser = p.chromium.launch(**launch_args)
+                        break
+                    except Exception:
+                        continue
+                if not browser:
+                    browser = p.chromium.launch(headless=True)
                 pdf_page = browser.new_page(viewport={"width": 1200, "height": 1600})
                 pdf_page.goto(f"file://{output_path.resolve()}", wait_until="networkidle")
                 # Expand all test cards in the PDF
                 pdf_page.evaluate("""() => {
                     document.querySelectorAll('details.tc').forEach(d => d.setAttribute('open', ''));
                 }""")
-                pdf_page.wait_for_timeout(400)
+                pdf_page.wait_for_timeout(300)
                 pdf_page.pdf(
                     path=str(pdf_output_path),
                     format="A4",
                     print_background=True,
-                    margin={"top": "10mm", "bottom": "10mm", "left": "10mm", "right": "10mm"},
+                    prefer_css_page_size=True,
+                    margin={"top": "8mm", "bottom": "8mm", "left": "8mm", "right": "8mm"},
                 )
                 browser.close()
 
@@ -577,12 +586,23 @@ def _parse_steps_from_logs(log_records: list) -> List[dict]:
 
         start_match = re.match(r"STEP(\d+(?:\.\d+)?|\d+)_START\|(.+)", msg)
         end_match = re.match(r"STEP(\d+(?:\.\d+)?|\d+)_END", msg)
+        step_colon_match = re.match(r"^(?:STEP|Step)\s*(\d+(?:\.\d+)?|\d+)[\s:_|\-]+(.+)", msg)
 
         if start_match:
             current = {
                 "step_no": len(steps) + 1,
                 "title": start_match.group(2).strip(),
                 "lines": [],
+                "failed": False,
+            }
+            steps.append(current)
+            continue
+
+        if step_colon_match:
+            current = {
+                "step_no": len(steps) + 1,
+                "title": step_colon_match.group(2).strip(),
+                "lines": [(level, ts, msg)],
                 "failed": False,
             }
             steps.append(current)
@@ -605,5 +625,27 @@ def _parse_steps_from_logs(log_records: list) -> List[dict]:
                 continue
 
             current["lines"].append((level, ts, msg))
+
+    # Fallback: if no explicit STEP markers were logged, group non-debug records
+    if not steps and log_records:
+        meaningful_lines = []
+        has_failure = False
+        for record in log_records:
+            msg = record.getMessage()
+            level = record.levelname
+            ts = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
+            if level == "DEBUG":
+                continue
+            if level in ("ERROR", "CRITICAL") or msg.startswith("FAIL") or "AssertionError" in msg:
+                has_failure = True
+            meaningful_lines.append((level, ts, msg))
+
+        if meaningful_lines:
+            steps.append({
+                "step_no": 1,
+                "title": "Execution & Verification",
+                "lines": meaningful_lines,
+                "failed": has_failure,
+            })
 
     return steps

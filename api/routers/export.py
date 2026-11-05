@@ -1,6 +1,6 @@
 """
 export.py — /export/{run_id} endpoint.
-Supports PDF (via reportlab) and rich HTML (reusing generated report files).
+Generates and serves run-specific PDF and rich HTML validation reports.
 """
 from __future__ import annotations
 
@@ -21,62 +21,100 @@ def export_run(run_id: str, format: str = "pdf"):
     if not run:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
-    if format.lower() == "pdf":
-        pdf_candidates = [
-            PROJECT_ROOT / "reports" / "HTML_reports" / "dashboard_validation_latest.pdf",
-            PROJECT_ROOT / "reports" / "html_reports" / "dashboard_validation_latest.pdf",
-            PROJECT_ROOT / "reports" / "dashboard_validation_latest.pdf",
-        ]
-        for p in pdf_candidates:
-            if p.exists():
+    fmt = format.lower().strip()
+    config_name = run.get("config", "report")
+    config_slug = Path(config_name).stem.replace(" ", "_")
+    download_filename = f"dashboard_validation_{run_id}_{config_slug}.{fmt}"
+
+    # Dedicated per-run cache in reports/HTML_reports/
+    reports_dir = PROJECT_ROOT / "reports" / "HTML_reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    candidate_files = [
+        reports_dir / f"dashboard_validation_{run_id}_{config_slug}.{fmt}",
+        reports_dir / f"dashboard_validation_{run_id}.{fmt}",
+    ]
+
+    def _is_valid_cache(f: Path, file_fmt: str) -> bool:
+        if not f.exists():
+            return False
+        if file_fmt == "pdf":
+            # Must be a rich Playwright PDF (at least 35KB; ReportLab table is 3.7KB)
+            if f.stat().st_size < 35000:
                 try:
-                    return Response(
-                        content=p.read_bytes(),
-                        media_type="application/pdf",
-                        headers={"Content-Disposition": f'attachment; filename="{run_id}.pdf"'},
-                    )
+                    f.unlink(missing_ok=True)
                 except Exception:
                     pass
+                return False
+            try:
+                head = f.read_bytes()[:2000]
+                if b"ReportLab" in head:
+                    f.unlink(missing_ok=True)
+                    return False
+            except Exception:
+                pass
+            return True
+        elif file_fmt == "html":
+            if f.stat().st_size < 5000:
+                return False
+            try:
+                content = f.read_text(encoding="utf-8")
+                # Ensure the HTML includes the run ID and print styles
+                if run_id and run_id not in content:
+                    return False
+                if "@media print" not in content:
+                    return False
+            except Exception:
+                return False
+            return True
+        return False
+
+    cached_file = next((f for f in candidate_files if _is_valid_cache(f, fmt)), None)
+
+    if fmt == "pdf":
+        if cached_file:
+            try:
+                return Response(
+                    content=cached_file.read_bytes(),
+                    media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
+                )
+            except Exception:
+                pass
+
         pdf_bytes = export_pdf(run)
+        save_target = candidate_files[0]
+        try:
+            save_target.write_bytes(pdf_bytes)
+        except Exception:
+            pass
+
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{run_id}.pdf"'},
+            headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
         )
     else:
-        # Check if an existing rich HTML report file exists
-        html_candidates = [
-            PROJECT_ROOT / "reports" / "HTML_reports" / "dashboard_validation_latest.html",
-            PROJECT_ROOT / "reports" / "html_reports" / "dashboard_validation_latest.html",
-            PROJECT_ROOT / "reports" / "dashboard_validation_latest.html",
-        ]
-        html_content = ""
-        for p in html_candidates:
-            if p.exists():
-                try:
-                    html_content = p.read_text(encoding="utf-8")
-                    if html_content:
-                        break
-                except Exception:
-                    pass
+        if cached_file:
+            try:
+                html_text = cached_file.read_text(encoding="utf-8")
+                return Response(
+                    content=html_text.encode("utf-8"),
+                    media_type="text/html; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
+                )
+            except Exception:
+                pass
 
-        # If not found, check the newest html file in HTML_reports/
-        if not html_content:
-            for d in [PROJECT_ROOT / "reports" / "HTML_reports", PROJECT_ROOT / "reports" / "html_reports"]:
-                if d.exists():
-                    files = sorted(d.glob("*.html"), key=lambda p: p.stat().st_mtime, reverse=True)
-                    if files:
-                        try:
-                            html_content = files[0].read_text(encoding="utf-8")
-                            break
-                        except Exception:
-                            pass
-
-        if not html_content:
-            html_content = run_to_html(run)
+        html_content = run_to_html(run)
+        save_target = candidate_files[0]
+        try:
+            save_target.write_text(html_content, encoding="utf-8")
+        except Exception:
+            pass
 
         return Response(
             content=html_content.encode("utf-8"),
             media_type="text/html; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="{run_id}.html"'},
+            headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
         )

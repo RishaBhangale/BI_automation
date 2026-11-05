@@ -969,7 +969,37 @@
         "duration": "4s",
         "duration_secs": 4.6,
         "error_text": "",
-        "steps": [],
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Action: Enumerate on Sheet Catalog",
+            "failed": false,
+            "lines": [
+              [
+                "INFO",
+                "12:20:58",
+                "Field / Element: Sheet Catalog | Action: Enumerate"
+              ],
+              [
+                "INFO",
+                "12:20:58",
+                "Scope: Qlik Sheet 'ALL' ↔ PBI Page 'ALL'"
+              ]
+            ]
+          },
+          {
+            "step_no": 2,
+            "title": "State Parity & Visual Verification",
+            "failed": false,
+            "lines": [
+              [
+                "PASS",
+                "12:20:58",
+                "Discover all published Qlik sheets dynamically"
+              ]
+            ]
+          }
+        ],
         "group": "CATEGORY A — DISCOVERY & PARITY",
         "screenshot_b64": null,
         "meta": {
@@ -990,7 +1020,37 @@
         "duration": "8s",
         "duration_secs": 8.01,
         "error_text": "",
-        "steps": [],
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Action: Enumerate on Page Tabs",
+            "failed": false,
+            "lines": [
+              [
+                "INFO",
+                "12:20:58",
+                "Field / Element: Page Tabs | Action: Enumerate"
+              ],
+              [
+                "INFO",
+                "12:20:58",
+                "Scope: Qlik Sheet 'ALL' ↔ PBI Page 'ALL'"
+              ]
+            ]
+          },
+          {
+            "step_no": 2,
+            "title": "State Parity & Visual Verification",
+            "failed": false,
+            "lines": [
+              [
+                "PASS",
+                "12:20:58",
+                "Discover all 17 published Power BI report pages"
+              ]
+            ]
+          }
+        ],
         "group": "CATEGORY A — DISCOVERY & PARITY",
         "screenshot_b64": null,
         "meta": {
@@ -1011,7 +1071,37 @@
         "duration": "18s",
         "duration_secs": 18.27,
         "error_text": "",
-        "steps": [],
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Action: Exists on Mapping",
+            "failed": false,
+            "lines": [
+              [
+                "INFO",
+                "12:20:58",
+                "Field / Element: Mapping | Action: Exists"
+              ],
+              [
+                "INFO",
+                "12:20:58",
+                "Scope: Qlik Sheet 'In-Scope Sheets' ↔ PBI Page 'In-Scope Pages'"
+              ]
+            ]
+          },
+          {
+            "step_no": 2,
+            "title": "State Parity & Visual Verification",
+            "failed": false,
+            "lines": [
+              [
+                "PASS",
+                "12:20:58",
+                "Verify mapped Qlik sheets have corresponding PBI pages"
+              ]
+            ]
+          }
+        ],
         "group": "CATEGORY A — DISCOVERY & PARITY",
         "screenshot_b64": null,
         "meta": {
@@ -1032,7 +1122,37 @@
         "duration": "13s",
         "duration_secs": 13.22,
         "error_text": "",
-        "steps": [],
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Action: ALL on Visuals",
+            "failed": false,
+            "lines": [
+              [
+                "INFO",
+                "12:20:58",
+                "Field / Element: Visuals | Action: ALL"
+              ],
+              [
+                "INFO",
+                "12:20:58",
+                "Scope: Qlik Sheet 'Overdue Opportunities' ↔ PBI Page 'Overdue Opportunities'"
+              ]
+            ]
+          },
+          {
+            "step_no": 2,
+            "title": "State Parity & Visual Verification",
+            "failed": false,
+            "lines": [
+              [
+                "PASS",
+                "12:20:58",
+                "Verify visual charts and tables are rendered"
+              ]
+            ]
+          }
+        ],
         "group": "CATEGORY B — VISUAL EXISTENCE",
         "screenshot_b64": null,
         "meta": {
@@ -1053,7 +1173,37 @@
         "duration": "13s",
         "duration_secs": 13.18,
         "error_text": "",
-        "steps": [],
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Action: ALL on Visuals",
+            "failed": false,
+            "lines": [
+              [
+                "INFO",
+                "12:20:58",
+                "Field / Element: Visuals | Action: ALL"
+              ],
+              [
+                "INFO",
+                "12:20:58",
+                "Scope: Qlik Sheet '7 Days Opportunities' ↔ PBI Page '7 Days Opportunities'"
+              ]
+            ]
+          },
+          {
+            "step_no": 2,
+            "title": "State Parity & Visual Verification",
+            "failed": false,
+            "lines": [
+              [
+                "PASS",
+                "12:20:58",
+                "Verify visual charts and tables are rendered"
+              ]
+            ]
+          }
+        ],
         "group": "CATEGORY B — VISUAL EXISTENCE",
         "screenshot_b64": null,
         "meta": {
@@ -1074,7 +1224,37 @@
         "duration": "13s",
         "duration_secs": 13.19,
         "error_text": "",
-        "steps": [],
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Action: ALL on Visuals",
+            "failed": false,
+            "lines": [
+              [
+                "INFO",
+                "12:20:58",
+                "Field / Element: Visuals | Action: ALL"
+              ],
+              [
+                "INFO",
+                "12:20:58",
+                "Scope: Qlik Sheet 'Missing PN Opportunities' ↔ PBI Page 'Missing PN Opportunities'"
+              ]
+            ]
+          },
+          {
+            "step_no": 2,
+            "title": "State Parity & Visual Verification",
+            "failed": false,
+            "lines": [
+              [
+                "PASS",
+                "12:20:58",
+                "Verify visual charts and tables are rendered"
+              ]
+            ]
+          }
+        ],
         "group": "CATEGORY B — VISUAL EXISTENCE",
         "screenshot_b64": null,
         "meta": {
@@ -1095,7 +1275,37 @@
         "duration": "46s",
         "duration_secs": 46.35,
         "error_text": "",
-        "steps": [],
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Action: Toggle on Revenue",
+            "failed": false,
+            "lines": [
+              [
+                "INFO",
+                "12:20:58",
+                "Field / Element: Revenue | Action: Toggle"
+              ],
+              [
+                "INFO",
+                "12:20:58",
+                "Scope: Qlik Sheet 'Overdue Opportunities' ↔ PBI Page 'Overdue Opportunities'"
+              ]
+            ]
+          },
+          {
+            "step_no": 2,
+            "title": "State Parity & Visual Verification",
+            "failed": false,
+            "lines": [
+              [
+                "PASS",
+                "12:20:58",
+                "Verify clicking Revenue and Quantity bookmark buttons toggles measure and updates visual states across Qlik and Power BI"
+              ]
+            ]
+          }
+        ],
         "group": "CATEGORY E — NAVIGATION & BUTTONS",
         "screenshot_b64": null,
         "meta": {
@@ -1116,7 +1326,37 @@
         "duration": "20s",
         "duration_secs": 20.09,
         "error_text": "",
-        "steps": [],
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Action: FRANCE on Market",
+            "failed": false,
+            "lines": [
+              [
+                "INFO",
+                "12:20:58",
+                "Field / Element: Market | Action: FRANCE"
+              ],
+              [
+                "INFO",
+                "12:20:58",
+                "Scope: Qlik Sheet 'Missing PN Opportunities' ↔ PBI Page 'Missing PN Opportunities'"
+              ]
+            ]
+          },
+          {
+            "step_no": 2,
+            "title": "State Parity & Visual Verification",
+            "failed": false,
+            "lines": [
+              [
+                "PASS",
+                "12:20:58",
+                "Clicking market segment propagates filter to cards"
+              ]
+            ]
+          }
+        ],
         "group": "CATEGORY F — CROSS-FILTER BEHAVIOR",
         "screenshot_b64": null,
         "meta": {

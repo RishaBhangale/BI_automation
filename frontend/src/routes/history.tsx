@@ -36,10 +36,11 @@ export const Route = createFileRoute("/history")({
 
 // ── Export dropdown ───────────────────────────────────────────────────────────
 
-function ExportButton({ runId }: { runId: string }) {
+function ExportButton({ runId, alignTop = false }: { runId: string; alignTop?: boolean }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [shouldDropUp, setShouldDropUp] = useState(alignTop);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -48,6 +49,15 @@ function ExportButton({ runId }: { runId: string }) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const handleToggle = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setShouldDropUp(alignTop || spaceBelow < 120);
+    }
+    setOpen((o) => !o);
+  };
 
   const doExport = async (format: "pdf" | "html") => {
     setOpen(false);
@@ -73,15 +83,23 @@ function ExportButton({ runId }: { runId: string }) {
         variant="ghost"
         size="sm"
         disabled={busy}
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleToggle}
         className="h-7 gap-1 px-2 text-xs font-medium text-foreground hover:bg-muted/60 whitespace-nowrap"
       >
         <Download className="size-3.5" />
         {busy ? "Downloading…" : "Download"}
-        <ChevronDown className="size-3 text-muted-foreground ml-0.5" />
+        <ChevronDown
+          className={`size-3 text-muted-foreground ml-0.5 transition-transform duration-150 ${
+            open ? (shouldDropUp ? "-rotate-180" : "rotate-180") : ""
+          }`}
+        />
       </Button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 w-28 rounded-lg border border-border bg-card shadow-lg py-1">
+        <div
+          className={`absolute right-0 ${
+            shouldDropUp ? "bottom-full mb-1" : "top-full mt-1"
+          } z-50 w-28 rounded-lg border border-border bg-card shadow-lg py-1`}
+        >
           <button
             className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-muted/60 transition-colors whitespace-nowrap"
             onClick={() => doExport("pdf")}
@@ -265,7 +283,7 @@ function ValidationHistory() {
         <p className="mt-1 text-sm text-muted-foreground">All archived validation runs.</p>
       </div>
 
-      <Card className="border-border/70 p-0 shadow-sm overflow-hidden">
+      <Card className="border-border/70 p-0 shadow-sm">
         {loading ? (
           <div className="space-y-2 p-4">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -274,7 +292,7 @@ function ValidationHistory() {
           </div>
         ) : (
           <>
-            <Table containerClassName="overflow-hidden" className="w-full whitespace-nowrap text-xs">
+            <Table containerClassName="overflow-visible" className="w-full whitespace-nowrap text-xs">
               <TableHeader>
                 <TableRow className="border-b border-border/70 bg-muted/20">
                   <SortHead col="runId"     label="Run ID"      align="left" />
@@ -307,7 +325,7 @@ function ValidationHistory() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedRuns.map((run) => {
+                  paginatedRuns.map((run, idx) => {
                     const rate = passRate(run);
                     const rateColour =
                       rate >= 80 ? "text-success font-semibold" :
@@ -381,7 +399,7 @@ function ValidationHistory() {
 
                         {/* 12. Download */}
                         <TableCell className="whitespace-nowrap px-2 py-2.5 text-right pr-3">
-                          <ExportButton runId={run.runId} />
+                          <ExportButton runId={run.runId} alignTop={idx >= paginatedRuns.length - 2} />
                         </TableCell>
                       </TableRow>
                     );

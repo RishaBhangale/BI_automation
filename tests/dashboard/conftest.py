@@ -850,6 +850,51 @@ def pytest_sessionfinish(session, exitstatus):
             f"{latest_path}"
         )
 
+        # Automatically generate matching PDF report with all test cards expanded
+        try:
+            from playwright.sync_api import sync_playwright
+            pdf_output_path = output_path.with_suffix(".pdf")
+            latest_pdf = Path(REPORT_DIR) / "dashboard_validation_latest.pdf"
+
+            with sync_playwright() as p:
+                browser = None
+                for launch_args in [{"headless": True}, {"channel": "chrome", "headless": True}]:
+                    try:
+                        browser = p.chromium.launch(**launch_args)
+                        break
+                    except Exception:
+                        continue
+                if not browser:
+                    browser = p.chromium.launch(headless=True)
+                pdf_page = browser.new_page(viewport={"width": 1200, "height": 1600})
+                pdf_page.goto(f"file://{output_path.resolve()}", wait_until="networkidle")
+                pdf_page.evaluate("""() => {
+                    document.querySelectorAll('details.tc').forEach(d => d.setAttribute('open', ''));
+                }""")
+                pdf_page.wait_for_timeout(300)
+                pdf_page.pdf(
+                    path=str(pdf_output_path),
+                    format="A4",
+                    print_background=True,
+                    prefer_css_page_size=True,
+                    margin={"top": "8mm", "bottom": "8mm", "left": "8mm", "right": "8mm"},
+                )
+                browser.close()
+
+            shutil.copy2(str(pdf_output_path), str(latest_pdf))
+            root_reports = (
+                Path(__file__)
+                .resolve()
+                .parent.parent.parent
+                / "reports"
+            )
+            if root_reports.exists():
+                shutil.copy2(str(pdf_output_path), str(root_reports / "dashboard_validation_latest.pdf"))
+            log.info(f"Dashboard validation PDF report saved  → {pdf_output_path}")
+            log.info(f"Latest PDF report link                 → {latest_pdf}")
+        except Exception as pdf_err:
+            log.warning(f"Could not generate automated PDF report: {pdf_err}")
+
         # Export structured JSON results.
         json_results = []
 
@@ -1014,12 +1059,30 @@ def _parse_steps_from_logs(
             msg,
         )
 
+        step_colon_match = re.match(
+            r"^(?:STEP|Step)\s*(\d+(?:\.\d+)?|\d+)[\s:_|\-]+(.+)",
+            msg,
+        )
+
         if start_match:
 
             current = {
                 "step_no": len(steps) + 1,
                 "title": start_match.group(2).strip(),
                 "lines": [],
+                "failed": False,
+            }
+
+            steps.append(current)
+
+            continue
+
+        if step_colon_match:
+
+            current = {
+                "step_no": len(steps) + 1,
+                "title": step_colon_match.group(2).strip(),
+                "lines": [(level, ts, msg)],
                 "failed": False,
             }
 
@@ -1070,5 +1133,29 @@ def _parse_steps_from_logs(
                     msg,
                 )
             )
+
+    if not steps and log_records:
+        meaningful_lines = []
+        has_failure = False
+        for record in log_records:
+            msg = record.getMessage()
+            level = record.levelname
+            ts = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
+            if level == "DEBUG":
+                continue
+            is_fail = level in ("ERROR", "CRITICAL") or msg.startswith("FAIL") or "AssertionError" in msg
+            if is_fail:
+                has_failure = True
+            if any(k in msg for k in technical_keywords) and not is_fail:
+                continue
+            meaningful_lines.append((level, ts, msg))
+
+        if meaningful_lines:
+            steps.append({
+                "step_no": 1,
+                "title": "Execution & Verification",
+                "lines": meaningful_lines,
+                "failed": has_failure,
+            })
 
     return steps
