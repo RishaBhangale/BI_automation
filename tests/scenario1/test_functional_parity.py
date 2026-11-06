@@ -108,29 +108,31 @@ class TestCategoryA:
         app_id = config.get("qlik", {}).get("app_id", QLIK_APP_ID_TRACK1)
         sheet_id = config.get("qlik", {}).get("primary_sheet_id", QLIK_SHEET_ID_MAIN)
 
-        log.info("FP-A-000: Navigating to Qlik app to verify session and enumerate sheets")
+        log.info("STEP 1: Initialize session and connect to Qlik Cloud tenant")
         qlik_dashboard.open(app_id, sheet_id)
 
+        log.info("STEP 2: Query Qlik Cloud REST API for published sheet catalog")
         sheets = qlik_dashboard.get_sheet_list_via_api()
         assert len(sheets) > 0, (
             "Qlik REST API returned 0 sheets. "
             "Verify that Qlik session is valid and app has published sheets."
         )
-        log.info(f"[PASS] Successfully enumerated {len(sheets)} Qlik sheets: {[s['title'] for s in sheets]}")
+        log.info(f"STEP 3: Validate sheet discovery count ({len(sheets)} sheets discovered: {[s['title'] for s in sheets]})")
 
     @pytest.mark.cat_a
     @pytest.mark.scenario1
     def test_pbi_page_list_is_discoverable(self, pbi_dashboard, config):
         """FP-A-001: Enumerate all published PBI report pages dynamically."""
         report_url = config.get("pbi", {}).get("report_url", PBI_REPORT_URL_TRACK1)
-        log.info("FP-A-001: Opening PBI report and enumerating page tabs")
+        log.info("STEP 1: Navigate to published Power BI report URL and await canvas mount")
         pbi_dashboard.open(report_url)
 
+        log.info("STEP 2: Inspect navigation tabs and enumerate Power BI report pages")
         pages = pbi_dashboard.get_page_list()
         assert len(pages) > 0, (
             "PBI returned 0 pages. Check report embed status or navigation tabs selector."
         )
-        log.info(f"[PASS] Successfully enumerated {len(pages)} PBI pages: {pages}")
+        log.info(f"STEP 3: Validate page discovery count ({len(pages)} pages discovered: {pages})")
 
     @pytest.mark.cat_a
     @pytest.mark.scenario1
@@ -140,15 +142,16 @@ class TestCategoryA:
         sheet_id = config.get("qlik", {}).get("primary_sheet_id", QLIK_SHEET_ID_MAIN)
         report_url = config.get("pbi", {}).get("report_url", PBI_REPORT_URL_TRACK1)
 
+        log.info("STEP 1: Enumerate all published sheet names from Qlik Cloud")
         qlik_dashboard.open(app_id, sheet_id)
-        pbi_dashboard.open(report_url)
-
         qlik_sheets = qlik_dashboard.get_sheet_list_via_api()
+
+        log.info("STEP 2: Enumerate all published page names from Power BI")
+        pbi_dashboard.open(report_url)
         pbi_pages = pbi_dashboard.get_page_list()
         qlik_titles = [s["title"] for s in qlik_sheets]
 
-        log.info(f"Qlik sheets count: {len(qlik_titles)} | PBI pages count: {len(pbi_pages)}")
-
+        log.info(f"STEP 3: Compare sheet/page mapping and verify parity coverage ({len(qlik_titles)} Qlik / {len(pbi_pages)} PBI)")
         missing = _sheets_without_pbi_page(
             qlik_titles, pbi_pages, config.get("sheet_page_mapping", {}), _out_of_scope(config)
         )
@@ -158,7 +161,7 @@ class TestCategoryA:
             + "\n".join(f"  - Qlik '{q}' -> expected PBI '{e}'" for q, e in missing)
             + f"\nPBI pages: {pbi_pages}"
         )
-        log.info(f"[PASS] All in-scope Qlik sheets have a PBI page ({len(qlik_titles)} Qlik / {len(pbi_pages)} PBI)")
+        log.info(f"[PASS] Complete 1:1 sheet parity confirmed between Qlik and Power BI")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -180,9 +183,11 @@ def test_visual_existence(tc, pbi_dashboard, config):
         pytest.skip(f"{test_id}: No PBI Page Name defined.")
 
     report_url = config.get("pbi", {}).get("report_url", PBI_REPORT_URL_TRACK1)
+    log.info(f"STEP 1: Open Power BI report and navigate to target page '{pbi_page_name}'")
     pbi_dashboard.open(report_url)
     pbi_dashboard.switch_to_page(pbi_page_name)
 
+    log.info(f"STEP 2: Scan report canvas and discover rendered visual containers on '{pbi_page_name}'")
     visual_titles = pbi_dashboard.get_visual_titles()
     assert len(visual_titles) >= 3, (
         f"{test_id} FAIL — Expected at least 3 data visuals on PBI page '{pbi_page_name}', "
@@ -190,6 +195,7 @@ def test_visual_existence(tc, pbi_dashboard, config):
         "Page may have failed to fully render or visual container selectors need updating."
     )
 
+    log.info(f"STEP 3: Verify target visual existence and card layout on '{pbi_page_name}'")
     expected_visual = tc.get("Field / Element") or tc.get("Visual Name")
     if expected_visual and str(expected_visual).strip().lower() not in ("all", "visuals", "none", "nan"):
         exp_clean = str(expected_visual).strip().lower()
@@ -221,15 +227,18 @@ if cat_c_cases:
             pytest.skip(f"{test_id}: No Filter Field defined.")
 
         report_url = config.get("pbi", {}).get("report_url", PBI_REPORT_URL_TRACK1)
+        log.info(f"STEP 1: Open Power BI report and navigate to target page '{pbi_page_name}'")
         pbi_dashboard.open(report_url)
         pbi_dashboard.switch_to_page(pbi_page_name)
 
+        log.info(f"STEP 2: Scan page canvas for slicer and filter controls on '{pbi_page_name}'")
         fields = [f.strip() for f in str(filter_field).split(";") if f.strip()]
         missing_slicers = []
         for fld in fields:
             if not pbi_dashboard.has_slicer(fld):
                 missing_slicers.append(fld)
 
+        log.info(f"STEP 3: Verify parity existence for filter dimension(s): {fields}")
         assert not missing_slicers, (
             f"{test_id} FAIL — Filter/Slicer(s) {missing_slicers} not found on page '{pbi_page_name}'."
         )
@@ -456,11 +465,15 @@ def test_cross_filter_behavior(tc, pbi_dashboard, config):
 
     log.info(f"--- {test_id}: Cross-filter test on '{chart_name}' -> '{target_segment}' ---")
     report_url = config.get("pbi", {}).get("report_url", PBI_REPORT_URL_TRACK1)
+
+    log.info(f"STEP 1: Open Power BI page '{pbi_page_name}' and capture baseline visual values")
     pbi_dashboard.open(report_url)
     pbi_dashboard.switch_to_page(pbi_page_name)
 
     baseline = pbi_dashboard.capture_page_baseline()
     assert len(baseline) > 0, f"{test_id}: Baseline is empty on '{pbi_page_name}'"
+
+    log.info(f"STEP 2: Locate segment '{target_segment}' in chart visual '{chart_name}' and click to cross-filter")
     ctx = pbi_dashboard._ctx()
     vis_container = ctx.locator(f"visual-container:has-text('{chart_name}')").first
     target_scope = vis_container if (vis_container.count() > 0 and vis_container.is_visible(timeout=1_500)) else ctx
@@ -481,9 +494,12 @@ def test_cross_filter_behavior(tc, pbi_dashboard, config):
     bar.click(timeout=3_000, force=True)
     pbi_dashboard.page.wait_for_timeout(3_000)
 
+    log.info(f"STEP 3: Capture updated visual states and verify cross-filter impact")
     post_click = pbi_dashboard.capture_page_baseline()
     assert len(post_click) > 0, f"{test_id} FAIL — Post-click PBI capture returned 0 visuals on '{pbi_page_name}'"
     changed = detect_changed_visuals(baseline, post_click)
+
+    log.info(f"STEP 4: Clear cross-filters and restore page baseline")
     pbi_dashboard.clear_all_slicers()
 
     assert len(changed) > 0, (
@@ -510,6 +526,7 @@ def test_filter_clear_restores_baseline(tc, pbi_dashboard, config):
     report_url = config.get("pbi", {}).get("report_url", PBI_REPORT_URL_TRACK1)
 
     log.info(f"--- {test_id}: State isolation check on PBI '{pbi_page_name}' ---")
+    log.info(f"STEP 1: Open Power BI page '{pbi_page_name}' and capture baseline state")
     pbi_dashboard.open(report_url)
     pbi_dashboard.switch_to_page(pbi_page_name)
 
@@ -519,7 +536,7 @@ def test_filter_clear_restores_baseline(tc, pbi_dashboard, config):
     # 1. Apply a test slicer to perturb state away from baseline
     test_slicer = tc.get("Field / Element") or tc.get("Filter Field") or "GEO Level 3"
     test_val = tc.get("Value / Action") or tc.get("Filter Value") or "BENELUX"
-    log.info(f"Applying test perturbation filter: {test_slicer} = {test_val}")
+    log.info(f"STEP 2: Apply perturbation filter '{test_slicer} = {test_val}' and verify visual changes")
     applied = pbi_dashboard.apply_slicer(test_slicer, test_val, raise_on_error=True)
     assert applied, f"{test_id} FAIL — Failed to apply perturbation filter '{test_slicer}'='{test_val}'"
     pbi_dashboard.page.wait_for_timeout(2_000)
@@ -534,12 +551,14 @@ def test_filter_clear_restores_baseline(tc, pbi_dashboard, config):
     log.info(f"Perturbation confirmed: {len(changed_perturb)} visual(s) changed: {sorted(changed_perturb)}")
 
     # 2. Clear slicers to restore default state
+    log.info("STEP 3: Trigger Clear All Slicers to reset filter state")
     pbi_dashboard.clear_all_slicers()
     pbi_dashboard.page.wait_for_timeout(2_000)
     post_clear = pbi_dashboard.capture_page_baseline()
     assert len(post_clear) > 0, f"{test_id} FAIL — Post-clear PBI capture returned 0 visuals on '{pbi_page_name}'"
 
     # 3. Assert baseline is restored (zero residual bleed)
+    log.info("STEP 4: Verify zero residual bleed and exact return to baseline state")
     residual = detect_changed_visuals(baseline, post_clear)
     assert not residual, f"{test_id} FAIL — Residual state after clearing slicers. Changed: {sorted(residual)}"
     log.info(f"[PASS] {test_id}: State isolation confirmed — clean baseline restored")

@@ -3,8 +3,8 @@
     "tc_id": "PH-BIZ-001",
     "name": "Validate Overdue Opportunities Revenue — Pipeline Hygiene",
     "status": "passed",
-    "duration": "1m 12s",
-    "duration_secs": 72.34,
+    "duration": "48s",
+    "duration_secs": 48.84,
     "error_text": "",
     "steps": [
       {
@@ -19,7 +19,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:00",
+            "18:43:02",
             "STEP1_END"
           ]
         ],
@@ -37,12 +37,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "STEP1.5_END"
           ],
           [
             "WARNING",
-            "18:06:03",
+            "18:43:05",
             "SCENARIO_CONFIG|No slicers configured for PH-BIZ-001. The dashboard will remain in its default filter context."
           ]
         ],
@@ -54,7 +54,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "Dashboard KPI value: '1.45G'"
           ]
         ],
@@ -66,7 +66,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "STEP4_END"
           ]
         ],
@@ -78,12 +78,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "Using SQL file: ph_isg_001_overdue_revenue.sql"
           ],
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "Database result: 1447396446.11"
           ]
         ],
@@ -95,7 +95,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "STEP5_END"
           ]
         ],
@@ -107,12 +107,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "[Unweighted Revenue Of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45G (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "[PASS] [Unweighted Revenue Of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45G (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
           ]
         ],
@@ -124,7 +124,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "STEP6_END"
           ]
         ],
@@ -142,7 +142,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:03",
+            "18:43:05",
             "STEP7_END"
           ]
         ],
@@ -157,7 +157,7 @@
     "name": "Validate Weighted Revenue of Missing PN Opportunities — Pipeline Hygiene",
     "status": "passed",
     "duration": "3s",
-    "duration_secs": 3.38,
+    "duration_secs": 3.35,
     "error_text": "",
     "steps": [
       {
@@ -172,7 +172,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:04",
+            "18:43:05",
             "STEP1_END"
           ]
         ],
@@ -190,12 +190,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "STEP1.5_END"
           ],
           [
             "WARNING",
-            "18:06:07",
+            "18:43:09",
             "SCENARIO_CONFIG|No slicers configured for PH-BIZ-002. The dashboard will remain in its default filter context."
           ]
         ],
@@ -207,7 +207,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "Dashboard KPI value: '341M'"
           ]
         ],
@@ -219,7 +219,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "STEP4_END"
           ]
         ],
@@ -231,12 +231,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "Using SQL file: ph_isg_009_missing_pn_weighted_revenue.sql"
           ],
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "Database result: 340960863.082"
           ]
         ],
@@ -248,7 +248,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "STEP5_END"
           ]
         ],
@@ -260,12 +260,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "[Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities)] Dashboard=341M (parsed=341,000,000.0000), Source=340,960,863.0820, Diff=0.0115%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "[PASS] [Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities)] Dashboard=341M (parsed=341,000,000.0000), Source=340,960,863.0820, Diff=0.0115%, Tolerance=1.00% → PASS"
           ]
         ],
@@ -277,7 +277,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "STEP6_END"
           ]
         ],
@@ -295,7 +295,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:07",
+            "18:43:09",
             "STEP7_END"
           ]
         ],
@@ -310,7 +310,7 @@
     "name": "Validate Unweighted Revenue of 7 Day Opportunities — Pipeline Hygiene",
     "status": "passed",
     "duration": "8s",
-    "duration_secs": 8.79,
+    "duration_secs": 8.71,
     "error_text": "",
     "steps": [
       {
@@ -325,7 +325,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:12",
+            "18:43:14",
             "STEP1_END"
           ]
         ],
@@ -343,12 +343,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:15",
+            "18:43:17",
             "STEP1.5_END"
           ],
           [
             "WARNING",
-            "18:06:15",
+            "18:43:17",
             "SCENARIO_CONFIG|No slicers configured for PH-BIZ-003. The dashboard will remain in its default filter context."
           ]
         ],
@@ -360,7 +360,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:15",
+            "18:43:17",
             "Dashboard KPI value: '64.52M'"
           ]
         ],
@@ -372,7 +372,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:15",
+            "18:43:17",
             "STEP4_END"
           ]
         ],
@@ -384,12 +384,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:15",
+            "18:43:17",
             "Using SQL file: ph_isg_010_7day_unweighted_revenue.sql"
           ],
           [
             "INFO",
-            "18:06:16",
+            "18:43:18",
             "Database result: 64523113.43"
           ]
         ],
@@ -401,7 +401,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:16",
+            "18:43:18",
             "STEP5_END"
           ]
         ],
@@ -413,12 +413,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:16",
+            "18:43:18",
             "[Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities)] Dashboard=64.52M (parsed=64,520,000.0000), Source=64,523,113.4300, Diff=0.0048%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "18:06:16",
+            "18:43:18",
             "[PASS] [Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities)] Dashboard=64.52M (parsed=64,520,000.0000), Source=64,523,113.4300, Diff=0.0048%, Tolerance=1.00% → PASS"
           ]
         ],
@@ -430,7 +430,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:16",
+            "18:43:18",
             "STEP6_END"
           ]
         ],
@@ -448,7 +448,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:16",
+            "18:43:18",
             "STEP7_END"
           ]
         ],
@@ -463,7 +463,7 @@
     "name": "Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics) — Pipeline Hygiene",
     "status": "passed",
     "duration": "8s",
-    "duration_secs": 8.77,
+    "duration_secs": 8.68,
     "error_text": "",
     "steps": [
       {
@@ -478,7 +478,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:21",
+            "18:43:23",
             "STEP1_END"
           ]
         ],
@@ -496,12 +496,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "STEP1.5_END"
           ],
           [
             "WARNING",
-            "18:06:24",
+            "18:43:26",
             "SCENARIO_CONFIG|No slicers configured for PH-BIZ-004. The dashboard will remain in its default filter context."
           ]
         ],
@@ -513,7 +513,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "Dashboard KPI value: '6.17M'"
           ]
         ],
@@ -525,7 +525,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "STEP4_END"
           ]
         ],
@@ -537,12 +537,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "Using SQL file: ph_idg_011_missing_pn_weighted_revenue.sql"
           ],
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "Database result: 6168960.3025"
           ]
         ],
@@ -554,7 +554,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "STEP5_END"
           ]
         ],
@@ -566,12 +566,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "[Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics))] Dashboard=6.17M (parsed=6,170,000.0000), Source=6,168,960.3025, Diff=0.0169%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "[PASS] [Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics))] Dashboard=6.17M (parsed=6,170,000.0000), Source=6,168,960.3025, Diff=0.0169%, Tolerance=1.00% → PASS"
           ]
         ],
@@ -583,7 +583,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "STEP6_END"
           ]
         ],
@@ -601,7 +601,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:24",
+            "18:43:26",
             "STEP7_END"
           ]
         ],
@@ -616,7 +616,7 @@
     "name": "Validate Unweighted Revenue of 7 Day Opportunities (GA) — Pipeline Hygiene",
     "status": "passed",
     "duration": "8s",
-    "duration_secs": 8.66,
+    "duration_secs": 8.67,
     "error_text": "",
     "steps": [
       {
@@ -631,7 +631,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:30",
+            "18:43:31",
             "STEP1_END"
           ]
         ],
@@ -649,12 +649,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "STEP1.5_END"
           ],
           [
             "WARNING",
-            "18:06:33",
+            "18:43:35",
             "SCENARIO_CONFIG|No slicers configured for PH-BIZ-005. The dashboard will remain in its default filter context."
           ]
         ],
@@ -666,7 +666,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "Dashboard KPI value: '74.06M'"
           ]
         ],
@@ -678,7 +678,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "STEP4_END"
           ]
         ],
@@ -690,12 +690,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "Using SQL file: ph_ga_012_7day_unweighted_revenue.sql"
           ],
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "Database result: 74061553.84"
           ]
         ],
@@ -707,7 +707,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "STEP5_END"
           ]
         ],
@@ -719,12 +719,12 @@
         "lines": [
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "[Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities (GA))] Dashboard=74.06M (parsed=74,060,000.0000), Source=74,061,553.8400, Diff=0.0021%, Tolerance=1.00% → PASS"
           ],
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "[PASS] [Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities (GA))] Dashboard=74.06M (parsed=74,060,000.0000), Source=74,061,553.8400, Diff=0.0021%, Tolerance=1.00% → PASS"
           ]
         ],
@@ -736,7 +736,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "STEP6_END"
           ]
         ],
@@ -754,7 +754,7 @@
         "lines": [
           [
             "INFO",
-            "18:06:33",
+            "18:43:35",
             "STEP7_END"
           ]
         ],

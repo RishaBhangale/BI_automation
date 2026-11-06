@@ -1,5 +1,2181 @@
 [
   {
+    "runId": "012",
+    "config": "scenario1_track1.yaml",
+    "selectedTests": [
+      "FP-A-000",
+      "FP-A-001",
+      "FP-A-002",
+      "FP-B-001",
+      "FP-B-002",
+      "FP-B-003",
+      "FP-F-001",
+      "FP-E-001"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "FP-A-000",
+        "Category": "A",
+        "Scenario Name": "Dynamic Qlik Sheet Discovery",
+        "Qlik Sheet Name": "ALL",
+        "PBI Page Name": null,
+        "Field / Element": "Sheet Catalog",
+        "Value / Action": "Enumerate",
+        "Notes": "Discover all published Qlik sheets dynamically"
+      },
+      {
+        "Test ID": "FP-A-001",
+        "Category": "A",
+        "Scenario Name": "Dynamic PBI Page Discovery",
+        "Qlik Sheet Name": null,
+        "PBI Page Name": "ALL",
+        "Field / Element": "Page Tabs",
+        "Value / Action": "Enumerate",
+        "Notes": "Discover all 17 published Power BI report pages"
+      },
+      {
+        "Test ID": "FP-A-002",
+        "Category": "A",
+        "Scenario Name": "Sheet/Page Existence Parity",
+        "Qlik Sheet Name": "In-Scope Sheets",
+        "PBI Page Name": "In-Scope Pages",
+        "Field / Element": "Mapping",
+        "Value / Action": "Exists",
+        "Notes": "Verify mapped Qlik sheets have corresponding PBI pages"
+      },
+      {
+        "Test ID": "FP-B-001",
+        "Category": "B",
+        "Scenario Name": "Visual Existence: Overdue Opportunities",
+        "Qlik Sheet Name": "Overdue Opportunities",
+        "PBI Page Name": "Overdue Opportunities",
+        "Field / Element": "Visuals",
+        "Value / Action": "ALL",
+        "Notes": "Verify visual charts and tables are rendered"
+      },
+      {
+        "Test ID": "FP-B-002",
+        "Category": "B",
+        "Scenario Name": "Visual Existence: 7 Days Opportunities",
+        "Qlik Sheet Name": "7 Days Opportunities",
+        "PBI Page Name": "7 Days Opportunities",
+        "Field / Element": "Visuals",
+        "Value / Action": "ALL",
+        "Notes": "Verify visual charts and tables are rendered"
+      },
+      {
+        "Test ID": "FP-B-003",
+        "Category": "B",
+        "Scenario Name": "Visual Existence: Missing PN Opportunities",
+        "Qlik Sheet Name": "Missing PN Opportunities",
+        "PBI Page Name": "Missing PN Opportunities",
+        "Field / Element": "Visuals",
+        "Value / Action": "ALL",
+        "Notes": "Verify visual charts and tables are rendered"
+      },
+      {
+        "Test ID": "FP-F-001",
+        "Category": "F",
+        "Scenario Name": "Cross-Filter Segment Click: FRANCE",
+        "Qlik Sheet Name": "Missing PN Opportunities",
+        "PBI Page Name": "Missing PN Opportunities",
+        "Field / Element": "Market",
+        "Value / Action": "FRANCE",
+        "Notes": "Clicking market segment propagates filter to cards"
+      },
+      {
+        "Test ID": "FP-E-001",
+        "Category": "E",
+        "Scenario Name": "Bookmark Button: Measure Toggle (Revenue / Quantity)",
+        "Qlik Sheet Name": "Overdue Opportunities",
+        "PBI Page Name": "Overdue Opportunities",
+        "Field / Element": "Revenue",
+        "Value / Action": "Toggle",
+        "Notes": "Verify clicking Revenue and Quantity bookmark buttons toggles measure and updates visual states across Qlik and Power BI"
+      }
+    ],
+    "status": "running",
+    "startedAt": "2026-11-06T13:13:47.233456+00:00",
+    "finishedAt": null,
+    "duration": null,
+    "total": 8,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "results": []
+  },
+  {
+    "runId": "011",
+    "config": "pipeline_hygiene_isg.yaml",
+    "selectedTests": [
+      "PH-BIZ-001",
+      "PH-BIZ-002",
+      "PH-BIZ-003",
+      "PH-BIZ-004",
+      "PH-BIZ-005"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "PH-BIZ-001",
+        "Scenario Name": "Validate Overdue Opportunities Revenue",
+        "Page Name": "Pipeline Hygiene ISG",
+        "Slicer 1 Name": null,
+        "Slicer 1 Value": null,
+        "Slicer 2 Name": null,
+        "Slicer 2 Value": null,
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Unweighted Revenue Of Overdue Opps",
+        "SQL File Name": "ph_isg_001_overdue_revenue.sql"
+      },
+      {
+        "Test ID": "PH-BIZ-002",
+        "Scenario Name": "Validate Weighted Revenue of Missing PN Opportunities",
+        "Page Name": "Pipeline Hygiene ISG",
+        "Slicer 1 Name": null,
+        "Slicer 1 Value": null,
+        "Slicer 2 Name": null,
+        "Slicer 2 Value": null,
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Weighted Revenue of Missing PN Opps",
+        "SQL File Name": "ph_isg_009_missing_pn_weighted_revenue.sql"
+      },
+      {
+        "Test ID": "PH-BIZ-003",
+        "Scenario Name": "Validate Unweighted Revenue of 7 Day Opportunities",
+        "Page Name": "Pipeline Hygiene IDG",
+        "Slicer 1 Name": null,
+        "Slicer 1 Value": null,
+        "Slicer 2 Name": null,
+        "Slicer 2 Value": null,
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Unweighted Revenue of 7 Day Opps",
+        "SQL File Name": "ph_isg_010_7day_unweighted_revenue.sql"
+      },
+      {
+        "Test ID": "PH-BIZ-004",
+        "Scenario Name": "Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics)",
+        "Page Name": "NPrint Pipeline Hygiene Nordics",
+        "Slicer 1 Name": null,
+        "Slicer 1 Value": null,
+        "Slicer 2 Name": null,
+        "Slicer 2 Value": null,
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Weighted Revenue of Missing PN Opps",
+        "SQL File Name": "ph_idg_011_missing_pn_weighted_revenue.sql"
+      },
+      {
+        "Test ID": "PH-BIZ-005",
+        "Scenario Name": "Validate Unweighted Revenue of 7 Day Opportunities (GA)",
+        "Page Name": "Pipeline Hygiene GA",
+        "Slicer 1 Name": null,
+        "Slicer 1 Value": null,
+        "Slicer 2 Name": null,
+        "Slicer 2 Value": null,
+        "Slicer 3 Name": null,
+        "Slicer 3 Value": null,
+        "Slicer 4 Name": null,
+        "Slicer 4 Value": null,
+        "Slicer 5 Name": null,
+        "Slicer 5 Value": null,
+        "Slicer 6 Name": null,
+        "Slicer 6 Value": null,
+        "KPI to Read": "Unweighted Revenue of 7 Day Opps",
+        "SQL File Name": "ph_ga_012_7day_unweighted_revenue.sql"
+      }
+    ],
+    "status": "finished",
+    "startedAt": "2026-11-06T13:12:16.329786+00:00",
+    "finishedAt": "2026-11-06T13:13:37.284118+00:00",
+    "duration": "1m 20s",
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "results": [
+      {
+        "tc_id": "PH-BIZ-001",
+        "name": "Validate Overdue Opportunities Revenue — Pipeline Hygiene",
+        "status": "passed",
+        "duration": "48s",
+        "duration_secs": 48.84,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Pipeline Hygiene ISG page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:02",
+                "STEP1_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "STEP1.5_END"
+              ],
+              [
+                "WARNING",
+                "18:43:05",
+                "SCENARIO_CONFIG|No slicers configured for PH-BIZ-001. The dashboard will remain in its default filter context."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Read KPI card: Unweighted Revenue Of Overdue Opps",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "Dashboard KPI value: '1.45G'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "STEP4_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "Using SQL file: ph_isg_001_overdue_revenue.sql"
+              ],
+              [
+                "INFO",
+                "18:43:05",
+                "Database result: 1447396446.11"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "STEP5_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 9,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "[Unweighted Revenue Of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45G (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "18:43:05",
+                "[PASS] [Unweighted Revenue Of Overdue Opps (Validate Overdue Opportunities Revenue)] Dashboard=1.45G (parsed=1,450,000,000.0000), Source=1,447,396,446.1100, Diff=0.1796%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 10,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "STEP6_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 11,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 12,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "STEP7_END"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "PH-BIZ-001",
+          "Scenario Name": "Validate Overdue Opportunities Revenue",
+          "Page Name": "Pipeline Hygiene ISG",
+          "Slicer 1 Name": null,
+          "Slicer 1 Value": null,
+          "Slicer 2 Name": null,
+          "Slicer 2 Value": null,
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Unweighted Revenue Of Overdue Opps",
+          "SQL File Name": "ph_isg_001_overdue_revenue.sql"
+        }
+      },
+      {
+        "tc_id": "PH-BIZ-002",
+        "name": "Validate Weighted Revenue of Missing PN Opportunities — Pipeline Hygiene",
+        "status": "passed",
+        "duration": "3s",
+        "duration_secs": 3.35,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Pipeline Hygiene ISG page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:05",
+                "STEP1_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:09",
+                "STEP1.5_END"
+              ],
+              [
+                "WARNING",
+                "18:43:09",
+                "SCENARIO_CONFIG|No slicers configured for PH-BIZ-002. The dashboard will remain in its default filter context."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Read KPI card: Weighted Revenue of Missing PN Opps",
+            "lines": [
+              [
+                "INFO",
+                "18:43:09",
+                "Dashboard KPI value: '341M'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:09",
+                "STEP4_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "18:43:09",
+                "Using SQL file: ph_isg_009_missing_pn_weighted_revenue.sql"
+              ],
+              [
+                "INFO",
+                "18:43:09",
+                "Database result: 340960863.082"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:09",
+                "STEP5_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 9,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "18:43:09",
+                "[Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities)] Dashboard=341M (parsed=341,000,000.0000), Source=340,960,863.0820, Diff=0.0115%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "18:43:09",
+                "[PASS] [Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities)] Dashboard=341M (parsed=341,000,000.0000), Source=340,960,863.0820, Diff=0.0115%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 10,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:09",
+                "STEP6_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 11,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 12,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:09",
+                "STEP7_END"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "PH-BIZ-002",
+          "Scenario Name": "Validate Weighted Revenue of Missing PN Opportunities",
+          "Page Name": "Pipeline Hygiene ISG",
+          "Slicer 1 Name": null,
+          "Slicer 1 Value": null,
+          "Slicer 2 Name": null,
+          "Slicer 2 Value": null,
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Weighted Revenue of Missing PN Opps",
+          "SQL File Name": "ph_isg_009_missing_pn_weighted_revenue.sql"
+        }
+      },
+      {
+        "tc_id": "PH-BIZ-003",
+        "name": "Validate Unweighted Revenue of 7 Day Opportunities — Pipeline Hygiene",
+        "status": "passed",
+        "duration": "8s",
+        "duration_secs": 8.71,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Pipeline Hygiene IDG page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:14",
+                "STEP1_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:17",
+                "STEP1.5_END"
+              ],
+              [
+                "WARNING",
+                "18:43:17",
+                "SCENARIO_CONFIG|No slicers configured for PH-BIZ-003. The dashboard will remain in its default filter context."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Read KPI card: Unweighted Revenue of 7 Day Opps",
+            "lines": [
+              [
+                "INFO",
+                "18:43:17",
+                "Dashboard KPI value: '64.52M'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:17",
+                "STEP4_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "18:43:17",
+                "Using SQL file: ph_isg_010_7day_unweighted_revenue.sql"
+              ],
+              [
+                "INFO",
+                "18:43:18",
+                "Database result: 64523113.43"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:18",
+                "STEP5_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 9,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "18:43:18",
+                "[Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities)] Dashboard=64.52M (parsed=64,520,000.0000), Source=64,523,113.4300, Diff=0.0048%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "18:43:18",
+                "[PASS] [Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities)] Dashboard=64.52M (parsed=64,520,000.0000), Source=64,523,113.4300, Diff=0.0048%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 10,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:18",
+                "STEP6_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 11,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 12,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:18",
+                "STEP7_END"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "PH-BIZ-003",
+          "Scenario Name": "Validate Unweighted Revenue of 7 Day Opportunities",
+          "Page Name": "Pipeline Hygiene IDG",
+          "Slicer 1 Name": null,
+          "Slicer 1 Value": null,
+          "Slicer 2 Name": null,
+          "Slicer 2 Value": null,
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Unweighted Revenue of 7 Day Opps",
+          "SQL File Name": "ph_isg_010_7day_unweighted_revenue.sql"
+        }
+      },
+      {
+        "tc_id": "PH-BIZ-004",
+        "name": "Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics) — Pipeline Hygiene",
+        "status": "passed",
+        "duration": "8s",
+        "duration_secs": 8.68,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to NPrint Pipeline Hygiene Nordics page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:23",
+                "STEP1_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:26",
+                "STEP1.5_END"
+              ],
+              [
+                "WARNING",
+                "18:43:26",
+                "SCENARIO_CONFIG|No slicers configured for PH-BIZ-004. The dashboard will remain in its default filter context."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Read KPI card: Weighted Revenue of Missing PN Opps",
+            "lines": [
+              [
+                "INFO",
+                "18:43:26",
+                "Dashboard KPI value: '6.17M'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:26",
+                "STEP4_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "18:43:26",
+                "Using SQL file: ph_idg_011_missing_pn_weighted_revenue.sql"
+              ],
+              [
+                "INFO",
+                "18:43:26",
+                "Database result: 6168960.3025"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:26",
+                "STEP5_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 9,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "18:43:26",
+                "[Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics))] Dashboard=6.17M (parsed=6,170,000.0000), Source=6,168,960.3025, Diff=0.0169%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "18:43:26",
+                "[PASS] [Weighted Revenue of Missing PN Opps (Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics))] Dashboard=6.17M (parsed=6,170,000.0000), Source=6,168,960.3025, Diff=0.0169%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 10,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:26",
+                "STEP6_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 11,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 12,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:26",
+                "STEP7_END"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "PH-BIZ-004",
+          "Scenario Name": "Validate Weighted Revenue of Missing PN Opportunities (NPrint Nordics)",
+          "Page Name": "NPrint Pipeline Hygiene Nordics",
+          "Slicer 1 Name": null,
+          "Slicer 1 Value": null,
+          "Slicer 2 Name": null,
+          "Slicer 2 Value": null,
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Weighted Revenue of Missing PN Opps",
+          "SQL File Name": "ph_idg_011_missing_pn_weighted_revenue.sql"
+        }
+      },
+      {
+        "tc_id": "PH-BIZ-005",
+        "name": "Validate Unweighted Revenue of 7 Day Opportunities (GA) — Pipeline Hygiene",
+        "status": "passed",
+        "duration": "8s",
+        "duration_secs": 8.67,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to Pipeline Hygiene GA page and confirm dashboard is loaded",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:31",
+                "STEP1_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Clear all default slicers to start from a clean state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:35",
+                "STEP1.5_END"
+              ],
+              [
+                "WARNING",
+                "18:43:35",
+                "SCENARIO_CONFIG|No slicers configured for PH-BIZ-005. The dashboard will remain in its default filter context."
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "Read KPI card: Unweighted Revenue of 7 Day Opps",
+            "lines": [
+              [
+                "INFO",
+                "18:43:35",
+                "Dashboard KPI value: '74.06M'"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:35",
+                "STEP4_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 7,
+            "title": "Fetch expected value from source database",
+            "lines": [
+              [
+                "INFO",
+                "18:43:35",
+                "Using SQL file: ph_ga_012_7day_unweighted_revenue.sql"
+              ],
+              [
+                "INFO",
+                "18:43:35",
+                "Database result: 74061553.84"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 8,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:35",
+                "STEP5_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 9,
+            "title": "Compare dashboard KPI value against database result",
+            "lines": [
+              [
+                "INFO",
+                "18:43:35",
+                "[Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities (GA))] Dashboard=74.06M (parsed=74,060,000.0000), Source=74,061,553.8400, Diff=0.0021%, Tolerance=1.00% → PASS"
+              ],
+              [
+                "INFO",
+                "18:43:35",
+                "[PASS] [Unweighted Revenue of 7 Day Opps (Validate Unweighted Revenue of 7 Day Opportunities (GA))] Dashboard=74.06M (parsed=74,060,000.0000), Source=74,061,553.8400, Diff=0.0021%, Tolerance=1.00% → PASS"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 10,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:35",
+                "STEP6_END"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 11,
+            "title": "Teardown — reset applied slicers to restore default state",
+            "lines": [],
+            "failed": false
+          },
+          {
+            "step_no": 12,
+            "title": "END",
+            "lines": [
+              [
+                "INFO",
+                "18:43:35",
+                "STEP7_END"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "GROUP 5 — BUSINESS SCENARIOS",
+        "screenshot_b64": "",
+        "meta": {
+          "Test ID": "PH-BIZ-005",
+          "Scenario Name": "Validate Unweighted Revenue of 7 Day Opportunities (GA)",
+          "Page Name": "Pipeline Hygiene GA",
+          "Slicer 1 Name": null,
+          "Slicer 1 Value": null,
+          "Slicer 2 Name": null,
+          "Slicer 2 Value": null,
+          "Slicer 3 Name": null,
+          "Slicer 3 Value": null,
+          "Slicer 4 Name": null,
+          "Slicer 4 Value": null,
+          "Slicer 5 Name": null,
+          "Slicer 5 Value": null,
+          "Slicer 6 Name": null,
+          "Slicer 6 Value": null,
+          "KPI to Read": "Unweighted Revenue of 7 Day Opps",
+          "SQL File Name": "ph_ga_012_7day_unweighted_revenue.sql"
+        }
+      }
+    ]
+  },
+  {
+    "runId": "010",
+    "config": "scenario1_track1.yaml",
+    "selectedTests": [
+      "FP-A-000",
+      "FP-A-001",
+      "FP-A-002",
+      "FP-B-001",
+      "FP-B-002",
+      "FP-B-003",
+      "FP-F-001",
+      "FP-E-001"
+    ],
+    "testMetadata": [
+      {
+        "Test ID": "FP-A-000",
+        "Category": "A",
+        "Scenario Name": "Dynamic Qlik Sheet Discovery",
+        "Qlik Sheet Name": "ALL",
+        "PBI Page Name": null,
+        "Field / Element": "Sheet Catalog",
+        "Value / Action": "Enumerate",
+        "Notes": "Discover all published Qlik sheets dynamically"
+      },
+      {
+        "Test ID": "FP-A-001",
+        "Category": "A",
+        "Scenario Name": "Dynamic PBI Page Discovery",
+        "Qlik Sheet Name": null,
+        "PBI Page Name": "ALL",
+        "Field / Element": "Page Tabs",
+        "Value / Action": "Enumerate",
+        "Notes": "Discover all 17 published Power BI report pages"
+      },
+      {
+        "Test ID": "FP-A-002",
+        "Category": "A",
+        "Scenario Name": "Sheet/Page Existence Parity",
+        "Qlik Sheet Name": "In-Scope Sheets",
+        "PBI Page Name": "In-Scope Pages",
+        "Field / Element": "Mapping",
+        "Value / Action": "Exists",
+        "Notes": "Verify mapped Qlik sheets have corresponding PBI pages"
+      },
+      {
+        "Test ID": "FP-B-001",
+        "Category": "B",
+        "Scenario Name": "Visual Existence: Overdue Opportunities",
+        "Qlik Sheet Name": "Overdue Opportunities",
+        "PBI Page Name": "Overdue Opportunities",
+        "Field / Element": "Visuals",
+        "Value / Action": "ALL",
+        "Notes": "Verify visual charts and tables are rendered"
+      },
+      {
+        "Test ID": "FP-B-002",
+        "Category": "B",
+        "Scenario Name": "Visual Existence: 7 Days Opportunities",
+        "Qlik Sheet Name": "7 Days Opportunities",
+        "PBI Page Name": "7 Days Opportunities",
+        "Field / Element": "Visuals",
+        "Value / Action": "ALL",
+        "Notes": "Verify visual charts and tables are rendered"
+      },
+      {
+        "Test ID": "FP-B-003",
+        "Category": "B",
+        "Scenario Name": "Visual Existence: Missing PN Opportunities",
+        "Qlik Sheet Name": "Missing PN Opportunities",
+        "PBI Page Name": "Missing PN Opportunities",
+        "Field / Element": "Visuals",
+        "Value / Action": "ALL",
+        "Notes": "Verify visual charts and tables are rendered"
+      },
+      {
+        "Test ID": "FP-F-001",
+        "Category": "F",
+        "Scenario Name": "Cross-Filter Segment Click: FRANCE",
+        "Qlik Sheet Name": "Missing PN Opportunities",
+        "PBI Page Name": "Missing PN Opportunities",
+        "Field / Element": "Market",
+        "Value / Action": "FRANCE",
+        "Notes": "Clicking market segment propagates filter to cards"
+      },
+      {
+        "Test ID": "FP-E-001",
+        "Category": "E",
+        "Scenario Name": "Bookmark Button: Measure Toggle (Revenue / Quantity)",
+        "Qlik Sheet Name": "Overdue Opportunities",
+        "PBI Page Name": "Overdue Opportunities",
+        "Field / Element": "Revenue",
+        "Value / Action": "Toggle",
+        "Notes": "Verify clicking Revenue and Quantity bookmark buttons toggles measure and updates visual states across Qlik and Power BI"
+      }
+    ],
+    "status": "finished",
+    "startedAt": "2026-11-06T13:03:04.616749+00:00",
+    "finishedAt": "2026-11-06T13:05:33.410141+00:00",
+    "duration": "2m 28s",
+    "total": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "results": [
+      {
+        "tc_id": "FP-A-000",
+        "name": "Dynamic Qlik Sheet Discovery — Functional Parity - Pipeline Hygiene Main (Track 1)",
+        "status": "passed",
+        "duration": "5s",
+        "duration_secs": 5.03,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Initialize session and connect to Qlik Cloud tenant",
+            "lines": [
+              [
+                "INFO",
+                "18:33:10",
+                "STEP 1: Initialize session and connect to Qlik Cloud tenant"
+              ],
+              [
+                "INFO",
+                "18:33:10",
+                "Qlik sheet ec6922ca-7f1b-4766-9066-38074d8849ca already open — reusing warm page"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Query Qlik Cloud REST API for published sheet catalog",
+            "lines": [
+              [
+                "INFO",
+                "18:33:10",
+                "STEP 2: Query Qlik Cloud REST API for published sheet catalog"
+              ],
+              [
+                "INFO",
+                "18:33:10",
+                "Discovered 21 Qlik sheets: ['7 Days Opportunities', '7 Days Opportunities ISG', 'Idle Opportunities ISG', 'Missing PN Opportunities', 'Missing PN Opportunities ISG', 'NPrint Pipeline Hygiene Nordics', 'Next QTR Opportunities Unweighted', 'Next QTR Opportunities Unweighted ISG', 'Next QTR Opportunities Weighted', 'Next QTR Opportunities Weighted ISG', 'Order Date vs Creation Date UAT', 'Overdue Opportunities', 'Overdue Opportunities ISG', 'Overloaded Contracts', 'Overloaded Contracts ISG', 'Pipeline Hygiene GA', 'Pipeline Hygiene IDG', 'Pipeline Hygiene ISG', 'Pipeline Hygiene ISG Nprint', 'Raw Data', 'Underloaded Services Contracts ISG']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Validate sheet discovery count (21 sheets discovered: ['7 Days Opportunities', '7 Days Opportunities ISG', 'Idle Opportunities ISG', 'Missing PN Opportunities', 'Missing PN Opportunities ISG', 'NPrint Pipeline Hygiene Nordics', 'Next QTR Opportunities Unweighted', 'Next QTR Opportunities Unweighted ISG', 'Next QTR Opportunities Weighted', 'Next QTR Opportunities Weighted ISG', 'Order Date vs Creation Date UAT', 'Overdue Opportunities', 'Overdue Opportunities ISG', 'Overloaded Contracts', 'Overloaded Contracts ISG', 'Pipeline Hygiene GA', 'Pipeline Hygiene IDG', 'Pipeline Hygiene ISG', 'Pipeline Hygiene ISG Nprint', 'Raw Data', 'Underloaded Services Contracts ISG'])",
+            "lines": [
+              [
+                "INFO",
+                "18:33:10",
+                "STEP 3: Validate sheet discovery count (21 sheets discovered: ['7 Days Opportunities', '7 Days Opportunities ISG', 'Idle Opportunities ISG', 'Missing PN Opportunities', 'Missing PN Opportunities ISG', 'NPrint Pipeline Hygiene Nordics', 'Next QTR Opportunities Unweighted', 'Next QTR Opportunities Unweighted ISG', 'Next QTR Opportunities Weighted', 'Next QTR Opportunities Weighted ISG', 'Order Date vs Creation Date UAT', 'Overdue Opportunities', 'Overdue Opportunities ISG', 'Overloaded Contracts', 'Overloaded Contracts ISG', 'Pipeline Hygiene GA', 'Pipeline Hygiene IDG', 'Pipeline Hygiene ISG', 'Pipeline Hygiene ISG Nprint', 'Raw Data', 'Underloaded Services Contracts ISG'])"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "CATEGORY A — DISCOVERY & PARITY",
+        "screenshot_b64": null,
+        "meta": {
+          "Test ID": "FP-A-000",
+          "Category": "A",
+          "Scenario Name": "Dynamic Qlik Sheet Discovery",
+          "Qlik Sheet Name": "ALL",
+          "PBI Page Name": null,
+          "Field / Element": "Sheet Catalog",
+          "Value / Action": "Enumerate",
+          "Notes": "Discover all published Qlik sheets dynamically"
+        }
+      },
+      {
+        "tc_id": "FP-A-001",
+        "name": "Dynamic PBI Page Discovery — Functional Parity - Pipeline Hygiene Main (Track 1)",
+        "status": "passed",
+        "duration": "27s",
+        "duration_secs": 27.06,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Navigate to published Power BI report URL and await canvas mount",
+            "lines": [
+              [
+                "INFO",
+                "18:33:29",
+                "STEP 1: Navigate to published Power BI report URL and await canvas mount"
+              ],
+              [
+                "INFO",
+                "18:33:29",
+                "Embed mode detected: org_report"
+              ],
+              [
+                "INFO",
+                "18:33:37",
+                "No PBI iframe - using main page DOM"
+              ],
+              [
+                "INFO",
+                "18:33:37",
+                "PBI report already open and canvas active — reusing warm page"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Inspect navigation tabs and enumerate Power BI report pages",
+            "lines": [
+              [
+                "INFO",
+                "18:33:37",
+                "STEP 2: Inspect navigation tabs and enumerate Power BI report pages"
+              ],
+              [
+                "INFO",
+                "18:33:37",
+                "Getting PBI page list"
+              ],
+              [
+                "INFO",
+                "18:33:37",
+                "PBI pages found (18): ['Pipeline Hygiene IDG', 'Overdue Opportunities', '7 Days Opportunities', 'Missing PN Opportunities', 'Next QTR Opportunities Unweighted', 'Next QTR Opportunities Weighted', 'NPrint Pipeline Hygiene Nordics', 'Raw Data', 'Pipeline Hygiene ISG', 'Overdue Opportunities ISG', '7 Days Opportunities ISG', 'Missing PN Opportunities ISG', 'Idle Opportunities ISG', 'Next QTR Opportunities Unweighted ISG', 'Order Date vs Creation Date UAT', 'Next QTR Opportunities Weighted ISG', 'Pipeline Hygiene GA', 'Pipeline Hygiene ISG Nprint']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Validate page discovery count (18 pages discovered: ['Pipeline Hygiene IDG', 'Overdue Opportunities', '7 Days Opportunities', 'Missing PN Opportunities', 'Next QTR Opportunities Unweighted', 'Next QTR Opportunities Weighted', 'NPrint Pipeline Hygiene Nordics', 'Raw Data', 'Pipeline Hygiene ISG', 'Overdue Opportunities ISG', '7 Days Opportunities ISG', 'Missing PN Opportunities ISG', 'Idle Opportunities ISG', 'Next QTR Opportunities Unweighted ISG', 'Order Date vs Creation Date UAT', 'Next QTR Opportunities Weighted ISG', 'Pipeline Hygiene GA', 'Pipeline Hygiene ISG Nprint'])",
+            "lines": [
+              [
+                "INFO",
+                "18:33:37",
+                "STEP 3: Validate page discovery count (18 pages discovered: ['Pipeline Hygiene IDG', 'Overdue Opportunities', '7 Days Opportunities', 'Missing PN Opportunities', 'Next QTR Opportunities Unweighted', 'Next QTR Opportunities Weighted', 'NPrint Pipeline Hygiene Nordics', 'Raw Data', 'Pipeline Hygiene ISG', 'Overdue Opportunities ISG', '7 Days Opportunities ISG', 'Missing PN Opportunities ISG', 'Idle Opportunities ISG', 'Next QTR Opportunities Unweighted ISG', 'Order Date vs Creation Date UAT', 'Next QTR Opportunities Weighted ISG', 'Pipeline Hygiene GA', 'Pipeline Hygiene ISG Nprint'])"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "CATEGORY A — DISCOVERY & PARITY",
+        "screenshot_b64": null,
+        "meta": {
+          "Test ID": "FP-A-001",
+          "Category": "A",
+          "Scenario Name": "Dynamic PBI Page Discovery",
+          "Qlik Sheet Name": null,
+          "PBI Page Name": "ALL",
+          "Field / Element": "Page Tabs",
+          "Value / Action": "Enumerate",
+          "Notes": "Discover all 17 published Power BI report pages"
+        }
+      },
+      {
+        "tc_id": "FP-A-002",
+        "name": "Sheet/Page Existence Parity — Functional Parity - Pipeline Hygiene Main (Track 1)",
+        "status": "passed",
+        "duration": "8s",
+        "duration_secs": 8.02,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Enumerate all published sheet names from Qlik Cloud",
+            "lines": [
+              [
+                "INFO",
+                "18:33:37",
+                "STEP 1: Enumerate all published sheet names from Qlik Cloud"
+              ],
+              [
+                "INFO",
+                "18:33:37",
+                "Qlik sheet ec6922ca-7f1b-4766-9066-38074d8849ca already open — reusing warm page"
+              ],
+              [
+                "INFO",
+                "18:33:37",
+                "Discovered 21 Qlik sheets: ['7 Days Opportunities', '7 Days Opportunities ISG', 'Idle Opportunities ISG', 'Missing PN Opportunities', 'Missing PN Opportunities ISG', 'NPrint Pipeline Hygiene Nordics', 'Next QTR Opportunities Unweighted', 'Next QTR Opportunities Unweighted ISG', 'Next QTR Opportunities Weighted', 'Next QTR Opportunities Weighted ISG', 'Order Date vs Creation Date UAT', 'Overdue Opportunities', 'Overdue Opportunities ISG', 'Overloaded Contracts', 'Overloaded Contracts ISG', 'Pipeline Hygiene GA', 'Pipeline Hygiene IDG', 'Pipeline Hygiene ISG', 'Pipeline Hygiene ISG Nprint', 'Raw Data', 'Underloaded Services Contracts ISG']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Enumerate all published page names from Power BI",
+            "lines": [
+              [
+                "INFO",
+                "18:33:37",
+                "STEP 2: Enumerate all published page names from Power BI"
+              ],
+              [
+                "INFO",
+                "18:33:37",
+                "Embed mode detected: org_report"
+              ],
+              [
+                "INFO",
+                "18:33:45",
+                "No PBI iframe - using main page DOM"
+              ],
+              [
+                "INFO",
+                "18:33:45",
+                "PBI report already open and canvas active — reusing warm page"
+              ],
+              [
+                "INFO",
+                "18:33:45",
+                "Getting PBI page list"
+              ],
+              [
+                "INFO",
+                "18:33:45",
+                "PBI pages found (18): ['Pipeline Hygiene IDG', 'Overdue Opportunities', '7 Days Opportunities', 'Missing PN Opportunities', 'Next QTR Opportunities Unweighted', 'Next QTR Opportunities Weighted', 'NPrint Pipeline Hygiene Nordics', 'Raw Data', 'Pipeline Hygiene ISG', 'Overdue Opportunities ISG', '7 Days Opportunities ISG', 'Missing PN Opportunities ISG', 'Idle Opportunities ISG', 'Next QTR Opportunities Unweighted ISG', 'Order Date vs Creation Date UAT', 'Next QTR Opportunities Weighted ISG', 'Pipeline Hygiene GA', 'Pipeline Hygiene ISG Nprint']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Compare sheet/page mapping and verify parity coverage (21 Qlik / 18 PBI)",
+            "lines": [
+              [
+                "INFO",
+                "18:33:45",
+                "STEP 3: Compare sheet/page mapping and verify parity coverage (21 Qlik / 18 PBI)"
+              ],
+              [
+                "WARNING",
+                "18:33:45",
+                "Excluding 4 out-of-scope Qlik sheet(s) from Category A checks: ['idle opportunities isg', 'overloaded contracts', 'overloaded contracts isg', 'underloaded services contracts isg']"
+              ],
+              [
+                "INFO",
+                "18:33:45",
+                "[PASS] Complete 1:1 sheet parity confirmed between Qlik and Power BI"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "CATEGORY A — DISCOVERY & PARITY",
+        "screenshot_b64": null,
+        "meta": {
+          "Test ID": "FP-A-002",
+          "Category": "A",
+          "Scenario Name": "Sheet/Page Existence Parity",
+          "Qlik Sheet Name": "In-Scope Sheets",
+          "PBI Page Name": "In-Scope Pages",
+          "Field / Element": "Mapping",
+          "Value / Action": "Exists",
+          "Notes": "Verify mapped Qlik sheets have corresponding PBI pages"
+        }
+      },
+      {
+        "tc_id": "FP-B-001",
+        "name": "Visual Existence: Overdue Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)",
+        "status": "passed",
+        "duration": "13s",
+        "duration_secs": 13.23,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Open Power BI report and navigate to target page 'Overdue Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:33:45",
+                "STEP 1: Open Power BI report and navigate to target page 'Overdue Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:33:45",
+                "Embed mode detected: org_report"
+              ],
+              [
+                "INFO",
+                "18:33:53",
+                "No PBI iframe - using main page DOM"
+              ],
+              [
+                "INFO",
+                "18:33:53",
+                "PBI report already open and canvas active — reusing warm page"
+              ],
+              [
+                "INFO",
+                "18:33:53",
+                "Switching to page: 'Overdue Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:33:58",
+                "Switched to page 'Overdue Opportunities' via tab selector: [role='tab'][aria-label*='Overdue Opportunities' i]"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Scan report canvas and discover rendered visual containers on 'Overdue Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:33:58",
+                "STEP 2: Scan report canvas and discover rendered visual containers on 'Overdue Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:33:58",
+                "Getting PBI visual titles"
+              ],
+              [
+                "INFO",
+                "18:33:58",
+                "PBI visual titles found (10): ['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7', 'Text box 8', 'Clustered bar chart 9', 'Clustered bar chart 10', 'Past Due Opp Rev by Forecast Category', 'Past Due Opp Rev by Sales Stage Gate', 'Table Visual']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Verify target visual existence and card layout on 'Overdue Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:33:58",
+                "STEP 3: Verify target visual existence and card layout on 'Overdue Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:33:58",
+                "[PASS] FP-B-001: Visuals verified on 'Overdue Opportunities' (10 visuals found: ['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7', 'Text box 8', 'Clustered bar chart 9', 'Clustered bar chart 10', 'Past Due Opp Rev by Forecast Category', 'Past Due Opp Rev by Sales Stage Gate', 'Table Visual'])"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "CATEGORY B — VISUAL EXISTENCE",
+        "screenshot_b64": null,
+        "meta": {
+          "Test ID": "FP-B-001",
+          "Category": "B",
+          "Scenario Name": "Visual Existence: Overdue Opportunities",
+          "Qlik Sheet Name": "Overdue Opportunities",
+          "PBI Page Name": "Overdue Opportunities",
+          "Field / Element": "Visuals",
+          "Value / Action": "ALL",
+          "Notes": "Verify visual charts and tables are rendered"
+        }
+      },
+      {
+        "tc_id": "FP-B-002",
+        "name": "Visual Existence: 7 Days Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)",
+        "status": "passed",
+        "duration": "13s",
+        "duration_secs": 13.18,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Open Power BI report and navigate to target page '7 Days Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:33:58",
+                "STEP 1: Open Power BI report and navigate to target page '7 Days Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:33:58",
+                "Embed mode detected: org_report"
+              ],
+              [
+                "INFO",
+                "18:34:06",
+                "No PBI iframe - using main page DOM"
+              ],
+              [
+                "INFO",
+                "18:34:06",
+                "PBI report already open and canvas active — reusing warm page"
+              ],
+              [
+                "INFO",
+                "18:34:06",
+                "Switching to page: '7 Days Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:11",
+                "Switched to page '7 Days Opportunities' via tab selector: [role='tab'][aria-label*='7 Days Opportunities' i]"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Scan report canvas and discover rendered visual containers on '7 Days Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:34:11",
+                "STEP 2: Scan report canvas and discover rendered visual containers on '7 Days Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:11",
+                "Getting PBI visual titles"
+              ],
+              [
+                "INFO",
+                "18:34:11",
+                "PBI visual titles found (11): ['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Image', 'Text box 7', 'Text box 8', 'Clustered bar chart 9', 'Clustered bar chart 10', '7 Day Opp Rev by Level 3 Region Or Market Code', '7 Day Opp Rev by Days to Close Date', 'Table: Row Selection, Geo, Market']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Verify target visual existence and card layout on '7 Days Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:34:11",
+                "STEP 3: Verify target visual existence and card layout on '7 Days Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:11",
+                "[PASS] FP-B-002: Visuals verified on '7 Days Opportunities' (11 visuals found: ['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Image', 'Text box 7', 'Text box 8', 'Clustered bar chart 9', 'Clustered bar chart 10', '7 Day Opp Rev by Level 3 Region Or Market Code', '7 Day Opp Rev by Days to Close Date', 'Table: Row Selection, Geo, Market'])"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "CATEGORY B — VISUAL EXISTENCE",
+        "screenshot_b64": null,
+        "meta": {
+          "Test ID": "FP-B-002",
+          "Category": "B",
+          "Scenario Name": "Visual Existence: 7 Days Opportunities",
+          "Qlik Sheet Name": "7 Days Opportunities",
+          "PBI Page Name": "7 Days Opportunities",
+          "Field / Element": "Visuals",
+          "Value / Action": "ALL",
+          "Notes": "Verify visual charts and tables are rendered"
+        }
+      },
+      {
+        "tc_id": "FP-B-003",
+        "name": "Visual Existence: Missing PN Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)",
+        "status": "passed",
+        "duration": "13s",
+        "duration_secs": 13.18,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Open Power BI report and navigate to target page 'Missing PN Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:34:11",
+                "STEP 1: Open Power BI report and navigate to target page 'Missing PN Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:11",
+                "Embed mode detected: org_report"
+              ],
+              [
+                "INFO",
+                "18:34:19",
+                "No PBI iframe - using main page DOM"
+              ],
+              [
+                "INFO",
+                "18:34:19",
+                "PBI report already open and canvas active — reusing warm page"
+              ],
+              [
+                "INFO",
+                "18:34:19",
+                "Switching to page: 'Missing PN Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:25",
+                "Switched to page 'Missing PN Opportunities' via tab selector: [role='tab'][aria-label*='Missing PN Opportunities' i]"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Scan report canvas and discover rendered visual containers on 'Missing PN Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:34:25",
+                "STEP 2: Scan report canvas and discover rendered visual containers on 'Missing PN Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:25",
+                "Getting PBI visual titles"
+              ],
+              [
+                "INFO",
+                "18:34:25",
+                "PBI visual titles found (12): ['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7', 'Text box 8', 'Clustered bar chart 9', 'Clustered bar chart 10', 'Stacked bar chart 11', 'Stacked bar chart 12', 'Mis MTM by Forecast Category', 'Mis MTM by Sales Stage Gate', 'Table Visual']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Verify target visual existence and card layout on 'Missing PN Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:34:25",
+                "STEP 3: Verify target visual existence and card layout on 'Missing PN Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:25",
+                "[PASS] FP-B-003: Visuals verified on 'Missing PN Opportunities' (12 visuals found: ['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7', 'Text box 8', 'Clustered bar chart 9', 'Clustered bar chart 10', 'Stacked bar chart 11', 'Stacked bar chart 12', 'Mis MTM by Forecast Category', 'Mis MTM by Sales Stage Gate', 'Table Visual'])"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "CATEGORY B — VISUAL EXISTENCE",
+        "screenshot_b64": null,
+        "meta": {
+          "Test ID": "FP-B-003",
+          "Category": "B",
+          "Scenario Name": "Visual Existence: Missing PN Opportunities",
+          "Qlik Sheet Name": "Missing PN Opportunities",
+          "PBI Page Name": "Missing PN Opportunities",
+          "Field / Element": "Visuals",
+          "Value / Action": "ALL",
+          "Notes": "Verify visual charts and tables are rendered"
+        }
+      },
+      {
+        "tc_id": "FP-E-001",
+        "name": "Bookmark Button: Measure Toggle (Revenue / Quantity) — Functional Parity - Pipeline Hygiene Main (Track 1)",
+        "status": "passed",
+        "duration": "46s",
+        "duration_secs": 46.33,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Qlik — Open sheet 'Overdue Opportunities' and capture baseline",
+            "lines": [
+              [
+                "INFO",
+                "18:34:25",
+                "STEP 1: Qlik — Open sheet 'Overdue Opportunities' and capture baseline"
+              ],
+              [
+                "INFO",
+                "18:34:25",
+                "Qlik sheet ec6922ca-7f1b-4766-9066-38074d8849ca already open — reusing warm page"
+              ],
+              [
+                "INFO",
+                "18:34:25",
+                "Navigating to Qlik sheet: 'Overdue Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:25",
+                "Resolved sheet 'Overdue Opportunities' -> ID: yEEHkV"
+              ],
+              [
+                "INFO",
+                "18:34:25",
+                "Opening Qlik sheet: app=6f0756c3-f251-45d9-b569-868b8191798e, sheet=yEEHkV"
+              ],
+              [
+                "INFO",
+                "18:34:27",
+                "Qlik sheet loaded"
+              ],
+              [
+                "INFO",
+                "18:34:27",
+                "Capturing Qlik baseline: app=6f0756c3-f251-45d9-b569-868b8191798e, sheet=yEEHkV"
+              ],
+              [
+                "WARNING",
+                "18:34:30",
+                "enigma.js injection failed: Page.add_script_tag: Loading the script 'https://unpkg.com/enigma.js@2.14.0/enigma.min.js' violates the following Content Security Policy directive: \"script-src 'self' blob: 'unsafe-eval' 'unsafe-inline' www.google-analytics.com ssl.google-analytics.com maps.qlikcloud.com cdn.qlik-stage.com cdn.qlikcloud.com  d19uocc72ax6zk.cloudfront.net f99hbcdmsb16.statuspage.io pendo.qlik.com cdn.qlik.com data.pendo.qlik.com content.pendo.qlik.com app.pendo.io static.ada.support clientsdk.launchdarkly.com\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked."
+              ],
+              [
+                "INFO",
+                "18:34:30",
+                "DOM fallback for Qlik visual capture."
+              ],
+              [
+                "INFO",
+                "18:34:30",
+                "DOM fallback captured 18 visuals/values"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Qlik — Click alternate button 'Quantity' to transition state",
+            "lines": [
+              [
+                "INFO",
+                "18:34:30",
+                "STEP 2: Qlik — Click alternate button 'Quantity' to transition state"
+              ],
+              [
+                "INFO",
+                "18:34:30",
+                "Clicking Qlik button: 'Quantity'"
+              ],
+              [
+                "INFO",
+                "18:34:32",
+                "Qlik button 'Quantity' clicked via get_by_role('button', exact=True)"
+              ],
+              [
+                "INFO",
+                "18:34:35",
+                "Capturing Qlik baseline: app=6f0756c3-f251-45d9-b569-868b8191798e, sheet=yEEHkV"
+              ],
+              [
+                "WARNING",
+                "18:34:38",
+                "enigma.js injection failed: Page.add_script_tag: Loading the script 'https://unpkg.com/enigma.js@2.14.0/enigma.min.js' violates the following Content Security Policy directive: \"script-src 'self' blob: 'unsafe-eval' 'unsafe-inline' www.google-analytics.com ssl.google-analytics.com maps.qlikcloud.com cdn.qlik-stage.com cdn.qlikcloud.com  d19uocc72ax6zk.cloudfront.net f99hbcdmsb16.statuspage.io pendo.qlik.com cdn.qlik.com data.pendo.qlik.com content.pendo.qlik.com app.pendo.io static.ada.support clientsdk.launchdarkly.com\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked."
+              ],
+              [
+                "INFO",
+                "18:34:38",
+                "DOM fallback for Qlik visual capture."
+              ],
+              [
+                "INFO",
+                "18:34:38",
+                "DOM fallback captured 18 visuals/values"
+              ],
+              [
+                "INFO",
+                "18:34:38",
+                "Qlik visuals changed after clicking 'Quantity': ['Quantity(CAs) of Overdue Opportunities by Forecast Category', 'Quantity(CAs) of Overdue Opportunities by Market', 'Quantity(CAs) of Overdue Opportunities by Sales Stage Gate', 'Revenue of Overdue Opportunities by Forecast Category', 'Revenue of Overdue Opportunities by Market', 'Revenue of Overdue Opportunities by Sales Stage Gate']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Qlik — Click button 'Revenue' to transition back and observe value changes",
+            "lines": [
+              [
+                "INFO",
+                "18:34:38",
+                "STEP 3: Qlik — Click button 'Revenue' to transition back and observe value changes"
+              ],
+              [
+                "INFO",
+                "18:34:38",
+                "Clicking Qlik button: 'Revenue'"
+              ],
+              [
+                "INFO",
+                "18:34:40",
+                "Qlik button 'Revenue' clicked via get_by_role('button', exact=True)"
+              ],
+              [
+                "INFO",
+                "18:34:43",
+                "Capturing Qlik baseline: app=6f0756c3-f251-45d9-b569-868b8191798e, sheet=yEEHkV"
+              ],
+              [
+                "WARNING",
+                "18:34:46",
+                "enigma.js injection failed: Page.add_script_tag: Loading the script 'https://unpkg.com/enigma.js@2.14.0/enigma.min.js' violates the following Content Security Policy directive: \"script-src 'self' blob: 'unsafe-eval' 'unsafe-inline' www.google-analytics.com ssl.google-analytics.com maps.qlikcloud.com cdn.qlik-stage.com cdn.qlikcloud.com  d19uocc72ax6zk.cloudfront.net f99hbcdmsb16.statuspage.io pendo.qlik.com cdn.qlik.com data.pendo.qlik.com content.pendo.qlik.com app.pendo.io static.ada.support clientsdk.launchdarkly.com\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked."
+              ],
+              [
+                "INFO",
+                "18:34:46",
+                "DOM fallback for Qlik visual capture."
+              ],
+              [
+                "INFO",
+                "18:34:47",
+                "DOM fallback captured 18 visuals/values"
+              ],
+              [
+                "INFO",
+                "18:34:47",
+                "Qlik visuals changed after clicking 'Revenue': ['Quantity(CAs) of Overdue Opportunities by Forecast Category', 'Quantity(CAs) of Overdue Opportunities by Market', 'Quantity(CAs) of Overdue Opportunities by Sales Stage Gate', 'Revenue of Overdue Opportunities by Forecast Category', 'Revenue of Overdue Opportunities by Market', 'Revenue of Overdue Opportunities by Sales Stage Gate']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "PBI — Open report and switch to corresponding page 'Overdue Opportunities'",
+            "lines": [
+              [
+                "INFO",
+                "18:34:47",
+                "STEP 4: PBI — Open report and switch to corresponding page 'Overdue Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:34:47",
+                "Embed mode detected: org_report"
+              ],
+              [
+                "INFO",
+                "18:34:55",
+                "No PBI iframe - using main page DOM"
+              ],
+              [
+                "INFO",
+                "18:34:55",
+                "PBI report already open and canvas active — reusing warm page"
+              ],
+              [
+                "INFO",
+                "18:34:55",
+                "Switching to page: 'Overdue Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:35:00",
+                "Switched to page 'Overdue Opportunities' via tab selector: [role='tab'][aria-label*='Overdue Opportunities' i]"
+              ],
+              [
+                "INFO",
+                "18:35:00",
+                "Capturing PBI page baseline"
+              ],
+              [
+                "INFO",
+                "18:35:00",
+                "PBI baseline: 10 visuals captured (['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7']...)"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 5,
+            "title": "PBI — Click alternate button 'Quantity' to transition state",
+            "lines": [
+              [
+                "INFO",
+                "18:35:00",
+                "STEP 5: PBI — Click alternate button 'Quantity' to transition state"
+              ],
+              [
+                "INFO",
+                "18:35:00",
+                "Setting metric toggle to: 'Quantity'"
+              ],
+              [
+                "INFO",
+                "18:35:00",
+                "Clicking bookmark shape for 'Quantity' at (480.0, 168.8)"
+              ],
+              [
+                "INFO",
+                "18:35:05",
+                "Capturing PBI page baseline"
+              ],
+              [
+                "INFO",
+                "18:35:05",
+                "PBI baseline: 10 visuals captured (['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7']...)"
+              ],
+              [
+                "INFO",
+                "18:35:05",
+                "PBI visuals changed after clicking 'Quantity': ['Clustered bar chart 10', 'Clustered bar chart 9', 'Past Due Opp Qty by Forecast Category', 'Past Due Opp Qty by Sales Stage Gate', 'Past Due Opp Rev by Forecast Category', 'Past Due Opp Rev by Sales Stage Gate']"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 6,
+            "title": "PBI — Click button 'Revenue' to transition back and observe value changes",
+            "lines": [
+              [
+                "INFO",
+                "18:35:05",
+                "STEP 6: PBI — Click button 'Revenue' to transition back and observe value changes"
+              ],
+              [
+                "INFO",
+                "18:35:05",
+                "Setting metric toggle to: 'Revenue'"
+              ],
+              [
+                "INFO",
+                "18:35:05",
+                "Clicking bookmark shape for 'Revenue' at (290.0, 168.8)"
+              ],
+              [
+                "INFO",
+                "18:35:11",
+                "Capturing PBI page baseline"
+              ],
+              [
+                "INFO",
+                "18:35:11",
+                "PBI baseline: 10 visuals captured (['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7']...)"
+              ],
+              [
+                "INFO",
+                "18:35:11",
+                "PBI visuals changed after clicking 'Revenue': ['Clustered bar chart 10', 'Clustered bar chart 9', 'Past Due Opp Qty by Forecast Category', 'Past Due Opp Qty by Sales Stage Gate', 'Past Due Opp Rev by Forecast Category', 'Past Due Opp Rev by Sales Stage Gate', 'Table Visual', 'Table: Row Selection, Geo, Market']"
+              ],
+              [
+                "INFO",
+                "18:35:11",
+                "[PASS] FP-E-001: Bookmark filter button functionality verified across Qlik (6 visual(s) changed: ['Quantity(CAs) of Overdue Opportunities by Forecast Category', 'Quantity(CAs) of Overdue Opportunities by Market', 'Quantity(CAs) of Overdue Opportunities by Sales Stage Gate', 'Revenue of Overdue Opportunities by Forecast Category', 'Revenue of Overdue Opportunities by Market', 'Revenue of Overdue Opportunities by Sales Stage Gate']) and Power BI (8 visual(s) changed: ['Clustered bar chart 10', 'Clustered bar chart 9', 'Past Due Opp Qty by Forecast Category', 'Past Due Opp Qty by Sales Stage Gate', 'Past Due Opp Rev by Forecast Category', 'Past Due Opp Rev by Sales Stage Gate', 'Table Visual', 'Table: Row Selection, Geo, Market'])."
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "CATEGORY E — NAVIGATION & BUTTONS",
+        "screenshot_b64": null,
+        "meta": {
+          "Test ID": "FP-E-001",
+          "Category": "E",
+          "Scenario Name": "Bookmark Button: Measure Toggle (Revenue / Quantity)",
+          "Qlik Sheet Name": "Overdue Opportunities",
+          "PBI Page Name": "Overdue Opportunities",
+          "Field / Element": "Revenue",
+          "Value / Action": "Toggle",
+          "Notes": "Verify clicking Revenue and Quantity bookmark buttons toggles measure and updates visual states across Qlik and Power BI"
+        }
+      },
+      {
+        "tc_id": "FP-F-001",
+        "name": "Cross-Filter Segment Click: FRANCE — Functional Parity - Pipeline Hygiene Main (Track 1)",
+        "status": "passed",
+        "duration": "20s",
+        "duration_secs": 20.1,
+        "error_text": "",
+        "steps": [
+          {
+            "step_no": 1,
+            "title": "Open Power BI page 'Missing PN Opportunities' and capture baseline visual values",
+            "lines": [
+              [
+                "INFO",
+                "18:35:11",
+                "STEP 1: Open Power BI page 'Missing PN Opportunities' and capture baseline visual values"
+              ],
+              [
+                "INFO",
+                "18:35:11",
+                "Embed mode detected: org_report"
+              ],
+              [
+                "INFO",
+                "18:35:19",
+                "No PBI iframe - using main page DOM"
+              ],
+              [
+                "INFO",
+                "18:35:19",
+                "PBI report already open and canvas active — reusing warm page"
+              ],
+              [
+                "INFO",
+                "18:35:19",
+                "Switching to page: 'Missing PN Opportunities'"
+              ],
+              [
+                "INFO",
+                "18:35:24",
+                "Switched to page 'Missing PN Opportunities' via tab selector: [role='tab'][aria-label*='Missing PN Opportunities' i]"
+              ],
+              [
+                "INFO",
+                "18:35:24",
+                "Capturing PBI page baseline"
+              ],
+              [
+                "INFO",
+                "18:35:24",
+                "PBI baseline: 12 visuals captured (['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7']...)"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 2,
+            "title": "Locate segment 'FRANCE' in chart visual 'Market' and click to cross-filter",
+            "lines": [
+              [
+                "INFO",
+                "18:35:24",
+                "STEP 2: Locate segment 'FRANCE' in chart visual 'Market' and click to cross-filter"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 3,
+            "title": "Capture updated visual states and verify cross-filter impact",
+            "lines": [
+              [
+                "INFO",
+                "18:35:27",
+                "STEP 3: Capture updated visual states and verify cross-filter impact"
+              ],
+              [
+                "INFO",
+                "18:35:27",
+                "Capturing PBI page baseline"
+              ],
+              [
+                "INFO",
+                "18:35:27",
+                "PBI baseline: 12 visuals captured (['Bookmark . Click here to follow', 'Text box 3', 'Text box 4', 'Text box 7']...)"
+              ]
+            ],
+            "failed": false
+          },
+          {
+            "step_no": 4,
+            "title": "Clear cross-filters and restore page baseline",
+            "lines": [
+              [
+                "INFO",
+                "18:35:27",
+                "STEP 4: Clear cross-filters and restore page baseline"
+              ],
+              [
+                "INFO",
+                "18:35:27",
+                "Clearing all active slicers on the page..."
+              ],
+              [
+                "INFO",
+                "18:35:30",
+                "JS DOM scan found no active slicers (no eraser icons in DOM)."
+              ],
+              [
+                "INFO",
+                "18:35:30",
+                "Force-clicked 1 eraser icon(s) as fallback."
+              ],
+              [
+                "INFO",
+                "18:35:31",
+                "clear_all_slicers complete."
+              ],
+              [
+                "INFO",
+                "18:35:31",
+                "[PASS] FP-F-001: Cross-filter interaction verified on 'Missing PN Opportunities' (2 visual(s) changed: ['Mis MTM by Forecast Category', 'Mis MTM by Sales Stage Gate'])"
+              ]
+            ],
+            "failed": false
+          }
+        ],
+        "group": "CATEGORY F — CROSS-FILTER BEHAVIOR",
+        "screenshot_b64": null,
+        "meta": {
+          "Test ID": "FP-F-001",
+          "Category": "F",
+          "Scenario Name": "Cross-Filter Segment Click: FRANCE",
+          "Qlik Sheet Name": "Missing PN Opportunities",
+          "PBI Page Name": "Missing PN Opportunities",
+          "Field / Element": "Market",
+          "Value / Action": "FRANCE",
+          "Notes": "Clicking market segment propagates filter to cards"
+        }
+      }
+    ]
+  },
+  {
     "runId": "009",
     "config": "scenario1_track1.yaml",
     "selectedTests": [

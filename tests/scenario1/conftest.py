@@ -320,18 +320,34 @@ class _DashLogHandler(logging.Handler):
         super().__init__()
         self.nodeid = nodeid
         self.records: list = []
+        self._seen: set = set()
 
     def emit(self, record):
-        self.records.append(record)
+        rec_key = (round(record.created, 2), record.name, str(record.msg))
+        if rec_key not in self._seen:
+            self._seen.add(rec_key)
+            self.records.append(record)
 
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_setup(item):
     handler = _DashLogHandler(item.nodeid)
     handler.setLevel(logging.INFO)
-    root_log = logging.getLogger()
-    root_log.addHandler(handler)
+    target_loggers = [
+        logging.getLogger(),
+        logging.getLogger("test_functional_parity"),
+        logging.getLogger("scenario1_conftest"),
+        logging.getLogger("qlik_dashboard_page"),
+        logging.getLogger("pbi_dashboard_page"),
+        logging.getLogger("validation_utils"),
+        logging.getLogger("BasePage"),
+        logging.getLogger("QlikDashboardPage"),
+        logging.getLogger("PBIDashboardPage"),
+    ]
+    for lg in target_loggers:
+        lg.addHandler(handler)
     item._dash_log_handler = handler
+    item._dash_target_loggers = target_loggers
     yield
 
 
@@ -341,7 +357,11 @@ def pytest_runtest_teardown(item, nextitem):
     handler = getattr(item, "_dash_log_handler", None)
     if handler:
         _dash_log_records[item.nodeid] = handler.records
-        logging.getLogger().removeHandler(handler)
+        for lg in getattr(item, "_dash_target_loggers", []):
+            try:
+                lg.removeHandler(handler)
+            except Exception:
+                pass
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -356,7 +376,11 @@ def pytest_runtest_makereport(item, call):
     if report.when != "call":
         return
 
-    duration = getattr(report, "duration", 0.0)
+    start = _dash_test_start_times.get(item.nodeid)
+    if start:
+        duration = max(datetime.now().timestamp() - start, getattr(report, "duration", 0.0))
+    else:
+        duration = getattr(report, "duration", 0.0)
 
     raw_name = item.name
     dash_name = (
@@ -415,7 +439,9 @@ def pytest_runtest_makereport(item, call):
     else:
         group = "TRACK 1 — FUNCTIONAL PARITY"
 
-    log_records = _dash_log_records.get(item.nodeid, [])
+    handler = getattr(item, "_dash_log_handler", None)
+    log_records = handler.records if handler else _dash_log_records.get(item.nodeid, [])
+    _dash_log_records[item.nodeid] = log_records
     steps = _parse_steps_from_logs(log_records)
 
     test_outcome = "passed" if report.passed else ("skipped" if report.skipped else "failed")
@@ -435,6 +461,18 @@ def pytest_runtest_makereport(item, call):
                 screenshot_b64 = base64.b64encode(png_bytes).decode("ascii")
             except Exception as e:
                 log.warning(f"Could not capture failure screenshot: {e}")
+
+    # Guaranteed fallback: ensure every test has at least one structured step if none were parsed
+    if not steps:
+        now_str = datetime.now().strftime("%H:%M:%S")
+        steps = [{
+            "step_no": 1,
+            "title": f"Functional Parity — {clean_test_title or 'Verification'}",
+            "lines": [
+                ("PASS" if test_outcome == "passed" else "FAIL", now_str, f"Verification completed ({test_outcome.upper()})")
+            ],
+            "failed": test_outcome == "failed",
+        }]
 
     DASHBOARD_RESULTS.append(TestResult(
         tc_id          = tc_id,
@@ -547,7 +585,12 @@ def pytest_sessionfinish(session, exitstatus):
         json_results = []
         for r in DASHBOARD_RESULTS:
             dur_mins, dur_secs = divmod(int(r.duration), 60)
-            dur_display = f"{dur_mins}m {dur_secs:02d}s" if dur_mins > 0 else f"{int(r.duration)}s"
+            if dur_mins > 0:
+                dur_display = f"{dur_mins}m {dur_secs:02d}s"
+            elif r.duration >= 1.0:
+                dur_display = f"{int(round(r.duration))}s"
+            else:
+                dur_display = f"{r.duration:.1f}s"
             json_results.append({
                 "tc_id": r.tc_id,
                 "name": r.name,
@@ -589,9 +632,12 @@ def _parse_steps_from_logs(log_records: list) -> List[dict]:
         step_colon_match = re.match(r"^(?:STEP|Step)\s*(\d+(?:\.\d+)?|\d+)[\s:_|\-]+(.+)", msg)
 
         if start_match:
+            step_title = start_match.group(2).strip()
+            if current and current.get("title") == step_title:
+                continue
             current = {
                 "step_no": len(steps) + 1,
-                "title": start_match.group(2).strip(),
+                "title": step_title,
                 "lines": [],
                 "failed": False,
             }
@@ -599,9 +645,12 @@ def _parse_steps_from_logs(log_records: list) -> List[dict]:
             continue
 
         if step_colon_match:
+            step_title = step_colon_match.group(2).strip()
+            if current and current.get("title") == step_title:
+                continue
             current = {
                 "step_no": len(steps) + 1,
-                "title": step_colon_match.group(2).strip(),
+                "title": step_title,
                 "lines": [(level, ts, msg)],
                 "failed": False,
             }

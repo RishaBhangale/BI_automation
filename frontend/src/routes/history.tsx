@@ -312,7 +312,7 @@ function ValidationHistory() {
                   <TableHead className="whitespace-nowrap px-2 py-2.5 text-xs font-semibold text-muted-foreground text-center">
                     Report
                   </TableHead>
-                  <TableHead className="whitespace-nowrap px-2 py-2.5 text-xs font-semibold text-muted-foreground text-right pr-3">
+                  <TableHead className="whitespace-nowrap px-2 py-2.5 text-xs font-semibold text-muted-foreground text-center">
                     Download
                   </TableHead>
                 </TableRow>
@@ -398,7 +398,7 @@ function ValidationHistory() {
                         </TableCell>
 
                         {/* 12. Download */}
-                        <TableCell className="whitespace-nowrap px-2 py-2.5 text-right pr-3">
+                        <TableCell className="whitespace-nowrap px-2 py-2.5 text-center">
                           <ExportButton runId={run.runId} alignTop={idx >= paginatedRuns.length - 2} />
                         </TableCell>
                       </TableRow>
