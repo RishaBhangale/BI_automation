@@ -25,12 +25,29 @@ Examples:
 
 from __future__ import annotations
 
+import gzip
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+
+
+def _is_lfs_pointer(file_path: Path) -> bool:
+    """
+    Check if a file is an un-downloaded Git LFS pointer stub (< 1KB with LFS header).
+    """
+    try:
+        if not file_path.exists() or file_path.stat().st_size > 1024:
+            return False
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            first_line = f.readline()
+        return first_line.startswith("version https://git-lfs.github.com/spec/v1")
+    except Exception:
+        return False
 
 
 def _safe_table_name(name: str) -> str:
@@ -92,6 +109,17 @@ def get_excel_folder_engine(source_folder: str) -> Engine:
         )
 
     # -----------------------------------------------------------------------
+    # Auto-extract compressed .csv.gz if uncompressed is missing or an LFS stub
+    # -----------------------------------------------------------------------
+    for gz_file in source_path.glob("*.csv.gz"):
+        uncompressed = gz_file.with_suffix("")
+        if not uncompressed.exists() or _is_lfs_pointer(uncompressed):
+            print(f"[EXCEL SOURCE] Extracting {gz_file.name} -> {uncompressed.name}...")
+            with gzip.open(gz_file, "rb") as f_in, open(uncompressed, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            print(f"[EXCEL SOURCE] Extracted {uncompressed.name} ({uncompressed.stat().st_size / (1024*1024):.1f} MB)")
+
+    # -----------------------------------------------------------------------
     # Find supported source files
     # -----------------------------------------------------------------------
     source_files = sorted(
@@ -147,6 +175,36 @@ def get_excel_folder_engine(source_folder: str) -> Engine:
         table_name = _safe_table_name(
             source_file.stem
         )
+
+        # Check if file is an un-downloaded Git LFS pointer
+        if source_file.suffix.lower() == ".csv" and _is_lfs_pointer(source_file):
+            gz_candidate = source_file.with_name(f"{source_file.name}.gz")
+            if gz_candidate.exists():
+                print(f"[EXCEL SOURCE] Git LFS pointer detected for {source_file.name}. Extracting from {gz_candidate.name}...")
+                with gzip.open(gz_candidate, "rb") as f_in, open(source_file, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+                print(f"[EXCEL SOURCE] Extraction complete: {source_file.name} ({source_file.stat().st_size / (1024*1024):.1f} MB)")
+            else:
+                try:
+                    subprocess.run(["git", "lfs", "pull"], cwd=project_root, capture_output=True, timeout=60)
+                except Exception:
+                    pass
+
+            if _is_lfs_pointer(source_file):
+                engine.dispose()
+                raise RuntimeError(
+                    f"\n========================================================================================\n"
+                    f"[GIT LFS POINTER DETECTED] '{source_file.name}' is a {source_file.stat().st_size}-byte pointer stub.\n"
+                    f"GitHub web 'Download ZIP' downloads do NOT bundle Git LFS binary files.\n"
+                    f"\n"
+                    f"To fix this on your machine:\n"
+                    f"  Option 1: If git is installed, run in the repository directory:\n"
+                    f"              git lfs install\n"
+                    f"              git lfs pull\n"
+                    f"  Option 2: Place '{source_file.name}.gz' or the uncompressed '{source_file.name}' into:\n"
+                    f"              {source_path}\n"
+                    f"========================================================================================\n"
+                )
 
         try:
 

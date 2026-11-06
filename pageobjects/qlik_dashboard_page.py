@@ -20,6 +20,7 @@ SESSION EXPIRY:
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 from typing import Optional
@@ -1030,27 +1031,116 @@ class QlikDashboardPage(BasePage):
         """
         Click an interactive button or bookmark toggle on the Qlik sheet.
         Matches by button label (e.g. 'Revenue', 'Quantity').
+        Robust across all platforms, viewports, and Qlik component types.
         """
         log.info(f"Clicking Qlik button: '{button_label}'")
+
+        # 1. Strategy: Exact button role match (most reliable)
+        try:
+            pattern = re.compile(rf"^\s*{re.escape(button_label)}\s*$", re.I)
+            btn_locs = self.page.get_by_role("button", name=pattern)
+            for i in range(btn_locs.count()):
+                candidate = btn_locs.nth(i)
+                try:
+                    candidate.scroll_into_view_if_needed(timeout=1_500)
+                except Exception:
+                    pass
+                if candidate.is_visible(timeout=2_000):
+                    candidate.click(timeout=3_000, force=True)
+                    self.page.wait_for_timeout(2_000)
+                    log.info(f"Qlik button '{button_label}' clicked via get_by_role('button', exact=True)")
+                    return True
+        except Exception as e:
+            log.debug(f"get_by_role match attempt failed: {e}")
+
+        # 2. Strategy: Exact text match on any clickable element
+        try:
+            txt_locs = self.page.get_by_text(re.compile(rf"^\s*{re.escape(button_label)}\s*$", re.I))
+            for i in range(txt_locs.count()):
+                candidate = txt_locs.nth(i)
+                try:
+                    candidate.scroll_into_view_if_needed(timeout=1_500)
+                except Exception:
+                    pass
+                if candidate.is_visible(timeout=2_000):
+                    candidate.click(timeout=3_000, force=True)
+                    self.page.wait_for_timeout(2_000)
+                    log.info(f"Qlik button '{button_label}' clicked via get_by_text(exact=True)")
+                    return True
+        except Exception as e:
+            log.debug(f"get_by_text match attempt failed: {e}")
+
+        # 3. Strategy: CSS Selectors iterating over ALL visible candidates (not just .first)
         selectors = [
+            f".qv-object-action-button button:has-text('{button_label}')",
+            f".sn-action-button button:has-text('{button_label}')",
+            f".qv-object-sn-action-button button:has-text('{button_label}')",
             f"button.qv-action-button:has-text('{button_label}')",
+            f"button.lui-button:has-text('{button_label}')",
+            f"div.lui-button:has-text('{button_label}')",
+            f"[data-testid*='action-button'] button:has-text('{button_label}')",
             f"button:has-text('{button_label}')",
             f"[role='button']:has-text('{button_label}')",
             f".qv-inner-object:has-text('{button_label}') button",
-            f".qv-inner-object:has-text('{button_label}')",
             f"button[title*='{button_label}' i]",
             f"button[aria-label*='{button_label}' i]",
+            f"[role='button'][aria-label*='{button_label}' i]",
+            f"span:has-text('{button_label}')",
         ]
         for sel in selectors:
             try:
-                loc = self.page.locator(sel).first
-                if loc.count() > 0 and loc.is_visible(timeout=1_500):
-                    loc.scroll_into_view_if_needed(timeout=1_000)
-                    loc.click(timeout=2_000, force=True)
-                    self.page.wait_for_timeout(2_000)
-                    log.info(f"Qlik button '{button_label}' clicked via selector: {sel}")
-                    return True
+                locators = self.page.locator(sel)
+                count = locators.count()
+                for i in range(count):
+                    candidate = locators.nth(i)
+                    try:
+                        candidate.scroll_into_view_if_needed(timeout=1_500)
+                    except Exception:
+                        pass
+                    if candidate.is_visible(timeout=2_000):
+                        candidate.click(timeout=3_000, force=True)
+                        self.page.wait_for_timeout(2_000)
+                        log.info(f"Qlik button '{button_label}' clicked via selector: {sel} (candidate {i+1}/{count})")
+                        return True
             except Exception:
                 continue
+
+        # 4. Strategy: DOM JS evaluation fallback
+        try:
+            js_click = f"""
+            (() => {{
+                const target = '{button_label}'.toLowerCase().trim();
+                const candidates = Array.from(document.querySelectorAll('button, [role="button"], .lui-button, .sn-action-button, [class*="action-button"], span'));
+                // Check exact text matches first
+                for (const el of candidates) {{
+                    const text = (el.innerText || el.textContent || '').trim().toLowerCase();
+                    if (text === target && el.offsetParent !== null) {{
+                        el.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                        el.click();
+                        return true;
+                    }}
+                }}
+                // Check substring matches on button-like elements
+                for (const el of candidates) {{
+                    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button') {{
+                        const text = (el.innerText || el.textContent || '').trim().toLowerCase();
+                        if (text.includes(target) && el.offsetParent !== null) {{
+                            el.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                            el.click();
+                            return true;
+                        }}
+                    }}
+                }}
+                return false;
+            }})()
+            """
+            success = self.page.evaluate(js_click)
+            if success:
+                self.page.wait_for_timeout(2_000)
+                log.info(f"Qlik button '{button_label}' clicked via DOM JS evaluation fallback")
+                return True
+        except Exception as e:
+            log.debug(f"JS click fallback error: {e}")
+
         log.warning(f"Qlik button '{button_label}' not found or could not be clicked")
         return False
