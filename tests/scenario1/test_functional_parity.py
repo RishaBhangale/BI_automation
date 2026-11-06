@@ -34,7 +34,10 @@ log = logging.getLogger("test_functional_parity")
 # Load Excel test cases
 # ─────────────────────────────────────────────────────────────────────────────
 
-EXCEL_PATH = Path(__file__).parent.parent.parent / "test_data" / "functional_parity_scenarios.xlsx"
+_default_excel = Path(__file__).parent.parent.parent / "test_data" / "functional_parity_scenarios.xlsx"
+EXCEL_PATH = Path(os.environ.get("BI_TEST_EXCEL_PATH", _default_excel))
+if not EXCEL_PATH.exists():
+    EXCEL_PATH = _default_excel
 
 
 def _load_test_cases(category: str) -> list[dict[str, Any]]:
@@ -513,8 +516,8 @@ def test_filter_clear_restores_baseline(tc, pbi_dashboard, config):
     assert len(baseline) > 0, f"{test_id}: PBI baseline is empty."
 
     # 1. Apply a test slicer to perturb state away from baseline
-    test_slicer = "GEO Level 3"
-    test_val = "BENELUX"
+    test_slicer = tc.get("Field / Element") or tc.get("Filter Field") or "GEO Level 3"
+    test_val = tc.get("Value / Action") or tc.get("Filter Value") or "BENELUX"
     log.info(f"Applying test perturbation filter: {test_slicer} = {test_val}")
     applied = pbi_dashboard.apply_slicer(test_slicer, test_val, raise_on_error=True)
     assert applied, f"{test_id} FAIL — Failed to apply perturbation filter '{test_slicer}'='{test_val}'"

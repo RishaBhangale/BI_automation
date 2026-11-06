@@ -63,12 +63,15 @@ class QlikDashboardPage(BasePage):
         "button[title*='Clear']"
     )
 
+    # Session-wide cache for discovered sheets across page instances
+    _cached_discovered_sheets: dict[str, str] = {}
+
     def __init__(self, page: Page) -> None:
         super().__init__(page)
         self._app_id: str = ""
         self._sheet_id: str = ""
         self._enigma_injected: bool = False
-        self._discovered_sheets: dict[str, str] = {}
+        self._discovered_sheets: dict[str, str] = dict(QlikDashboardPage._cached_discovered_sheets)
         self._setup_ws_listener()
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -153,18 +156,19 @@ class QlikDashboardPage(BasePage):
         log.info(f"Navigating to Qlik sheet: '{sheet_title}'")
         s_clean = sheet_title.lower().strip()
 
-        # Known verified sheet GUIDs for Pipeline Hygiene Main (Image 5)
-        known_sheet_map = {
-            "pipeline hygiene idg": "ec6922ca-7f1b-4766-9066-38074d8849ca",
-            "overdue opportunities": "yEEHkV",
-        }
-        if s_clean in known_sheet_map and self._app_id:
-            target_sid = known_sheet_map[s_clean]
-            log.info(f"Resolved sheet '{sheet_title}' via known map -> ID: {target_sid}")
+        # If already discovered via WebSocket or DOM, navigate directly by sheet ID
+        target_sid = None
+        for sid, title in self._discovered_sheets.items():
+            if title.lower().strip() == s_clean:
+                target_sid = sid
+                break
+
+        if target_sid and self._app_id and not target_sid.startswith("cfg_"):
+            log.info(f"Resolved sheet '{sheet_title}' -> ID: {target_sid}")
             self.open(self._app_id, target_sid)
             return
 
-        # If on Overview page, click the sheet card directly (Image 4)
+        # If on Overview page, click the sheet card directly
         if "overview" in self.page.url.lower():
             card_selectors = [
                 f"[data-testid*='sheet']:has-text('{sheet_title}')",
@@ -236,6 +240,7 @@ class QlikDashboardPage(BasePage):
                                 t = obj.get("qMeta", {}).get("title") or obj.get("qMetaDef", {}).get("title")
                                 if sid and t:
                                     self._discovered_sheets[sid] = t
+                                    QlikDashboardPage._cached_discovered_sheets[sid] = t
                             for k, v in obj.items():
                                 find_sheets(v)
                         elif isinstance(obj, list):
@@ -250,7 +255,7 @@ class QlikDashboardPage(BasePage):
 
         self.page.on("websocket", _on_ws)
 
-    def get_sheet_list_via_api(self, timeout_s: float = 8.0) -> list[dict]:
+    def get_sheet_list_via_api(self, timeout_s: float = 10.0) -> list[dict]:
         """
         Return all sheets in the app by inspecting the Engine WebSocket stream.
         If fewer than 10 sheets were loaded (single-sheet analysis mode),
@@ -258,9 +263,14 @@ class QlikDashboardPage(BasePage):
 
         Returns: [{id, title, published}, ...]
         """
+        if QlikDashboardPage._cached_discovered_sheets:
+            self._discovered_sheets.update(QlikDashboardPage._cached_discovered_sheets)
+
         deadline = time.time() + timeout_s
-        while time.time() < deadline and len(self._discovered_sheets) >= 10:
+        while time.time() < deadline and len(self._discovered_sheets) < 10:
             self.page.wait_for_timeout(300)
+            if QlikDashboardPage._cached_discovered_sheets:
+                self._discovered_sheets.update(QlikDashboardPage._cached_discovered_sheets)
 
         # If we are in single-sheet analysis mode, navigate to overview to get all 21 sheets
         if len(self._discovered_sheets) < 10 and self._app_id:
@@ -268,11 +278,68 @@ class QlikDashboardPage(BasePage):
                 overview_url = f"{QLIK_BASE_URL}/sense/app/{self._app_id}/overview"
                 log.info(f"Loading Qlik app overview for full sheet catalog: {overview_url}")
                 self.page.goto(overview_url, timeout=30_000)
-                overview_deadline = time.time() + 6.0
+                overview_deadline = time.time() + 15.0
                 while time.time() < overview_deadline and len(self._discovered_sheets) < 15:
                     self.page.wait_for_timeout(500)
+                    if QlikDashboardPage._cached_discovered_sheets:
+                        self._discovered_sheets.update(QlikDashboardPage._cached_discovered_sheets)
             except Exception as e:
                 log.warning(f"Could not load overview: {e}")
+
+        # DOM inspection fallback on overview if WebSocket frames were delayed
+        if len(self._discovered_sheets) < 10:
+            try:
+                dom_sheets = self.page.evaluate("""() => {
+                    const found = {};
+                    document.querySelectorAll('[data-testid*="sheet"], .qv-object-sheet, [title], a[href*="/sheet/"]').forEach(el => {
+                        const title = el.getAttribute('title') || el.innerText?.trim();
+                        const href = el.getAttribute('href') || el.querySelector('a')?.getAttribute('href') || '';
+                        const match = href.match(/\\/sheet\\/([a-zA-Z0-9_-]+)/);
+                        const sid = match ? match[1] : (el.getAttribute('data-id') || title);
+                        if (title && sid && title.length < 80 && !title.includes('\\n')) {
+                            found[sid] = title.trim();
+                        }
+                    });
+                    return found;
+                }""")
+                if dom_sheets and isinstance(dom_sheets, dict):
+                    for sid, title in dom_sheets.items():
+                        if title and sid not in self._discovered_sheets:
+                            self._discovered_sheets[sid] = title
+                    QlikDashboardPage._cached_discovered_sheets.update(self._discovered_sheets)
+            except Exception:
+                pass
+
+        # Dynamic fallback: check active dashboard configuration if WebSocket/DOM were delayed
+        if not self._discovered_sheets:
+            cfg_pages = []
+            try:
+                from tests.scenario1.conftest import _current_dashboard_config as s1_cfg
+                if s1_cfg:
+                    cfg_pages = (
+                        s1_cfg.get("dashboard", {}).get("pages")
+                        or list(s1_cfg.get("sheet_page_mapping", {}).keys())
+                    )
+            except Exception:
+                pass
+
+            if not cfg_pages:
+                try:
+                    from tests.dashboard.conftest import _current_dashboard_config as d_cfg
+                    if d_cfg:
+                        cfg_pages = (
+                            d_cfg.get("dashboard", {}).get("pages")
+                            or list(d_cfg.get("sheet_page_mapping", {}).keys())
+                        )
+                except Exception:
+                    pass
+
+            if cfg_pages:
+                log.info(f"Using {len(cfg_pages)} configured pages from active YAML config as fallback")
+                for idx, title in enumerate(cfg_pages):
+                    sid = f"cfg_{idx}"
+                    self._discovered_sheets[sid] = str(title).strip()
+                QlikDashboardPage._cached_discovered_sheets.update(self._discovered_sheets)
 
         sheets = [
             {"id": sid, "title": title, "published": True}

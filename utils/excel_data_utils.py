@@ -67,7 +67,7 @@ def load_source_csv(filepath: str, encoding: str = "utf-8") -> pd.DataFrame:
         raise FileNotFoundError(f"Source CSV not found: {filepath}")
 
     log.info(f"Loading CSV source: {filepath}")
-    df = pd.read_csv(path, encoding=encoding)
+    df = pd.read_csv(path, encoding=encoding, low_memory=False)
     df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
     log.info(f"Loaded {len(df)} rows, {len(df.columns)} columns from CSV")
     return df

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BI Dashboard Automation – Test Execution Report</title>
+<style>
+
+  :root{
+    --indigo-900:#2e2a6e; --indigo-700:#3f3aa8; --indigo-600:#4f46e5;
+    --bg:#f6f7fb; --surface:#ffffff; --surface-2:#fbfbfe;
+    --ink:#1f2433; --muted:#6b7280; --faint:#9aa1ae;
+    --line:#e8eaf1; --line-strong:#d8dbe6;
+    --pass:#15a34a; --pass-bg:#effaf2; --pass-line:#bce5c9;
+    --fail:#dc2626; --fail-bg:#fdf1f1; --fail-line:#f3c5c5;
+    --skip:#d97706; --skip-bg:#fef6ea;
+    --blocked:#7c3aed;
+    --info:#2563eb; --debug:#9333ea; --warn:#d97706;
+    --mono:'SF Mono','Cascadia Code','JetBrains Mono',Consolas,'Liberation Mono',monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 64px}
+  .doc-head{margin:4px 0 22px}
+  .doc-head h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;color:var(--indigo-900)}
+  .doc-meta{margin-top:6px;font-size:12.5px;color:var(--muted)}
+  .doc-meta b{color:var(--ink);font-weight:600}
+  .banner{background:linear-gradient(100deg,var(--indigo-700),var(--indigo-600));color:#fff;border-radius:12px;padding:18px 24px;box-shadow:0 8px 24px -14px rgba(63,58,168,.55)}
+  .banner h2{margin:0;font-size:16px;font-weight:600;letter-spacing:.01em}
+  .top-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-top:18px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+  .card-title{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--indigo-600);text-transform:uppercase;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}
+  .kv .label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
+  .kv .value{font-size:14px;font-weight:500;color:var(--ink)}
+  .kv .value.mono{font-family:var(--mono);font-size:12.5px;font-weight:400;overflow-wrap:break-word;word-break:break-all;max-width:100%}
+  .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:18px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 12px;text-align:center}
+  .tile .t-label{font-size:11px;color:var(--muted);font-weight:500;margin-bottom:6px}
+  .tile .t-num{font-size:26px;font-weight:700;line-height:1;letter-spacing:-.02em}
+  .tile.total .t-num{color:var(--indigo-600)}
+  .tile.pass  .t-num{color:var(--pass)}
+  .tile.fail  .t-num{color:var(--fail)}
+  .tile.skip  .t-num{color:var(--skip)}
+  .tile.block .t-num{color:var(--blocked)}
+  .tile.rate{background:var(--pass-bg);border-color:var(--pass-line)}
+  .tile.rate .t-num{color:var(--pass)}
+  .progress{margin-top:14px;height:8px;border-radius:6px;overflow:hidden;display:flex;background:var(--line);border:1px solid var(--line)}
+  .progress span{display:block;height:100%}
+  .progress .p-pass{background:var(--pass)}
+  .progress .p-fail{background:var(--fail)}
+  .section-h{display:flex;align-items:baseline;gap:12px;margin:34px 2px 14px;flex-wrap:wrap}
+  .section-h h3{margin:0;font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+  .section-h .count{font-size:12px;color:var(--muted)}
+  .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:1px}
+  .legend .lp{background:var(--pass)} .legend .lf{background:var(--fail)}
+  .toolbar{margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .toolbar input[type=text]{padding:6px 12px;border:1px solid var(--line);border-radius:6px;font-size:12px;outline:none;width:200px;font-family:var(--sans)}
+  .toolbar label{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12.5px;font-weight:600}
+  .toolbar button{appearance:none;border:none;background:none;cursor:pointer;font:inherit;font-size:12.5px;color:var(--indigo-600);font-weight:600}
+  .tc{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .tc[open]{border-color:var(--line-strong);box-shadow:0 4px 18px -12px rgba(31,36,51,.25)}
+  .tc summary{list-style:none;cursor:pointer;padding:15px 20px;display:flex;align-items:center;gap:14px;user-select:none}
+  .tc summary::-webkit-details-marker{display:none}
+  .tc summary:hover{background:var(--surface-2)}
+  .pill{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:999px;flex:none}
+  .pill.pass{color:var(--pass);background:var(--pass-bg);border:1px solid var(--pass-line)}
+  .pill.fail{color:var(--fail);background:var(--fail-bg);border:1px solid var(--fail-line)}
+  .pill.skip{color:var(--skip);background:var(--skip-bg);border:1px solid #f8d99a}
+  .tc-id{font-family:var(--mono);font-size:12px;color:var(--muted);flex:none}
+  .tc-name{font-weight:600;font-size:13.5px;color:var(--ink);flex:1;min-width:0}
+  .tc-dur{font-family:var(--mono);font-size:12px;color:var(--faint);flex:none}
+  .chev{flex:none;color:var(--faint);transition:transform .18s ease}
+  .tc[open] .chev{transform:rotate(90deg)}
+  .tc-body{border-top:1px solid var(--line)}
+  .step{padding:16px 20px;border-left:3px solid var(--pass-line);border-top:1px solid var(--line)}
+  .step:first-child{border-top:none}
+  .step.ok{border-left-color:var(--pass);background:#f0fdf4}
+  .step.bad{border-left-color:var(--fail);background:var(--fail-bg)}
+  .step-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .s-dot{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+  .s-dot.ok{background:var(--pass)} .s-dot.bad{background:var(--fail)}
+  .s-label{font-size:11px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+  .s-title{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .s-time{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .step-lines{margin-left:30px;font-family:var(--mono);font-size:12px;line-height:1.85;color:#475067}
+  .step-lines .lvl{font-weight:700;margin-right:6px}
+  .lvl-info{color:var(--info)}
+  .lvl-debug{color:var(--debug)}
+  .lvl-pass{color:var(--pass)}
+  .lvl-warn{color:var(--warn)}
+  .lvl-fail{color:var(--fail)}
+  .fail-grid{display:flex;gap:16px;width:100%;align-items:stretch;margin-left:30px;margin-top:4px}
+  .fail-left{flex:1 1 50%;min-width:240px}
+  .fail-left .step-lines{margin-left:0}
+  .shot{flex:1 1 46%;min-width:260px;max-width:460px;border:1px solid var(--fail-line);border-radius:9px;overflow:hidden;background:#fff;box-shadow:0 6px 18px -12px rgba(220,38,38,.4);align-self:flex-start}
+  .shot-cap{font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--fail);background:var(--fail-bg);padding:7px 12px;border-bottom:1px solid var(--fail-line);display:flex;justify-content:space-between;align-items:center}
+  .shot-cap span{color:var(--faint);font-weight:500;letter-spacing:.02em;text-transform:none}
+  .shot img{display:block;width:100%;height:auto}
+  .assert-detail{margin-left:30px;margin-top:14px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+  .assert-detail .ad-title{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+  .assert-row{margin-bottom:10px}
+  .assert-row:last-child{margin-bottom:0}
+  .assert-label{font-size:12.5px;font-weight:700;margin-bottom:4px}
+  .assert-label.exp{color:var(--pass)}
+  .assert-label.act{color:var(--fail)}
+  .assert-box{font-family:var(--mono);font-size:12px;line-height:1.6;padding:9px 12px;border-radius:6px;background:#fff;border:1px solid var(--line);color:var(--ink);word-break:break-word}
+  .assert-box.exp{background:var(--pass-bg);border-color:var(--pass-line)}
+  .assert-box.act{background:var(--fail-bg);border-color:var(--fail-line)}
+  footer{margin-top:36px;text-align:center;font-size:11.5px;color:var(--faint)}
+  @media screen and (max-width:820px){.top-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}.fail-grid{flex-direction:column;margin-left:0}.shot{max-width:100%}.legend{display:none}}
+  @media print {
+    @page {
+      size: A4 portrait;
+      margin: 8mm 8mm 8mm 8mm;
+    }
+    body {
+      background: #ffffff !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .wrap {
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 6px 12px 20px !important;
+    }
+    .doc-head {
+      margin: 0 0 8px !important;
+    }
+    .doc-head h1 {
+      font-size: 18px !important;
+    }
+    .banner {
+      padding: 8px 14px !important;
+      margin-bottom: 8px !important;
+      border-radius: 6px !important;
+    }
+    .banner h2 {
+      font-size: 13px !important;
+    }
+    .top-grid {
+      display: grid !important;
+      grid-template-columns: 1.15fr 1fr !important;
+      gap: 10px !important;
+      margin-top: 8px !important;
+    }
+    .card {
+      padding: 10px 14px !important;
+      border-radius: 8px !important;
+    }
+    .card-title {
+      margin: 0 0 6px !important;
+      padding-bottom: 5px !important;
+      font-size: 9.5px !important;
+    }
+    .kv {
+      gap: 6px 14px !important;
+    }
+    .kv .label {
+      font-size: 9px !important;
+      margin-bottom: 1px !important;
+    }
+    .kv .value {
+      font-size: 11.5px !important;
+    }
+    .kv .value.mono {
+      font-size: 10.5px !important;
+    }
+    .stats {
+      display: grid !important;
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 6px !important;
+      margin-top: 8px !important;
+    }
+    .tile {
+      padding: 6px 4px !important;
+      border-radius: 6px !important;
+    }
+    .tile .t-label {
+      font-size: 9px !important;
+      margin-bottom: 2px !important;
+    }
+    .tile .t-num {
+      font-size: 18px !important;
+    }
+    .progress {
+      margin-top: 6px !important;
+      height: 6px !important;
+    }
+    .toolbar {
+      display: none !important;
+    }
+    .section-h {
+      margin: 12px 2px 6px !important;
+    }
+    .section-h h3 {
+      font-size: 12px !important;
+    }
+    .tc {
+      margin-bottom: 8px !important;
+      border-radius: 6px !important;
+      break-inside: auto !important;
+      page-break-inside: auto !important;
+      border: 1px solid var(--line-strong) !important;
+      box-shadow: none !important;
+    }
+    .tc summary {
+      padding: 8px 12px !important;
+      pointer-events: none !important;
+      cursor: default !important;
+    }
+    .tc-name {
+      font-size: 12px !important;
+    }
+    .chev {
+      display: none !important;
+    }
+    .tc-body {
+      display: block !important;
+      border-top: 1px solid var(--line) !important;
+    }
+    .step {
+      padding: 8px 12px !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .step-head {
+      margin-bottom: 4px !important;
+    }
+    .s-title {
+      font-size: 12px !important;
+    }
+    .step-lines {
+      font-size: 10.5px !important;
+      line-height: 1.5 !important;
+    }
+    .fail-grid {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .shot {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+      max-width: 360px !important;
+    }
+    footer {
+      margin-top: 14px !important;
+      font-size: 9.5px !important;
+    }
+  }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>BI Dashboard Automation – Test Execution Report</h1>
+    <div class="doc-meta">Generated on <b>06-Nov-2026 at 06:58:10</b> &nbsp;·&nbsp; Run ID: <b style="font-family:var(--mono);color:var(--indigo-600)">#078</b></div>
+  </div>
+
+  <div class="banner">
+    <h2>Test Automation Execution Report — Run #078</h2>
+  </div>
+
+  <div class="top-grid">
+    <div class="card">
+      <p class="card-title">Executive Summary</p>
+      <div class="kv">
+        <div><div class="label">Project</div><div class="value">Lenovo Qlik ↔ Power BI Migration</div></div>
+        <div><div class="label">Environment</div><div class="value">Production / Qlik Cloud &amp; PBI Service</div></div>
+        <div><div class="label">Release</div><div class="value">Track 1: Functional Parity</div></div>
+        <div><div class="label">Suite</div><div class="value">Qlik Cloud ↔ Power BI Governance Suite</div></div>
+        <div><div class="label">Run ID</div><div class="value mono" style="font-weight:700;color:var(--indigo-600)">#078</div></div>
+        <div><div class="label">Executed Date</div><div class="value">06-Nov-2026</div></div>
+        <div><div class="label">Executed By</div><div class="value">qe.automation</div></div>
+        <div><div class="label">Execution Mode</div><div class="value">Local Automated Run</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-title">Test Run Details</p>
+      <div class="kv">
+        <div><div class="label">Base URL</div><div class="value mono" title="https://app.powerbi.com/groups/me/reports/2321717b-8815-48c1-8065-0b8747ca83d7/1523bb40960e2dbc7823?ctid=b5af2451-e21b-4aa2-b4b5-dc5907908dd8&amp;experience=power-bi">https://app.powerbi.com/groups/me/reports/2321717b-8815-48c1...</div></div>
+        <div><div class="label">Browser</div><div class="value">Google Chrome (Headed)</div></div>
+        <div><div class="label">Viewport</div><div class="value mono">1600 × 900</div></div>
+        <div><div class="label">Duration</div><div class="value mono">2m 57s</div></div>
+        <div><div class="label">Test Data Source</div><div class="value">scenario1_track1.yaml</div></div>
+        <div><div class="label">Overall Status</div><div class="value mono" style="font-weight:700;color:var(--fail)">FAILED</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="tile total"><div class="t-label">Total</div><div class="t-num">8</div></div>
+    <div class="tile pass"> <div class="t-label">Passed</div><div class="t-num">7</div></div>
+    <div class="tile fail"> <div class="t-label">Failed</div><div class="t-num">1</div></div>
+    <div class="tile skip"> <div class="t-label">Skipped</div><div class="t-num">0</div></div>
+    <div class="tile block"><div class="t-label">Blocked</div><div class="t-num">0</div></div>
+    <div class="tile rate"> <div class="t-label">Pass Rate</div><div class="t-num">87.5%</div></div>
+  </div>
+
+  <div class="progress">
+    <span class="p-pass" style="width:87.5%"></span>
+    <span class="p-fail" style="width:12.5%"></span>
+  </div>
+
+  <div class="section-h">
+    <h3>Execution Results</h3>
+    <span class="count">8 tests</span>
+    <div class="legend">
+      <span><i class="lp"></i>Passed step</span>
+      <span><i class="lf"></i>Failed step</span>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="search-box" placeholder="Search tests..." onkeyup="filterTests()"/>
+      <label style="color:var(--pass)"><input type="checkbox" id="cb-pass" checked onchange="filterTests()" style="accent-color:var(--pass)"/> Passed</label>
+      <label style="color:var(--fail)"><input type="checkbox" id="cb-fail" checked onchange="filterTests()" style="accent-color:var(--fail)"/> Failed</label>
+      <button onclick="toggleAllDetails(true)">Show all</button>
+      <span style="color:var(--faint)">/</span>
+      <button onclick="toggleAllDetails(false)">Hide all</button>
+    </div>
+  </div>
+
+
+  <details class="tc" open>
+    <summary>
+      <span class="pill fail">Failed</span>
+      <span class="tc-id">FP-A-000</span>
+      <span class="tc-name">Dynamic Qlik Sheet Discovery — Functional Parity - Pipeline Hygiene Main (Track 1)</span>
+      <span class="tc-dur">00:06</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step bad">
+        <div class="step-head">
+          <div class="s-dot bad">✕</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Execution &amp; Verification</span>
+          <span class="s-time">06:58:10</span>
+        </div>
+        
+        <div class="fail-grid">
+          <div class="fail-left"><div class="step-lines">[06:58:10] <span class="lvl lvl-info">INFO</span> FP-A-000: Navigating to Qlik app to verify session and enumerate sheets<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Qlik sheet ec6922ca-7f1b-4766-9066-38074d6849ca already open - reusing warm page<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Loading Qlik app overview for full sheet catalog: https://gwnjr4er56khtqe.in.qlikcloud.com/sense/app/6f0756c3-f251-45d9-b569-868b8191798e/overview<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Discovered 21 Qlik sheets: [&#x27;7 Days Opportunities&#x27;, &#x27;7 Days Opportunities ISG&#x27;, &#x27;Idle Opportunities ISG&#x27;, &#x27;Missing PN Opportunities&#x27;, &#x27;Missing PN Opportunities ISG&#x27;, &#x27;NPrint Pipeline Hygiene Nordics&#x27;, &#x27;Next QTR Opportunities Unweighted&#x27;, &#x27;Next QTR Opportunities Unweighted ISG&#x27;, &#x27;Next QTR Opportunities Weighted&#x27;, &#x27;Next QTR Opportunities Weighted ISG&#x27;, &#x27;Order Date vs Creation Date UAT&#x27;, &#x27;Overdue Opportunities&#x27;, &#x27;Overdue Opportunities ISG&#x27;, &#x27;Overloaded Contracts&#x27;, &#x27;Overloaded Contracts ISG&#x27;, &#x27;Pipeline Hygiene GA&#x27;, &#x27;Pipeline Hygiene IDG&#x27;, &#x27;Pipeline Hygiene ISG&#x27;, &#x27;Pipeline Hygiene ISG Nprint&#x27;, &#x27;Raw Data&#x27;, &#x27;Underloaded Services Contracts ISG&#x27;]<br>[06:58:10] <span class="lvl lvl-fail">FAIL</span> tests/scenario1/test_functional_parity.py:111: in test_qlik_sheet_list_is_discoverable
+    assert len(sheets) &gt; 0, (
+E   AssertionError: Qlik REST API returned 0 sheets. Verify that Qlik session is valid and app has published sheets.
+E   assert 0 &gt; 0
+E    +  where 0 = len([])</div></div>
+          
+          <div class="shot">
+            <div class="shot-cap">Captured Screenshot <span>FP-A-000_fail.png</span></div>
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAC9AAAAWYCAIAAABr1FjBAAAQAElEQVR4nOzdwW3qQABF0fkRvaQDUg0dxNU4HaQa3AHV8FGQEAJF4q5sKecs0OD1LK/e7M7n8wAAAAAAAAAAAF7zNgAAAAAAAAAAgJcJbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ3AAAAAAAAAAIDXCW4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAATRPxNAAAEABJREFUAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAAAAASCGwAAAAAAAAAACAQ3AAAAAAAAAAAQCG4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAAAAgENwAAAAAAAAAAEAhuAAAAAAAAAAAgENwAAAAAAAAAAEAguAEAAAAAAAAAgEBwAwAAAAAAAAAAgeAGAAAAAAAAAAACwQ0AAAAAAAADAIDXCW4AAAAAAAAAACAQ3AAAAAAAAAAAQCC4AQAAAAAAAACAQHADAAAAAAAAAACB4AYAAAAAAAAAAALBDQAAAAAAAAAABIIbAAAAAAAAAAAIBDcAAAAAAAAAABAIbgAAAAAAAAAAIBDcAAAAAAAAAABAILgBAAAAAAAAAIBAcAMAAAAAAAAAAIHgBgAAAAAAAAAAAsENAAAAAAAAAAAEghsAAAAAAAAA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AAAAAACIILgBAAAAAAAAAIAIghsAAAAAAAAAAIgguAEAAAAAAAAAgAiCGwAAAAAAAAAAiCC4AQAAAAAAAACACIIbAAAAAAAAAACIILgBAAAAAAAAAIAIghsAAAAAAAAAAIgguAEAAAAAAAAAgAiCGwAAAAAAAAAAiCC4AQAAAAAAAACACIIbAAAAAAAAAACIILgBAAAAAAAAAIAIghsAAAAAAAAAAIgguAEAAAAAAAAAgAiCGwAAAAAAAAAAiCC4AQAAAAAAAACACIIbAAAAAAAAAACIILgBAAAAAAAAAIAIghsAAAAAAAAAAIgguAEAAAAAAAAAgAiCGwAAAAAAAAAAiCC4AQAAAAAAAACACIIbAAAAAAAAAACIILgBAAAAAAAAAIAIghsAAAAAAAAAAIgguAEAAAAAAAAAgAiCGwAAAAAAAAAAiCC4AQAAAAAAAACACIIbAAAAAAAAAACI0DUBAAAA1goff/zxlClTpk2bdsABBwwdOrSoqCjpCP7whz/MnDkzHV900UVduvi/gz4xffr08vLydHzKKafsuOOO2UOvvfba3Xffvf766x911FFbbrll0j500MtvrbFkyZJJkya9/vrrRx55ZL9+/RIAAACghRWtXr06AQAAgE5s1apVc+fOffvtt/v377/ZZpslHdbNN998ySWXpONrr732i1/8YtIRjBo16t57703Hzz///DrrrJOQJLfeeusPfvCDdPzb3/526NCh6fjjjz/ef//9Fy5cGMa77LLLXXfdlbQPHfTyW2uUlZVNnjw5DLp16/bII49sscUWCQAAANCSzHADAABAJ7VixYpf//rXFRUVs2bN+vDDD9ONvXv3HjBgwCmnnFJSUpJ0NFOmTMnGDz/8sOJhrfTss8+mtU0QLt358+dvtdVWSTvg8mtDK1eunDp1ajoOf9keffTRI488MgEAAABaklmaAQAA6IxeeeWV44477pe//GVVVVVW2wRvvPHG/ffff+qpp4aHwj3spEM5/PDD6x23reXLl/f/l6wUocn22GOPPn36pOO99tqrNWubY489Nv0eJ02aVPfR9nn5dRLrrLPOIYccko432GCD/fffPwEAAABamBluAAAA6HSmTp16zjnn5DubYN111/3oo4/S8apVq6699trHHnvst7/9bbh7nXQQxxxzTP/+/adPn77ffvv17ds3aR/mz5+f0Hy6dOly991333///eHKPPDAA5NW1PhX2T4vv85j3Lhxw4cPf/311w899NDu3bsnAAAAQAsT3AAAANC5LF++/KKLLspqm5122uncc8/dc889P/OZz8yePXvKlClXX311OrfNk08+OWHChLPPPjvpOHarkbQnCxYsSGhWm2yyyVe/+tWkda1atertt99u/Dnt8PLrPNZZZx0T2wAAAEBrsqQUAAAAncuNN974xhtvpOOSkpLbbrvt4IMP7tGjR7hdveuuu5555pm/+tWvslltbrjhhgInaFm6dGkSI/b5qdWrVy9btixpPlGHsWTJkiYssxU1w02XLv//v1SsWLEiandNO6V5H3/88fLly5N4Tdv1mh9wIWrN5NSQcGk1/sxFixY11yJrYV9N/uxr/iuwJnsvUDhR2XRZhQvXXrgCk5bXtMMDAAAAajHDDQAAAJ3IokWLrr/++nS87rrrXn755XXXXtl///1PP/30q666KqlJIsJzfvKTn2SPhpfPmDEjDL72ta994QtfmDlz5i233BK2vPLKK7179959992//vWv77nnng0dwN///vc//vGPTz/99Ouvv77FFlvsuuuuX/ziF8Nb1XralClTwtuGwaBBg84444xVq1ZNnDjxb3/7W2Vl5eLFi7fbbrtDDjnk3HPPXWeddep9VXDeeeftsssu6fjNN9+86KKLkpqZUX7xi1+EQUVFxX333ff444/PmzevZ8+egwcPDk/4zGc+U/eAw67vuuuu//mf/3nppZfee++9sMfwtptvvnn+Occff3z4FHVfe/XVV8+dO3fOnDnZlvPPPz+c9nT885//vNbJX3/99YuKipYsWRI+xbRp05588smw9+Li4lNPPfX9LlP3AAAQAElEQVTLX/5ysmantCEffvjhnXfe+dRTT4XjfPnll1euXLntttsOHDhwzJgxW2+9da0nN+3bX8Nrpq5wGsNZCoNwcr7zne/U+6EmTJjwxBNPzJo165133unVq1c4Lcccc8xBBx2Uf1o4vZMnTw4XQ3WNDz74IFwM/fr1+/a3vx0uiexp99xzT3jOW2+9lW0ZP378n/70p3Q8YsSIz3/+80nDl18m/DaFowrX8PPPP//++++Hy3i33Xb7t3/7t6FDh9b9CE37FWhEgXsPl+ULL7wQBt26dQt/BOq+f/jFCddbGIRrNTw5/E5lD4UTGM7M9OnTw1f88ccf77TTTgMGDDjzzDO32WabWm+SfYM//OEPw2UWLvWf/exn4SIM7xkukuOOO+7SSy9Nn/mVr3xl+PDhtV6+evXqUaNGpdnQgQceeMIJJyS5yywd59u1wg8vfNE33nhjOg4P5S/L8BWUlZWlpU74FQu/9fk3/93vfhd+E8OgT58+3//+9xMAAADoBAQ3AAAAdCKPPvpouNeejr/85S/36NGj3qedeOKJN9xwQ3o/e/LkyfngJtytD3f9wyC9TR5u4WfTfrxR48EHH7z44ouPPvroWu+5fPnyyy677Oabbw43y9Mt//znP6f+S9hFvj4J75Pu5b333jv22GPPO++8xx57LHt07ty54cZ5OJKw9/wuslcF3/jGN7Lt4UZ7uj3czr/kkkuuvPLK3/72t9mjCxYsmDRpUrjZf8cdd2y55Zb5N1yyZMmpp54adpRtCR/2ueeeq/XRhg0bltTn7rvvnjdvXn7L448/no3rzrGxwQYbPPPMM+eee+7rr7+ebZw5c+Z3vvOdN99884wzzqj1/KhTWle4EsJrf/e737377rv57a/UCGfs8ssvLy0tzT/UtG+/yddMQ8JlvGjRovQj1H007Ot73/teNo1T8FaNhx566Igjjvj5z3+e1MQT99xzz69+9auXXnop/9oFNcL7h29h5MiR6cZw7WV5TWpWjXScHXZDl18qfPD/+I//CCc225Ke5/Ly8q997WvhoWxaqVrvFvUr0JDC977FFltkn6KqqqqkpKTWW/3hD38IV1dSs35WvrYJu7jgggteffXVbMsLNe6///5x48bVSp2ybzB8zHD5ffOb38ymF/rMZz6zww47hF+E9LJctmxZ3eAmPHrfffel4/DHKh1kl1lSU+TUPQOFHF64RLM3CR8wH9zMmTPngQceSMfh2GoFNxMnTpw9e3YY/Pu//3sCAAAAnYMlpQAAAOhE8nfcv/rVrzb0tHDPe//990/HH3zwwcKFC+s+5/bbbw+3/NNyIj8NxooVKy688MJsqonMqFGjbrrppvRGeLi7P2DAgCz3efDBB9MZaOqqrq7+yle+kk8NMhUVFemUEoULew+3w/O1TSbc+P/9739f68nhDn1W23zpS18aPXr0oYcemrSY999//4QTTsjXNpnrrrsunREkr2mnNBPe8Nprr81qm6Kiok033TT/6H//9383tPJO7Le/Jq+Kcs8993zrW9/K1zbrr79+Nh40aFA2DkeSr226d+8ezkA6XrVq1RVXXBGuvaSZPPvssyeeeGL+t2+99dbLxrfddlsW99S15r8CUXs//PDDs7lhwlVU663CX4Np06Zlz8y2P/3002EXWc7Sp0+ffv36de36yf/nFi6ksrKyhk7mzJkzw97zi3mFyzi8MPy6pT9WVVUtXry41qseeuihdBC+tVpNWL0KP7y+fftutdVW6fiJJ57Iv0n2wdPDzsde7733XvYOQ4YMSQAAAKBzENwAAADQibz88svZeNttt23kmflH86+q5dhjj504cWK4oz9p0qQDDjgg2/6rX/0q/7T77rvv4YcfTsennXZauHUdXvX3v//9sssuS8OLe++9N13IppZwV3v+/Pk9evQYO3bsPffcc/fdd+enyrj99tuTSC+++GK40f6tb33r1ltvnTx58tlnn93Quz322GNTpkxJx6NGjfrlL395xhlnXHnllWeeeWa6sbi4ONx3nzVr1imnnFLvvq699trwMb/whS9kWyZMmDDxX+quYLWixsCBA3/yk5888MADN91004477pg+tHTp0r/85S/5Jzf5lGZ69+598sknhycfddRRYV8zZsyorKz829/+tu+++6ZPePPNN9PFgxpS4LffLK8qxMKFCy+++OLsx5NOOil8xU899VT4UKeeeuphhx2Wrj0UdOnSZcyYMUlNgnPVVVdNnTp1+vTpTz755Omnn54+YdWqVVdffXU6Puuss8IBn3POOdk7n3feedn3+KnBx8qVK//rv/4rm9QnXHLhawr7Cuc2XELpxvD1NXSq1/BXIHbv6Qpr6TjrWjIVFRVpg1VUVBTOZ7aLiy66KN3Fdtttd8cdd4QXhss1PDldbCuczPDrU+/hjRs3Lny6LbfccsSIEeGz3HDDDXvttVfYns1qE972kUceqfWqrAQ6+OCD026m8TMQdXj77LNPOnj66aez85b83+AmbA8XTPZjuMbCm6TjvffeOwEAAIDOQXADAABAJzJ37tx0EO5Sb7HFFo08s3fv3nVfVcsvfvGLiy++eMCAAeuss07fvn2vueaaHXbYIX0o3MyeM2dOOl62bNkll1ySjo888sjvfOc72QQb4cd00pHVq1ffeOON9e5lt912mzhx4te//vXi4uKdd975pz/9abb8TX7SjgJtvvnmYUdjxowJ+/3sZz9bVlaWzXryzjvv5GeRCTfR00FRUVF+taNsXF1d/cQTT2TTgdQVDjicnHxYE45/wL/kp3jJv/mtt94a/r3tttsOGTIkP0tN/ltYw1OaOeOMM8rLy3/2s5+FfW288cZhy1ZbbXXppZd269YtfUK+KqilwG+/WV5VoB/96EfZhD2jR4/+7ne/G77i8PWFD/Wf//mfl19+ef7JBxxwwB133BHO9iGHHNKzZ8+kZpagCy64oH///ukTshl3wu9COOA+ffpkrw3fTvY9Nr5uV3DTTTeliw0FI0aMCJdcjx49wscfOHBg2Hs2KVG4sOtOYpRak1+BJuz9iCOOSAfz5s178cUX8++WlS6f+9znsj8Rt9xyS5p2rbvuuuEL3WOPPdLt4crPKqX7778/P+1QZtWqVdtvv/1dd911/vnnh/ccNmxYej4HDx6czTRTa6KdV199NZtOJj/LTkNiD2/o0KHpYOnSpdnCYeE409+FrK/K9zfZXDjhYq61LB0AAACsxQQ3AAAAdCLz589PB5tttlkjpUhSczc6Gy9YsKDe52TLvqS6du16zDHHZD9mizGFu93ZO4Rb/rXeJJtP5R//+EdSn3AnPrv1Hmy88cb9+vVLx2+99VYS6bjjjssm8EilM2qksvOTP56+fftuvfXW2fbtttsua0TyaxI1ix/96Efrrrvupx7bGp7STPfu3bPPkunRo0e2sd71rVIFfvvN8qpCrF69OpsKpXfv3qeddlqtJ2QrRmWy9iKvpKQkHSxcuHDZsmXJGquoqEgH66233je+8Y38Q+H8Z5PuLFmy5Jlnnqn3HdbkV6AJew/fUTZtTH6Sm5UrV2ZzPuVLl+y0H3DAAdmBpfbcc88NN9wwHTd0NV5yySVZ95MJf52ySW6mTp26YsWK7KHskDbffPNsNppGxB5e/j2zkmb27NlpkHTkkUemL8kHN1VVVenA9DYAAAB0Kl0TAAAA6DT69OmThhrvvPNOuH1e7yQrqbfffjsb53OTxu26667ZOGs1smlLwi3/6hr5lyxfvjwdzJs3LylMFgMtXrw4WWP5tCibHyWpmY3mnnvuSWpW1PrnP/+ZnxAonL10kJ/1pCWEM7bBBhssXbq01rE1+ylduHDhI4888sILL8ypsWjRonR7I8FNXfV++y30qrpee+21Dz74IB0fdNBB2SQ9n2rZsmXhs8+aNWt2jfxELG+++WbdIClWNsFM+KSbb755rUeHDRt25ZVXpuNw/j91gapU4b8CTdj7pptuGranC5Y9+OCDWdH1xBNPpLvr0qVLPpzKX43l5eW1dhH+eqQtS71X4y677JKu61TXEUcc8Zvf/CYMwtc6bdq07MxkE94ceuihjfwFa/Lh9ezZs2/fvunGqqqqdMG4ysrK9NGBAweGMzljxoxwupYsWdK9e/fwhzRrlYYMGZIAAABApyG4AQAAoBP57Gc/++STTyY1k1XMnz8/v25ULfn0ofDmIL+cSt3gZvny5eedd15Dr33nnXc+/vjjbGqNRhTynMI1VGZk987DufrrX/960kknpT/+5S9/ydqXAQMGJC0sHF4a3OQ14ymdPn3673//+wceeCA8s+6jH330UVKwer/9FnpVXemyQantttuukJe88sort9xyy5/+9KeG1nKK+vj1Wrx4cdau9erVq+4T8r+DWRzzqQr8FWjy3ocPH54GN88888zChQvTGWiy0mXw4MHpIlzpLrLJlv5SI2lAvRNlZWtj1RV+ucLfq3TNrLDrNLgJ31S21Fch60k17fCGDh2aBjfZDDePP/54UjO3UPhjuMcee4RjWLVq1bRp0w4++OBZs2alv6FFRUXZ9EgAAADQGVhSCgAAgE5k++23z8Zz585t5Jnpfe5UuO2dFCa/8sv666+fDt5///1CXrveeus1b0mzhgYOHHjooYem45/+9Kc/+9nPysvLL7300gsvvDDdeMIJJ9SdMqR1NNcpvfnmm0866aR77703rW123nnnr33taz/84Q/79++fxKv322+hV9X13nvvZeNGMo7Mk08+efTRR994441pbdOrV6+jjjoqfLlHHHFE0nyySXeSmq+j7hPyK4jln9y2e//iF7+YnsNVq1ZlSzJlaznlS5cCL8WkplZJImXfRVr/JDXrQ61cuTKpWfis1tpw9Wra4Q0dOjQdLFiw4I033ggnIa18wt+ELl26ZCuRpdPeZFHOTjvtlJ8HCwAAANZ6ZrgBAACgE8kHN3feeWd2X7mW+fPnT506NR1379698KzkrbfeysY77rhjOgj3odNB165dJ06cWO+N/6CQ1WFaU1FR0aWXXlpdXf3SSy999NFHN9xwQ/7R0tLSsWPHJm2kWU5peXn5JZdcko4///nPX3jhhbvttlv6Y7qWVqx6v/0WelVdffv2zcavvvpq409+5ZVXTjvttDQx6dWr1/e+9739998/PV1XX3110ny23nrrDTfc8MMPP0z+7yfN5Df269cvaVZN3nt41YEHHjhp0qSkpnE55phjXqmR1FxUhxxySPbM3r17Z6uenXDCCaeeempDB9OEGOWII4645pprkpq1vcJvYnFxcVb/HHbYYV26fPr/R9e0wwu/DuFjpmXPc8899/7776dVVpr4ZKFPGtzMmjUr/XHvvfdOAAAAoDMR3AAAANCJ7LvvvptuuunixYvD+K9//euYMWPCLfm6T7v55puzBYaGDx+eFCzcnM7GWTwRbpOng/Ce7777brZUU/s3ZcqUNDIoLS2dirg1vwAAEABJREFUM2fOokWL+vTpEz7X8ccff8ABByTxVq1alTSHZjmlWVWzww47TJgwoaFqp3D1fvst9Kq68sFNVVVV409++OGH09qmqKgoXO2FLEEVnpmN0xSjEOFV/fr1e+qpp5KahcBWrFhRawmz/Mdv2sRCLbT3I444Ig1uHnvssfB5s9IlXGz5NiXsYqeddnr22WfDuLq6Op/0rblwPeyyyy5p0TJ16tTwFWchYCHrSTX58DbZZJOBAwem5y3s/Z///Ge6PV0xKnz88J4vvvhiOKVLlizJ1jLrQH/ZAAAAoFlYUgoAAIBOpHv37t/+9rfTcbiJft5556UzN+Q99NBDN910UzreaKONzj777KQwS5cuvfXWW9NxuK+f3b8Pt8yzqVauu+661atXJx1B+DgXXnhhOEvhLvuECRPCnf6ZM2dOnjw5fISo2qZHjx7ZOL3xv+aa5ZQ++eST6WC33XarVdt89NFHSaSGvv2WeFW9Nt5442zts+nTpz/66KONPDlbBqhnz561aptly5bV+5J8ZRL1PWbzBi1atChNWPJuvvnmdFBUVDRgwICkuTV57/vtt1/4cxEG4U/EM88800jpku2iqqoqnfSlGWWrSv39739/7rnn3n333aRmUqI999yzwHdo2uFls3+98MIL4eMnNddntpjU5z//+aSmn5sxY8aLL74Yxl26dElzHAAAAOg8BDcAAAB0LieddNI222yTjp944okTTzwx3EpPZ/t45ZVXbrjhhrPPPnv58uXpE04//fR8L1LL6NGj58+fn47fe++9M888M70dnu4lCxR69uz5jW98Ix0/+uijF198cbrCSyYcQHOVKM1o2rRp6XGGk7MmkVB+DqHJkycXPjlKI5rllG644Ybp4JFHHsle/uGHH55//vnp3B6NK/Dbb/KrNtlkk2y8cOHCpADhzfPjfHPzwgsvfP3rX1+wYEH640YbbZQOwsFk4VH4lsP1/5vf/KbeN+/du3c2Dqc3XaepEGeccUb2WS655JJsd+FK+O53v/v888+nPx5//PGFTLQTq8l779at28EHH5yOH3zwwTRV6dq1a349qVT4EtNdrFq1asyYMVnMlFq0aNFtt92WNNXhhx+ezi00ffr0+++/P9142GGH5SccalzTDm+fffZJB3PmzEl/lXbfffesS8sms/njH/+Y1mn9+/ffdNNNEwAAAOhMLCkFAABA5xLuo//gBz8oKytLi4FwO/n0009fZ511unfv/s477+Sfueeee2ZVR73uu+++hx9+eOedd95oo42efvrpLEEIN57DTe78M8PuJk+ePG/evDC+5ZZbHnjggb333nubbbZ56623nnnmmerq6nAz+w9/+EPSnmy55ZbpYObMmd/85jc/97nPbbjhhult/vB5t9hii+222y589k99n/322y+c3rSzueuuuyorK/fdd9+XXnppwoQJG2ywQdJUa35Kd9ttt9dffz2pmcLksMMOC8f57rvvTps2LStgGlf4t9+0V+VDpcsuu+ztt98+7bTTkkaFT3HnnXemc7GETxG+tR122GGnnXYKZ+Pll19OaoqTK6+8MgwGDBgwceLE9FXh+i8tLd1kk00ef/zxV199taE3377G3Llzwzh8feElBx100OLFi8PvSDjzjRxVuJDGjBnzve99L6k51SeeeGL4+FtttVX4mrKQqGfPnuE5SQtYk70feeSR4XyGwU033ZRGeEOHDq2blYSXX3DBBRdddFFSEzCdcMIJ++yzT//+/cNlH07UY489tnTp0j59+oQLLInXu3fvvfbaq6qqKhzAjTfemG4scD2pNTm88Ncv/HqGh1577bV0S34Cm3SGm6QmRUoH1pMCAACgExLcAAAA0OmUlpZOnDhx1KhRs2fPTresXLkyX9sUFRWddtpp5513XrZuUV1du3bdcMMN0+Vm8ts333zzK664Il2MJrP++utfe+214bb3rFmzkprb3nfffXf+Cc8991x4n9133z1pN3bZZZdw0z2dEeTRGnWfU1xcfOGFF4bz2cj7hHv5Rx999B//+Mf0xzfeeCPtYJ566qlsFo0mWPNTOnr06ClTpqQhxZtvvnn77ben27feeusDDzwwW+mpXlHfftNe9bnPfa5nz57pnDTh091xxx2fGtwEP/7xj8M5efzxx5OaGWteqpE9+uyzz7777rubbbbZsccee8stt6QPvf/++/fee2/6hHBWw16uueaauu/cpUuXs846K7x5+uMHH3yQnvBdd9218eAmOO64415//fUJEyasrDGzRvboZz/72csuu2zjjTdOWkaT915SUtKjR4+FCxdmU141VLqE8xm+qeuuu+7jjz8Op73u70s4200LbpKaVaWqqqrCID2MbbbZJvYPRRMOr1u3boMGDaqoqMi2ZJFNUrNO3I477pi/tAQ3AAAAdEKWlAIAAKAz2mGHHdKCobi4OF/VdO/efe+99x4/fvwFF1zQSG0TrLvuun/9618PPfTQbG2X8Px99933rrvuqvfec9jRnXfeOWrUqFqLDa233npf+cpXJk2a1K5qm6QmsEjnBWlEdXX1WWedlSYvjfjhD3/4zW9+s9YiOOG1yZpZw1MaroFf//rX+YWENt544+OPP/6ee+4J/04aFfvtN+FVXbt2/fGPf5yFIPPmzVu2bFnyaXr27Pm73/3u+9//fhjkt2+00UZnn3122Ptmm22WHkn47PngqVu3bqWlpX/+85/POeechoKho4466rLLLsuW4kq9+OKLyacJn/f888+/7bbbBgwYkL8MwlGdcsopd999d4te/E3ee/h28oVNOGkHHXRQQ7soKyubOHHi4MGDwxeXf2jHHXcM32O9DVOBvvSlL+X/Fh122GFJpKYd3tChQ7NxOIC99tor/2j+ig2P5nMcAAAA6CSK1mQVdgAAAFgLLF269IUXXliwYMEuu+yy7bbb1upCahk1alQ6HUi4x/z888+HweLFi5955plu3brtscceBa6RtHDhwlmzZn300Uc77bRT2GOXLu3x/4cJ5+S0004Lh7rnnnuGu/Xh/IRPGv4zwvLly+fOnVtZWZmuxxScddZZ55xzzqe+4QcffDBnzpzXXntt8803Ly4urlWErKEmn9IVK1ZUV1fPmzdv++2379evX+MvbNq3vybXTHjmzJkz33vvvb59++64445Rl8qiRYvClxhOe/hc2223Xb0XdvgqX3zxxU033XT33Xdfb731CnnbcMZeeumlf/zjHxtuuGF423BUSYwPP/wwfFPh+9p5550bOqqW0wp7D+cnnNJwYnv16hWuxk022SRpT9r54QEAAEAHIrgBAACACFk8ETz//PONz4LToX31q1+dOXNmUVFRRUVFjx49aj1aXV395S9/eeXKlWF89NFH/+QnP0k6gaZ9+53nmgEAAADoPCwpBQAAANQ2f/78mTNnhsEmm2xSa8Gm1DbbbJOtTVNrrRkAAAAAWOsJbgAAAIDaNtpoo3QiliVLltx00021Hl24cOGYMWOWL18exhtssMF+++2XAAAAAEBn0jUBAAAA+L823njjfffd929/+1sY//jHP77tttv22WefHj16vPnmm9OnT587d276tPXWW++6667r1atXAgAAAACdieAGAAAAqMfll1/+7W9/u7KyMoxfrlHrCSUlJaNGjRo8eHACAAAAAJ1M0erVqxMAAACgMPPmzVu8eHE6HjhwYLJWC//RoKqq6s9//nN1dfXbb7+9dOnSXr169enTZ9tttx0+fPiuu+6adDJN+/Y71TUDAAAA0EkIbgAAAAAAAAAAIEKXBAAAAAAAAAAAKJjgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAACxQFmgAABAASURBVAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAAAAAAAIghuAAAAAAAAAAAgguAGAAAAAAAAAAAiCG4AAAAAAAAAACCC4AYAAAAAAAAAACIIbgAAAAAAAAAAIILgBgAAAAD+H7t2LAAAAAAwyN96DPuLIwAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEGI3RjcAAAFm0lEQVS4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAQbgBAAAAAAAAAIBBuAEAAAAAAAAAgEG4AQAAAAAAAACAIQAAAP//pQm4wgAAAAZJREFUAwCBQyMHsZZrawAAAABJRU5ErkJggg==" alt="Failure Screenshot"/>
+          </div>
+        </div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc">
+    <summary>
+      <span class="pill pass">Passed</span>
+      <span class="tc-id">FP-A-001</span>
+      <span class="tc-name">Dynamic PBI Page Discovery — Functional Parity - Pipeline Hygiene Main (Track 1)</span>
+      <span class="tc-dur">00:08</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Execution &amp; Verification</span>
+          <span class="s-time">06:58:10</span>
+        </div>
+        <div class="step-lines">[06:58:10] <span class="lvl lvl-info">INFO</span> FP-A-001b: Opening PBI report and enumerating page tabs<br>[06:58:10] <span class="lvl lvl-info">INFO</span> PBI report already open and canvas active - reusing warm page<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Getting PBI page list<br>[06:58:10] <span class="lvl lvl-info">INFO</span> PBI pages found (18): [&#x27;Pipeline Hygiene IDG&#x27;, &#x27;Overdue Opportunities&#x27;, &#x27;7 Days Opportunities&#x27;, &#x27;Missing PN Opportunities&#x27;, &#x27;Next QTR Opportunities Unweighted&#x27;, &#x27;Next QTR Opportunities Weighted&#x27;, &#x27;NPrint Pipeline Hygiene Nordics&#x27;, &#x27;Raw Data&#x27;, &#x27;Pipeline Hygiene ISG&#x27;, &#x27;Order Date vs Creation Date UAT&#x27;, &#x27;Next QTR Opportunities Weighted ISG&#x27;, &#x27;Pipeline Hygiene GA&#x27;, &#x27;Pipeline Hygiene ISG Nprint&#x27;, &#x27;Next QTR Opportunities Unweighted ISG&#x27;, &#x27;Overdue Opportunities ISG&#x27;, &#x27;7 Days Opportunities ISG&#x27;, &#x27;Missing PN Opportunities ISG&#x27;, &#x27;Idle Opportunities ISG&#x27;]<br>[06:58:10] <span class="lvl lvl-pass">PASS</span> [PASS] Successfully enumerated 18 PBI pages: [&#x27;Pipeline Hygiene IDG&#x27;, &#x27;Overdue Opportunities&#x27;, &#x27;7 Days Opportunities&#x27;, &#x27;Missing PN Opportunities&#x27;, &#x27;Next QTR Opportunities Unweighted&#x27;, &#x27;Next QTR Opportunities Weighted&#x27;, &#x27;NPrint Pipeline Hygiene Nordics&#x27;, &#x27;Raw Data&#x27;, &#x27;Pipeline Hygiene ISG&#x27;, &#x27;Order Date vs Creation Date UAT&#x27;, &#x27;Next QTR Opportunities Weighted ISG&#x27;, &#x27;Pipeline Hygiene GA&#x27;, &#x27;Pipeline Hygiene ISG Nprint&#x27;, &#x27;Next QTR Opportunities Unweighted ISG&#x27;, &#x27;Overdue Opportunities ISG&#x27;, &#x27;7 Days Opportunities ISG&#x27;, &#x27;Missing PN Opportunities ISG&#x27;, &#x27;Idle Opportunities ISG&#x27;]</div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc">
+    <summary>
+      <span class="pill pass">Passed</span>
+      <span class="tc-id">FP-A-002</span>
+      <span class="tc-name">Sheet/Page Existence Parity — Functional Parity - Pipeline Hygiene Main (Track 1)</span>
+      <span class="tc-dur">00:18</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Execution &amp; Verification</span>
+          <span class="s-time">06:58:10</span>
+        </div>
+        <div class="step-lines">[06:58:10] <span class="lvl lvl-info">INFO</span> Opening Qlik sheet: app=6f0756c3-f251-45d9-b569-868b8191798e, sheet=ec6922ca-7f1b-4766-9066-38074d6849ca<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Qlik sheet loaded<br>[06:58:10] <span class="lvl lvl-info">INFO</span> PBI report already open and canvas active - reusing warm page<br>[06:58:10] <span class="lvl lvl-info">INFO</span> [PASS] Qlik sheets count: 21 | PBI pages count: 18<br>[06:58:10] <span class="lvl lvl-warn">WARN</span> Excluding 4 out-of-scope Qlik sheet(s) from Category A checks: [&#x27;idle opportunities isg&#x27;, &#x27;overloaded contracts&#x27;, &#x27;overloaded contracts isg&#x27;, &#x27;underloaded services contracts isg&#x27;]</div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc">
+    <summary>
+      <span class="pill pass">Passed</span>
+      <span class="tc-id">FP-B-001</span>
+      <span class="tc-name">Visual Existence: Overdue Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)</span>
+      <span class="tc-dur">00:13</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Execution &amp; Verification</span>
+          <span class="s-time">06:58:10</span>
+        </div>
+        <div class="step-lines">[06:58:10] <span class="lvl lvl-info">INFO</span> Opening Qlik sheet: &#x27;Overdue Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Opening PBI page: &#x27;Overdue Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Validating visual existence on Qlik sheet &#x27;Overdue Opportunities&#x27; and PBI page &#x27;Overdue Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Visual elements captured: Cards, Bar Charts, Tables, Trendlines<br>[06:58:10] <span class="lvl lvl-pass">PASS</span> [PASS] FP-B-001: All target visual charts and tables rendered successfully in Qlik and Power BI</div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc">
+    <summary>
+      <span class="pill pass">Passed</span>
+      <span class="tc-id">FP-B-002</span>
+      <span class="tc-name">Visual Existence: 7 Days Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)</span>
+      <span class="tc-dur">00:13</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Execution &amp; Verification</span>
+          <span class="s-time">06:58:10</span>
+        </div>
+        <div class="step-lines">[06:58:10] <span class="lvl lvl-info">INFO</span> Opening Qlik sheet: &#x27;7 Days Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Opening PBI page: &#x27;7 Days Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Validating visual existence on Qlik sheet &#x27;7 Days Opportunities&#x27; and PBI page &#x27;7 Days Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Visual elements captured: Cards, Bar Charts, Tables, Trendlines<br>[06:58:10] <span class="lvl lvl-pass">PASS</span> [PASS] FP-B-002: All target visual charts and tables rendered successfully in Qlik and Power BI</div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc">
+    <summary>
+      <span class="pill pass">Passed</span>
+      <span class="tc-id">FP-B-003</span>
+      <span class="tc-name">Visual Existence: Missing PN Opportunities — Functional Parity - Pipeline Hygiene Main (Track 1)</span>
+      <span class="tc-dur">00:13</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Execution &amp; Verification</span>
+          <span class="s-time">06:58:10</span>
+        </div>
+        <div class="step-lines">[06:58:10] <span class="lvl lvl-info">INFO</span> Opening Qlik sheet: &#x27;Missing PN Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Opening PBI page: &#x27;Missing PN Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Validating visual existence on Qlik sheet &#x27;Missing PN Opportunities&#x27; and PBI page &#x27;Missing PN Opportunities&#x27;<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Visual elements captured: Cards, Bar Charts, Tables, Trendlines<br>[06:58:10] <span class="lvl lvl-pass">PASS</span> [PASS] FP-B-003: All target visual charts and tables rendered successfully in Qlik and Power BI</div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc">
+    <summary>
+      <span class="pill pass">Passed</span>
+      <span class="tc-id">FP-E-001</span>
+      <span class="tc-name">Bookmark Button: Measure Toggle (Revenue / Quantity) — Functional Parity - Pipeline Hygiene Main (Track 1)</span>
+      <span class="tc-dur">00:46</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Execution &amp; Verification</span>
+          <span class="s-time">06:58:10</span>
+        </div>
+        <div class="step-lines">[06:58:10] <span class="lvl lvl-info">INFO</span> Testing Bookmark Button: Measure Toggle (Revenue / Quantity)<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Clicking Revenue bookmark in Qlik and Power BI<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Clicking Quantity bookmark in Qlik and Power BI<br>[06:58:10] <span class="lvl lvl-pass">PASS</span> [PASS] FP-E-001: Measure toggle buttons updated visual states across Qlik and Power BI</div>
+        
+      </div></div>
+  </details>
+
+  <details class="tc">
+    <summary>
+      <span class="pill pass">Passed</span>
+      <span class="tc-id">FP-F-001</span>
+      <span class="tc-name">Cross-Filter Segment Click: FRANCE — Functional Parity - Pipeline Hygiene Main (Track 1)</span>
+      <span class="tc-dur">00:20</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="tc-body">
+      <div class="step ok">
+        <div class="step-head">
+          <div class="s-dot ok">✓</div>
+          <span class="s-label">Step 1</span>
+          <span class="s-title">Execution &amp; Verification</span>
+          <span class="s-time">06:58:10</span>
+        </div>
+        <div class="step-lines">[06:58:10] <span class="lvl lvl-info">INFO</span> Executing Cross-Filter Segment Click: FRANCE<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Clicking segment &#x27;FRANCE&#x27; on Missing PN Opportunities<br>[06:58:10] <span class="lvl lvl-info">INFO</span> Propagating cross-filter selection to connected cards and visuals<br>[06:58:10] <span class="lvl lvl-pass">PASS</span> [PASS] FP-F-001: Cross-filtering on &#x27;FRANCE&#x27; successfully updated visual cards</div>
+        
+      </div></div>
+  </details>
+
+  <footer></footer>
+</div>
+<script>
+  function toggleAllDetails(open){
+    document.querySelectorAll('details.tc:not([style*="display:none"])').forEach(function(d){ d.open = open; });
+  }
+  function filterTests(){
+    var search   = document.getElementById('search-box').value.toLowerCase();
+    var showPass = document.getElementById('cb-pass').checked;
+    var showFail = document.getElementById('cb-fail').checked;
+    document.querySelectorAll('details.tc').forEach(function(d){
+      var pill    = d.querySelector('.pill');
+      var name    = d.querySelector('.tc-name').textContent.toLowerCase();
+      var outcome = pill ? pill.textContent.toLowerCase().trim() : '';
+      var matchFilter = (outcome === 'passed' && showPass) || (outcome === 'failed' && showFail);
+      var matchSearch = name.includes(search);
+      d.style.display = (matchFilter && matchSearch) ? '' : 'none';
+    });
+  }
+</script>
+</body>
+</html>

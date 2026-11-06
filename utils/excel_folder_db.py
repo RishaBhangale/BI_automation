@@ -122,7 +122,8 @@ def get_excel_folder_engine(source_folder: str) -> Engine:
         exist_ok=True,
     )
 
-    db_path = cache_dir / "pipeline_hygiene_source.sqlite"
+    folder_slug = re.sub(r"[^A-Za-z0-9_]", "_", source_path.name.strip().lower())
+    db_path = cache_dir / f"{folder_slug}_source.sqlite"
 
     # Remove previous temporary database
     if db_path.exists():
@@ -152,7 +153,8 @@ def get_excel_folder_engine(source_folder: str) -> Engine:
             if source_file.suffix.lower() == ".csv":
 
                 df = pd.read_csv(
-                    source_file
+                    source_file,
+                    low_memory=False,
                 )
 
             else:
